@@ -483,20 +483,53 @@
                     }
                 }
                 
-                // Пробуем получить из query параметров (для тестирования)
+                // Пробуем получить из query параметров (для тестирования или если initData пустой)
                 const urlParams = new URLSearchParams(window.location.search);
                 const testUserId = urlParams.get('telegram_id');
-                if (testUserId && !user) {
-                    addDebugInfo('Using test telegram_id from URL', testUserId);
+                if (testUserId) {
+                    addDebugInfo('Using telegram_id from URL parameter', testUserId);
                     user = { id: parseInt(testUserId) };
                 }
                 
+                // Если все еще нет user, пробуем получить из hash или других источников
+                if (!user || !user.id) {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    const hashUserId = hashParams.get('telegram_id');
+                    if (hashUserId) {
+                        addDebugInfo('Using telegram_id from URL hash', hashUserId);
+                        user = { id: parseInt(hashUserId) };
+                    }
+                }
+                
                 addDebugInfo('Final user object', user ? JSON.stringify(user, null, 2) : 'null');
+                addDebugInfo('Current URL', window.location.href);
+                addDebugInfo('URL params', window.location.search);
+                addDebugInfo('Hash params', window.location.hash);
                 
                 if (!user || !user.id) {
-                    addDebugInfo('ERROR', 'No user found. Web App must be opened from Telegram.');
+                    addDebugInfo('ERROR', 'No user found. Web App must be opened from Telegram bot or provide telegram_id parameter.');
                     addDebugInfo('Available tg properties', Object.keys(tg).join(', '));
-                    showError('Web App должен быть открыт из Telegram бота');
+                    
+                    // Показываем инструкцию пользователю
+                    const errorMsg = 'Web App должен быть открыт из Telegram бота.\n\n' +
+                                   'Для тестирования добавьте в URL: ?telegram_id=ВАШ_ID';
+                    showError(errorMsg);
+                    
+                    // Показываем форму для ввода telegram_id вручную (для отладки)
+                    const debugPanel = document.getElementById('debugPanel');
+                    if (debugPanel) {
+                        const manualInput = document.createElement('div');
+                        manualInput.style.marginTop = '10px';
+                        manualInput.style.padding = '10px';
+                        manualInput.style.border = '1px solid #0f0';
+                        manualInput.style.background = '#001100';
+                        manualInput.innerHTML = `
+                            <strong style="color: #0f0;">Ручной ввод telegram_id:</strong><br>
+                            <input type="number" id="manualTelegramId" placeholder="Введите telegram_id" style="padding: 5px; margin: 5px 0; background: #000; color: #0f0; border: 1px solid #0f0; width: 200px;">
+                            <button onclick="loadWithManualId()" style="padding: 5px 10px; margin-left: 5px; background: #0f0; color: #000; border: none; cursor: pointer; font-weight: bold;">Загрузить</button>
+                        `;
+                        debugPanel.appendChild(manualInput);
+                    }
                     return;
                 }
 
@@ -841,6 +874,23 @@
             setTimeout(() => {
                 container.innerHTML = '';
             }, 5000);
+        }
+
+        // Функция для загрузки с ручным вводом telegram_id
+        function loadWithManualId() {
+            const manualId = document.getElementById('manualTelegramId');
+            if (manualId && manualId.value) {
+                const telegramId = parseInt(manualId.value);
+                if (telegramId) {
+                    addDebugInfo('Manual load', `Loading with telegram_id: ${telegramId}`);
+                    // Перезагружаем страницу с параметром
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('telegram_id', telegramId);
+                    window.location.href = url.toString();
+                } else {
+                    addDebugInfo('ERROR', 'Invalid telegram_id');
+                }
+            }
         }
 
         // Инициализация при загрузке
