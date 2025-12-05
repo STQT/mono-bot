@@ -43,7 +43,7 @@ services:
       - static_data:/app/staticfiles
       - media_data:/app/media
     ports:
-      - "8000:8000"
+      - "5980:8000"
     env_file:
       - .env
     depends_on:
@@ -66,7 +66,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8443:8443"
+      - "5982:8443"
     env_file:
       - .env
     depends_on:
@@ -88,8 +88,7 @@ services:
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
     ports:
-      - "80:80"
-      - "443:443"
+      - "5981:80"
     depends_on:
       - web
       - bot-webhook
