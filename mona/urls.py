@@ -73,9 +73,9 @@ urlpatterns = [
     path('api/', include('core.urls')),
 ]
 
-# Для разработки: статические файлы
-if settings.DEBUG:
-    from django.conf.urls.static import static
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+# Для разработки и production: статические файлы
+# В production nginx должен раздавать статику, но на случай если nginx недоступен, Django тоже может отдавать
+from django.conf.urls.static import static
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 

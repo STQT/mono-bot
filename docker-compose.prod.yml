@@ -40,7 +40,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    command: python -m gunicorn mona.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2
+    command: sh -c "python manage.py collectstatic --noinput && python -m gunicorn mona.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2"
     volumes:
       - static_data:/app/staticfiles
       - media_data:/app/media

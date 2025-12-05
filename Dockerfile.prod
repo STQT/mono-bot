@@ -22,9 +22,6 @@ COPY . .
 # Создаем директории
 RUN mkdir -p /app/media /app/staticfiles
 
-# Собираем статические файлы
-RUN python manage.py collectstatic --noinput || true
-
 # Открываем порты
 EXPOSE 8000 8443
 
