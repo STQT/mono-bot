@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',  # Поддержка локализации
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -117,10 +118,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-LANGUAGE_CODE = 'ru-ru'
-TIME_ZONE = 'UTC'
+# Django использует стандартные ISO 639 коды, но мы храним кастомные коды в БД
+# Маппинг: uz_latin -> uz, uz_cyrillic -> uz, ru -> ru
+LANGUAGE_CODE = 'uz'  # Стандартный код для узбекского (Django требует стандартные коды)
+LANGUAGES = [
+    ('uz', 'O\'zbek (Lotin)'),  # Маппится на uz_latin в БД
+    ('ru', 'Русский'),
+]
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
+TIME_ZONE = 'Asia/Tashkent'  # Временная зона Узбекистана
 USE_I18N = True
 USE_TZ = True
+USE_L10N = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
@@ -135,12 +146,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Telegram Bot Token
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_BOT_USERNAME = env('TELEGRAM_BOT_USERNAME', default='')  # @username бота (без @)
 
 # Webhook Settings (для production)
 WEBHOOK_URL = env('WEBHOOK_URL', default='')
 WEBHOOK_PATH = env('WEBHOOK_PATH', default=f'/webhook/{TELEGRAM_BOT_TOKEN}')
 WEBHOOK_HOST = env('WEBHOOK_HOST', default='0.0.0.0')
 WEBHOOK_PORT = int(env('WEBHOOK_PORT', default='8443'))
+
+# Web App Settings
+WEB_APP_URL = env('WEB_APP_URL', default='')  # HTTPS URL для Web App (можно использовать ngrok для тестирования)
 
 # Scratch Card Points
 ELECTRICIAN_POINTS = 50  # 50 dollars

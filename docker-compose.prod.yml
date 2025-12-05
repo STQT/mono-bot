@@ -11,21 +11,21 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-mona_password}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mona_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mona_user} -d ${DB_NAME:-mona_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  mongodb:
-    image: mongo:7.0
-    volumes:
-      - mongodb_data:/data/db
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # mongodb:
+  #   image: mongo:7.0
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   redis:
     image: redis:7-alpine
@@ -54,7 +54,7 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - MONGODB_HOST=mongodb
+      # - MONGODB_HOST=mongodb
       - REDIS_HOST=redis
     restart: unless-stopped
 
@@ -76,7 +76,7 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - MONGODB_HOST=mongodb
+      # - MONGODB_HOST=mongodb
       - REDIS_HOST=redis
     restart: unless-stopped
 
@@ -97,7 +97,7 @@ services:
 
 volumes:
   postgres_data:
-  mongodb_data:
+  # mongodb_data:
   static_data:
   media_data:
 

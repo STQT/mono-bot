@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import transaction
 from core.models import TelegramUser, QRCode, QRCodeScanAttempt, Gift, GiftRedemption
 from core.utils import generate_qr_code_image
+from .translations import get_text, TRANSLATIONS
 
 # Настройка Django для использования в боте
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mona.settings')
@@ -97,18 +98,14 @@ async def cmd_start(message: Message, state: FSMContext):
     
     # Проверяем, зарегистрирован ли пользователь
     if not user.phone_number or not user.latitude:
-        await message.answer(
-            "👋 Добро пожаловать!\n\n"
-            "Для начала работы необходимо пройти регистрацию.\n"
-            "Пожалуйста, отправьте ваш номер телефона, используя кнопку ниже."
-        )
+        await message.answer(get_text(user, 'WELCOME'))
         keyboard = types.ReplyKeyboardMarkup(
             keyboard=[
-                [types.KeyboardButton(text="📱 Отправить номер телефона", request_contact=True)]
+                [types.KeyboardButton(text=get_text(user, 'SEND_PHONE').split(':')[0] + "...", request_contact=True)]
             ],
             resize_keyboard=True
         )
-        await message.answer("Нажмите на кнопку, чтобы отправить номер телефона:", reply_markup=keyboard)
+        await message.answer(get_text(user, 'SEND_PHONE'), reply_markup=keyboard)
         await state.set_state(RegistrationStates.waiting_for_phone)
     else:
         await show_main_menu(message, user)
@@ -127,22 +124,24 @@ async def process_phone(message: Message, state: FSMContext):
             user.save(update_fields=['phone_number'])
             return user
         
-        await update_phone()
-        
-        await message.answer(
-            "✅ Номер телефона сохранен!\n\n"
-            "Теперь отправьте вашу локацию, используя кнопку ниже."
-        )
+        user = await update_phone()
+        await message.answer(get_text(user, 'PHONE_SAVED'))
+        send_location_text = get_text(user, 'SEND_LOCATION')
+        button_text = send_location_text.split(':')[0] if ':' in send_location_text else send_location_text.split('\n')[0]
         keyboard = types.ReplyKeyboardMarkup(
             keyboard=[
-                [types.KeyboardButton(text="📍 Отправить локацию", request_location=True)]
+                [types.KeyboardButton(text="📍 " + button_text, request_location=True)]
             ],
             resize_keyboard=True
         )
-        await message.answer("Нажмите на кнопку, чтобы отправить локацию:", reply_markup=keyboard)
+        await message.answer(get_text(user, 'SEND_LOCATION'), reply_markup=keyboard)
         await state.set_state(RegistrationStates.waiting_for_location)
     else:
-        await message.answer("Пожалуйста, используйте кнопку для отправки номера телефона.")
+        @sync_to_async
+        def get_user():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user = await get_user()
+        await message.answer(get_text(user, 'USE_BUTTON_PHONE'))
 
 
 @dp.message(RegistrationStates.waiting_for_location)
@@ -160,13 +159,17 @@ async def process_location(message: Message, state: FSMContext):
             user.save(update_fields=['latitude', 'longitude'])
             return user
         
-        await update_location()
+        user = await update_location()
         
-        await message.answer("✅ Регистрация завершена!")
+        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'))
         await state.clear()
         await show_main_menu(message, user)
     else:
-        await message.answer("Пожалуйста, используйте кнопку для отправки локации.")
+        @sync_to_async
+        def get_user_for_location():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user = await get_user_for_location()
+        await message.answer(get_text(user, 'USE_BUTTON_LOCATION'))
 
 
 async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: FSMContext):
@@ -232,25 +235,21 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         result = await process_qr_scan()
         
         if result.get('error') == 'max_attempts':
-            await message.answer(
-                f"❌ Превышено максимальное количество попыток ({settings.QR_CODE_MAX_ATTEMPTS}).\n"
-                "Этот QR-код больше нельзя использовать."
-            )
+            await message.answer(get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=settings.QR_CODE_MAX_ATTEMPTS))
         elif result.get('error') == 'not_found':
-            await message.answer("❌ QR-код не найден. Проверьте правильность кода.")
+            await message.answer(get_text(user, 'QR_NOT_FOUND'))
         elif result.get('error') == 'already_scanned':
-            await message.answer("❌ Этот QR-код уже был использован другим пользователем.")
+            await message.answer(get_text(user, 'QR_ALREADY_SCANNED'))
         elif result.get('success'):
-            await message.answer(
-                f"✅ QR-код успешно активирован!\n\n"
-                f"💰 Вам начислено {result['points']} баллов.\n"
-                f"📊 Ваш текущий баланс: {result['total_points']} баллов."
-            )
+            await message.answer(get_text(user, 'QR_ACTIVATED',
+                points=result['points'],
+                total_points=result['total_points']
+            ))
             await show_main_menu(message, user)
         
     except Exception as e:
         logger.error(f"Error processing QR code scan: {e}")
-        await message.answer("❌ Произошла ошибка при обработке QR-кода. Попробуйте позже.")
+        await message.answer(get_text(user, 'QR_ERROR'))
 
 
 async def show_main_menu(message: Message, user: TelegramUser):
@@ -262,42 +261,106 @@ async def show_main_menu(message: Message, user: TelegramUser):
     
     points = await get_user_points()
     
-    # Создаем кнопку для Web App
-    # Используем полный URL с протоколом
+    # Создаем кнопку для Web App только если есть HTTPS URL
+    keyboard_buttons = []
+    
     from django.conf import settings
-    web_app_url = f"https://{settings.ALLOWED_HOSTS[0]}/api/webapp/" if settings.ALLOWED_HOSTS and not settings.DEBUG else f"http://localhost:8000/api/webapp/"
-    web_app_button = types.WebAppInfo(url=web_app_url)
+    
+    # Определяем URL для Web App
+    web_app_url = None
+    
+    # Приоритет 1: Явно указанный WEB_APP_URL (для тестирования через ngrok)
+    if settings.WEB_APP_URL and settings.WEB_APP_URL.startswith('https://'):
+        web_app_url = f"{settings.WEB_APP_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 2: WEBHOOK_URL (production)
+    elif settings.WEBHOOK_URL and settings.WEBHOOK_URL.startswith('https://'):
+        web_app_url = f"{settings.WEBHOOK_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 3: ALLOWED_HOSTS в production
+    elif not settings.DEBUG and settings.ALLOWED_HOSTS:
+        domain = settings.ALLOWED_HOSTS[0]
+        if domain and domain != 'localhost':
+            web_app_url = f"https://{domain}/api/webapp/"
+    
+    # Добавляем кнопку Web App только если есть валидный HTTPS URL
+    if web_app_url:
+        try:
+            web_app_button = types.WebAppInfo(url=web_app_url)
+            keyboard_buttons.append([types.KeyboardButton(text=get_text(user, 'MY_GIFTS'), web_app=web_app_button)])
+        except Exception as e:
+            logger.warning(f"Не удалось создать Web App кнопку: {e}")
+    
+    # Добавляем остальные кнопки
+    keyboard_buttons.extend([
+        [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
+        [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+        [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
+    ])
     
     keyboard = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="📱 Мои подарки", web_app=web_app_button)],
-            [types.KeyboardButton(text="🎁 Подарки")],
-            [types.KeyboardButton(text="📊 Мой баланс"), types.KeyboardButton(text="🏆 ТОП лидеры")],
-        ],
+        keyboard=keyboard_buttons,
         resize_keyboard=True
     )
     
     await message.answer(
-        f"👋 Главное меню\n\n"
-        f"💰 Ваш баланс: {points} баллов\n\n"
-        f"Выберите действие:",
+        get_text(user, 'MAIN_MENU', points=points),
         reply_markup=keyboard
     )
 
 
-@dp.message(lambda message: message.text == "📊 Мой баланс")
-async def show_balance(message: Message):
-    """Показывает баланс пользователя."""
+@dp.message()
+async def handle_message(message: Message, state: FSMContext = None):
+    """Универсальный обработчик сообщений."""
     @sync_to_async
-    def get_user_points():
-        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        return user.points
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=message.from_user.id)
     
-    points = await get_user_points()
-    await message.answer(f"💰 Ваш текущий баланс: {points} баллов")
+    user = await get_user()
+    
+    # Получаем все возможные варианты текстов кнопок
+    all_balance_texts = [
+        TRANSLATIONS['uz_latin']['MY_BALANCE'],
+        TRANSLATIONS['uz_cyrillic']['MY_BALANCE'],
+        TRANSLATIONS['ru']['MY_BALANCE'],
+    ]
+    
+    all_gifts_texts = [
+        TRANSLATIONS['uz_latin']['GIFTS'],
+        TRANSLATIONS['uz_cyrillic']['GIFTS'],
+        TRANSLATIONS['ru']['GIFTS'],
+    ]
+    
+    all_leaders_texts = [
+        TRANSLATIONS['uz_latin']['TOP_LEADERS'],
+        TRANSLATIONS['uz_cyrillic']['TOP_LEADERS'],
+        TRANSLATIONS['ru']['TOP_LEADERS'],
+    ]
+    
+    all_language_texts = [
+        TRANSLATIONS['uz_latin']['LANGUAGE'],
+        TRANSLATIONS['uz_cyrillic']['LANGUAGE'],
+        TRANSLATIONS['ru']['LANGUAGE'],
+    ]
+    
+    # Обрабатываем в зависимости от текста
+    if message.text in all_balance_texts:
+        await show_balance(message, user)
+    elif message.text in all_gifts_texts:
+        await show_gifts(message, state)
+    elif message.text in all_leaders_texts:
+        await show_leaders(message)
+    elif message.text in all_language_texts:
+        await show_language_selection(message)
+    else:
+        await handle_unknown_message(message)
 
 
-@dp.message(lambda message: message.text == "🎁 Подарки")
+async def show_balance(message: Message, user: TelegramUser):
+    """Показывает баланс пользователя."""
+    await message.answer(get_text(user, 'BALANCE_INFO', points=user.points))
+
+
+
+
 async def show_gifts(message: Message, state: FSMContext):
     """Показывает список доступных подарков."""
     @sync_to_async
@@ -309,23 +372,32 @@ async def show_gifts(message: Message, state: FSMContext):
     user, gifts = await get_gifts_and_user()
     
     if not gifts:
-        await message.answer("😔 К сожалению, сейчас нет доступных подарков.")
+        await message.answer(get_text(user, 'NO_GIFTS'))
         return
     
-    text = "🎁 Доступные подарки:\n\n"
+    text = get_text(user, 'GIFTS_LIST')
     buttons = []
     
     for gift in gifts:
         can_afford = "✅" if user.points >= gift.points_cost else "❌"
-        text += f"{can_afford} {gift.name} - {gift.points_cost} баллов\n"
+        # Получаем слово "ball" на нужном языке
+        balance_text = get_text(user, 'BALANCE_INFO', points=1)
+        if 'ball' in balance_text.lower():
+            ball_word = 'ball'
+        elif 'балл' in balance_text.lower():
+            ball_word = 'балл'
+        else:
+            ball_word = 'ball'
+        text += f"{can_afford} {gift.name} - {gift.points_cost} {ball_word}\n"
         buttons.append([types.InlineKeyboardButton(
-            text=f"{gift.name} ({gift.points_cost} баллов)",
+            text=f"{gift.name} ({gift.points_cost} {ball_word})",
             callback_data=f"gift_{gift.id}"
         )])
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(text, reply_markup=keyboard)
-    await state.set_state(GiftRedemptionStates.selecting_gift)
+    if state:
+        await state.set_state(GiftRedemptionStates.selecting_gift)
 
 
 @dp.callback_query(lambda c: c.data.startswith("gift_"))
@@ -364,45 +436,172 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
     try:
         result = await process_gift()
         
+        @sync_to_async
+        def get_user_for_callback():
+            return TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        
+        user = await get_user_for_callback()
+        
         if result.get('error') == 'insufficient_points':
-            await callback.answer("❌ Недостаточно баллов для этого подарка!", show_alert=True)
+            await callback.answer(get_text(user, 'INSUFFICIENT_POINTS'), show_alert=True)
         elif result.get('error') == 'not_found':
-            await callback.answer("❌ Подарок не найден!", show_alert=True)
+            await callback.answer(get_text(user, 'GIFT_NOT_FOUND'), show_alert=True)
         elif result.get('success'):
-            await callback.answer("✅ Запрос на получение подарка отправлен!", show_alert=True)
-            await callback.message.answer(
-                f"✅ Ваш запрос на получение подарка '{result['gift_name']}' принят!\n\n"
-                f"Администратор обработает ваш запрос в ближайшее время.\n"
-                f"💰 Ваш текущий баланс: {result['remaining_points']} баллов"
-            )
-            await state.clear()
+            await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=result['remaining_points']).split('!')[0] + "!", show_alert=True)
+            await callback.message.answer(get_text(user, 'GIFT_REQUEST_SENT',
+                gift_name=result['gift_name'],
+                remaining_points=result['remaining_points']
+            ))
+            if state:
+                await state.clear()
     except Exception as e:
         logger.error(f"Error processing gift selection: {e}")
-        await callback.answer("❌ Произошла ошибка. Попробуйте позже.", show_alert=True)
+        @sync_to_async
+        def get_user_for_error():
+            return TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user = await get_user_for_error()
+        await callback.answer(get_text(user, 'GIFT_REQUEST_ERROR'), show_alert=True)
 
 
-@dp.message(lambda message: message.text == "🏆 ТОП лидеры")
 async def show_leaders(message: Message):
     """Показывает ТОП лидеров."""
     @sync_to_async
-    def get_leaders():
-        return list(TelegramUser.objects.order_by('-points')[:10])
+    def get_leaders_and_user():
+        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
+        leaders = list(TelegramUser.objects.order_by('-points')[:10])
+        return user, leaders
     
-    leaders = await get_leaders()
+    user, leaders = await get_leaders_and_user()
     
-    text = "🏆 ТОП-10 лидеров:\n\n"
+    if not leaders:
+        await message.answer(get_text(user, 'NO_LEADERS'))
+        return
+    
+    text = get_text(user, 'TOP_LEADERS_TITLE')
     position = 1
     
     for leader in leaders:
         emoji = "🥇" if position == 1 else "🥈" if position == 2 else "🥉" if position == 3 else f"{position}."
-        text += f"{emoji} {leader.first_name or 'Пользователь'} - {leader.points} баллов\n"
+        name = leader.first_name or get_text(user, 'USER')
+        text += get_text(user, 'LEADER_ENTRY', position=emoji, name=name, points=leader.points)
         position += 1
     
     await message.answer(text)
 
 
-@dp.message()
+async def show_language_selection(message: Message):
+    """Показывает выбор языка."""
+    @sync_to_async
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=message.from_user.id)
+    
+    user = await get_user()
+    
+    # Используем фиксированные тексты для кнопок выбора языка
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(
+            text=TRANSLATIONS['uz_latin']['UZBEK_LATIN'],
+            callback_data='lang_uz_latin'
+        )],
+        [types.InlineKeyboardButton(
+            text=TRANSLATIONS['uz_latin']['UZBEK_CYRILLIC'],
+            callback_data='lang_uz_cyrillic'
+        )],
+        [types.InlineKeyboardButton(
+            text=TRANSLATIONS['uz_latin']['RUSSIAN'],
+            callback_data='lang_ru'
+        )],
+    ])
+    
+    await message.answer(get_text(user, 'SELECT_LANGUAGE'), reply_markup=keyboard)
+
+
+@dp.callback_query(lambda c: c.data.startswith('lang_'))
+async def change_language(callback: CallbackQuery):
+    """Обрабатывает смену языка."""
+    language_code = callback.data.split('_', 1)[1]  # uz_latin, uz_cyrillic, ru
+    
+    @sync_to_async
+    def update_language():
+        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user.language = language_code
+        user.save(update_fields=['language'])
+        return user
+    
+    user = await update_language()
+    
+    # Показываем уведомление о смене языка
+    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'), show_alert=True)
+    
+    # Удаляем сообщение с выбором языка
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.warning(f"Не удалось удалить сообщение: {e}")
+    
+    # Отправляем новое сообщение с обновленной клавиатурой через бота напрямую
+    # Это гарантирует обновление ReplyKeyboard с новыми текстами кнопок
+    @sync_to_async
+    def get_user_points():
+        user_obj = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        return user_obj.points
+    
+    points = await get_user_points()
+    
+    # Создаем кнопку для Web App только если есть HTTPS URL
+    keyboard_buttons = []
+    
+    from django.conf import settings
+    
+    # Определяем URL для Web App
+    web_app_url = None
+    
+    # Приоритет 1: Явно указанный WEB_APP_URL (для тестирования через ngrok)
+    if settings.WEB_APP_URL and settings.WEB_APP_URL.startswith('https://'):
+        web_app_url = f"{settings.WEB_APP_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 2: WEBHOOK_URL (production)
+    elif settings.WEBHOOK_URL and settings.WEBHOOK_URL.startswith('https://'):
+        web_app_url = f"{settings.WEBHOOK_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 3: ALLOWED_HOSTS в production
+    elif not settings.DEBUG and settings.ALLOWED_HOSTS:
+        domain = settings.ALLOWED_HOSTS[0]
+        if domain and domain != 'localhost':
+            web_app_url = f"https://{domain}/api/webapp/"
+    
+    # Добавляем кнопку Web App только если есть валидный HTTPS URL
+    if web_app_url:
+        try:
+            web_app_button = types.WebAppInfo(url=web_app_url)
+            keyboard_buttons.append([types.KeyboardButton(text=get_text(user, 'MY_GIFTS'), web_app=web_app_button)])
+        except Exception as e:
+            logger.warning(f"Не удалось создать Web App кнопку: {e}")
+    
+    # Добавляем остальные кнопки
+    keyboard_buttons.extend([
+        [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
+        [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+        [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
+    ])
+    
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=keyboard_buttons,
+        resize_keyboard=True
+    )
+    
+    # Отправляем сообщение через бота напрямую, чтобы обновить клавиатуру
+    await bot.send_message(
+        chat_id=callback.from_user.id,
+        text=get_text(user, 'MAIN_MENU', points=points),
+        reply_markup=keyboard
+    )
+
+
 async def handle_unknown_message(message: Message):
     """Обработчик неизвестных сообщений."""
-    await message.answer("Я не понимаю эту команду. Используйте кнопки меню.")
+    @sync_to_async
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=message.from_user.id)
+    
+    user = await get_user()
+    await message.answer(get_text(user, 'UNKNOWN_COMMAND'))
 

@@ -1,0 +1,48 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Отправить сообщение{% endblock %}
+
+{% block content %}
+<h1>Отправить сообщение пользователям</h1>
+
+<p>Выбрано пользователей: {{ users.count }}</p>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div style="margin-bottom: 20px;">
+        <label for="id_message">Текст сообщения:</label>
+        {{ form.message }}
+        {% if form.message.errors %}
+            <div style="color: red;">{{ form.message.errors }}</div>
+        {% endif %}
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="id_parse_mode">Режим парсинга:</label>
+        {{ form.parse_mode }}
+        {% if form.parse_mode.errors %}
+            <div style="color: red;">{{ form.parse_mode.errors }}</div>
+        {% endif %}
+    </div>
+    
+    <div>
+        <button type="submit" style="padding: 10px 20px; background-color: #417690; color: white; border: none; cursor: pointer;">
+            Отправить
+        </button>
+        <a href="{% url 'admin:core_telegramuser_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background-color: #ba2121; color: white; text-decoration: none; display: inline-block;">
+            Отмена
+        </a>
+    </div>
+</form>
+
+<div style="margin-top: 30px; padding: 15px; background-color: #f0f0f0; border-radius: 5px;">
+    <h3>Список пользователей:</h3>
+    <ul>
+        {% for user in users %}
+        <li>{{ user.first_name }} (@{{ user.username|default:"N/A" }}) - ID: {{ user.telegram_id }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
+

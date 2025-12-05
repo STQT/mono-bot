@@ -1,9 +1,10 @@
+{% load webapp_i18n %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ user_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мои подарки</title>
+    <title>{% trans "WEBAPP_MY_GIFTS" %}</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -279,29 +280,57 @@
             gap: 8px;
             margin-top: 16px;
         }
+
+        /* Debug panel styles */
+        .debug-panel {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            padding: 10px;
+            margin: 10px;
+            border: 2px solid #0f0;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .debug-panel h3 {
+            color: #0f0;
+            margin: 0 0 10px 0;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div style="font-size: 16px; opacity: 0.9;">Ваши баллы</div>
+            <div style="font-size: 16px; opacity: 0.9;">{% trans "WEBAPP_YOUR_POINTS" %}</div>
             <div class="points-display" id="points">0</div>
-            <div style="font-size: 14px; opacity: 0.8;" id="userName">Загрузка...</div>
+            <div style="font-size: 14px; opacity: 0.8;" id="userName">{% trans "WEBAPP_LOADING" %}</div>
         </div>
 
         <div id="errorContainer"></div>
 
+        <!-- Debug Panel -->
+        <div class="debug-panel" id="debugPanel">
+            <h3>🔍 DEBUG INFO</h3>
+            <div id="debugContent">Initializing...</div>
+        </div>
+
         <div class="section">
-            <div class="section-title">🎁 Доступные подарки</div>
+            <div class="section-title">{% trans "WEBAPP_AVAILABLE_GIFTS" %}</div>
             <div class="gifts-grid" id="giftsContainer">
-                <div class="loading">Загрузка подарков...</div>
+                <div class="loading">{% trans "WEBAPP_LOADING_GIFTS" %}</div>
             </div>
         </div>
 
         <div class="section">
-            <div class="section-title">📦 Мои заказы</div>
+            <div class="section-title">{% trans "WEBAPP_MY_ORDERS" %}</div>
             <div id="redemptionsContainer">
-                <div class="loading">Загрузка заказов...</div>
+                <div class="loading">{% trans "WEBAPP_LOADING_ORDERS" %}</div>
             </div>
         </div>
     </div>
@@ -309,13 +338,13 @@
     <!-- Modal для подтверждения -->
     <div class="modal" id="confirmModal">
         <div class="modal-content">
-            <div class="modal-title">Подтверждение получения</div>
-            <p>Вы получили заказ?</p>
-            <textarea class="comment-input" id="commentInput" placeholder="Если не получили, укажите причину и просьбу позвонить..."></textarea>
+            <div class="modal-title">{% trans "WEBAPP_CONFIRM_RECEIPT" %}</div>
+            <p>{% trans "WEBAPP_DID_YOU_RECEIVE" %}</p>
+            <textarea class="comment-input" id="commentInput" placeholder="{% trans 'WEBAPP_COMMENT_PLACEHOLDER' %}"></textarea>
             <div class="modal-actions">
-                <button class="btn btn-success" onclick="confirmDelivery(true)">Да, получил</button>
-                <button class="btn btn-danger" onclick="confirmDelivery(false)">Нет, не получил</button>
-                <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+                <button class="btn btn-success" onclick="confirmDelivery(true)">{% trans "WEBAPP_YES_RECEIVED" %}</button>
+                <button class="btn btn-danger" onclick="confirmDelivery(false)">{% trans "WEBAPP_NO_NOT_RECEIVED" %}</button>
+                <button class="btn btn-secondary" onclick="closeModal()">{% trans "WEBAPP_CANCEL" %}</button>
             </div>
         </div>
     </div>
@@ -325,37 +354,198 @@
         tg.ready();
         tg.expand();
 
+        // Debug logging
+        let debugInfo = [];
+        
+        function addDebugInfo(key, value) {
+            debugInfo.push({key: key, value: value, time: new Date().toLocaleTimeString()});
+            updateDebugPanel();
+        }
+
+        function updateDebugPanel() {
+            const panel = document.getElementById('debugContent');
+            if (!panel) return;
+            
+            let html = '';
+            debugInfo.forEach(item => {
+                const valueStr = typeof item.value === 'object' ? JSON.stringify(item.value, null, 2) : String(item.value);
+                html += `<div><strong>[${item.time}] ${item.key}:</strong> ${valueStr}</div>\n`;
+            });
+            panel.innerHTML = html;
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        // Переводы для JavaScript (загружаются динамически)
+        let translations = {
+            // Временные переводы по умолчанию (будут заменены после загрузки)
+            'WEBAPP_LOADING': '{% trans "WEBAPP_LOADING" %}',
+            'WEBAPP_NO_GIFTS': '{% trans "WEBAPP_NO_GIFTS" %}',
+            'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
+            'WEBAPP_POINTS': '{% trans "WEBAPP_POINTS" %}',
+            'WEBAPP_CONFIRM_REQUEST': '{% trans "WEBAPP_CONFIRM_REQUEST" %}',
+            'WEBAPP_REQUEST_SENT': '{% trans "WEBAPP_REQUEST_SENT" %}',
+            'WEBAPP_ERROR_LOADING_USER': '{% trans "WEBAPP_ERROR_LOADING_USER" %}',
+            'WEBAPP_ERROR_LOADING_GIFTS': '{% trans "WEBAPP_ERROR_LOADING_GIFTS" %}',
+            'WEBAPP_ERROR_LOADING_ORDERS': '{% trans "WEBAPP_ERROR_LOADING_ORDERS" %}',
+            'WEBAPP_ERROR_REQUESTING_GIFT': '{% trans "WEBAPP_ERROR_REQUESTING_GIFT" %}',
+            'WEBAPP_ERROR_CONFIRMING': '{% trans "WEBAPP_ERROR_CONFIRMING" %}',
+            'WEBAPP_THANKS_CONFIRMATION': '{% trans "WEBAPP_THANKS_CONFIRMATION" %}',
+            'WEBAPP_COMMENT_SENT': '{% trans "WEBAPP_COMMENT_SENT" %}',
+            'WEBAPP_COMMENT_REQUIRED': '{% trans "WEBAPP_COMMENT_REQUIRED" %}',
+            'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
+            'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
+            'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
+            'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
+            'WEBAPP_DELIVERY_PENDING': '{% trans "WEBAPP_DELIVERY_PENDING" %}',
+            'WEBAPP_DELIVERY_SENT': '{% trans "WEBAPP_DELIVERY_SENT" %}',
+            'WEBAPP_DELIVERY_DELIVERED': '{% trans "WEBAPP_DELIVERY_DELIVERED" %}',
+            'WEBAPP_DELIVERY_STATUS': '{% trans "WEBAPP_DELIVERY_STATUS" %}',
+            'WEBAPP_REQUESTED': '{% trans "WEBAPP_REQUESTED" %}',
+            'WEBAPP_YOUR_COMMENT': '{% trans "WEBAPP_YOUR_COMMENT" %}',
+            'WEBAPP_CONFIRM_RECEIPT_BUTTON': '{% trans "WEBAPP_CONFIRM_RECEIPT_BUTTON" %}',
+            'USER': '{% trans "USER" %}',
+        };
+
+        // Загружает переводы для указанного языка
+        async function loadTranslations(language) {
+            addDebugInfo('Loading translations', `Language: ${language}`);
+            try {
+                const url = `${API_BASE}/translations/?lang=${language}`;
+                addDebugInfo('Translations URL', url);
+                
+                const response = await fetch(url);
+                addDebugInfo('Translations response', `Status: ${response.status}, OK: ${response.ok}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addDebugInfo('Translations received', `Total keys: ${Object.keys(data).length}`);
+                    
+                    // Обновляем только ключи, которые начинаются с WEBAPP_
+                    let updatedCount = 0;
+                    Object.keys(data).forEach(key => {
+                        if (key.startsWith('WEBAPP_') || key === 'USER') {
+                            translations[key] = data[key];
+                            updatedCount++;
+                        }
+                    });
+                    addDebugInfo('Translations updated', `Updated ${updatedCount} keys`);
+                    addDebugInfo('Sample translation', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
+                    addDebugInfo('Sample translation', `WEBAPP_AVAILABLE_GIFTS = "${translations['WEBAPP_AVAILABLE_GIFTS']}"`);
+                } else {
+                    const errorText = await response.text();
+                    addDebugInfo('Translations error', `Status: ${response.status}, Text: ${errorText}`);
+                }
+            } catch (error) {
+                addDebugInfo('Translations exception', error.message);
+                console.error('Error loading translations:', error);
+            }
+        }
+
+        function t(key, params = {}) {
+            let text = translations[key] || key;
+            if (Object.keys(params).length > 0) {
+                for (const [k, v] of Object.entries(params)) {
+                    text = text.replace(`{${k}}`, v);
+                }
+            }
+            return text;
+        }
+
         let currentUser = null;
         let currentRedemptionId = null;
         const API_BASE = '/api/webapp';
 
         // Получаем данные пользователя из initData
         async function initApp() {
+            addDebugInfo('=== INIT APP START ===', '');
             try {
+                // Пробуем разные способы получения данных пользователя
+                addDebugInfo('tg object', typeof tg !== 'undefined' ? 'exists' : 'undefined');
+                addDebugInfo('tg.initDataUnsafe', tg.initDataUnsafe ? JSON.stringify(tg.initDataUnsafe, null, 2) : 'null');
+                addDebugInfo('tg.initData', tg.initData ? tg.initData.substring(0, 100) + '...' : 'null');
+                
                 const initData = tg.initDataUnsafe;
-                const user = initData.user;
+                let user = initData ? initData.user : null;
+                
+                // Если user не найден, пробуем получить из initData строки
+                if (!user && tg.initData) {
+                    addDebugInfo('Trying to parse initData string', '');
+                    try {
+                        // Парсим initData (формат: key=value&key2=value2)
+                        const params = new URLSearchParams(tg.initData);
+                        const userParam = params.get('user');
+                        if (userParam) {
+                            user = JSON.parse(decodeURIComponent(userParam));
+                            addDebugInfo('User parsed from initData string', JSON.stringify(user, null, 2));
+                        }
+                    } catch (e) {
+                        addDebugInfo('Error parsing initData string', e.message);
+                    }
+                }
+                
+                // Пробуем получить из query параметров (для тестирования)
+                const urlParams = new URLSearchParams(window.location.search);
+                const testUserId = urlParams.get('telegram_id');
+                if (testUserId && !user) {
+                    addDebugInfo('Using test telegram_id from URL', testUserId);
+                    user = { id: parseInt(testUserId) };
+                }
+                
+                addDebugInfo('Final user object', user ? JSON.stringify(user, null, 2) : 'null');
                 
                 if (!user || !user.id) {
-                    showError('Не удалось получить данные пользователя');
+                    addDebugInfo('ERROR', 'No user found. Web App must be opened from Telegram.');
+                    addDebugInfo('Available tg properties', Object.keys(tg).join(', '));
+                    showError('Web App должен быть открыт из Telegram бота');
                     return;
                 }
 
+                addDebugInfo('Loading user data', `telegram_id: ${user.id}`);
+                
                 // Загружаем данные пользователя
                 const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${user.id}`);
+                addDebugInfo('User API response', `Status: ${userResponse.status}, OK: ${userResponse.ok}`);
+                
                 if (!userResponse.ok) {
-                    throw new Error('Не удалось загрузить данные пользователя');
+                    throw new Error(t('WEBAPP_ERROR_LOADING_USER'));
                 }
                 currentUser = await userResponse.json();
                 
+                addDebugInfo('User loaded', JSON.stringify(currentUser, null, 2));
+                addDebugInfo('User language', currentUser.language || 'NOT SET');
+                addDebugInfo('Current translations count', Object.keys(translations).length);
+                addDebugInfo('Translations before load', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
+                
+                // Загружаем переводы для языка пользователя
+                if (currentUser.language) {
+                    addDebugInfo('Loading translations', `Language: ${currentUser.language}`);
+                    await loadTranslations(currentUser.language);
+                    addDebugInfo('Translations loaded', 'Updating page texts...');
+                    // Обновляем статические тексты на странице
+                    updatePageTexts();
+                    addDebugInfo('Page texts updated', 'DONE');
+                } else {
+                    addDebugInfo('WARNING', 'No language in user data, using default');
+                }
+                
                 document.getElementById('points').textContent = currentUser.points;
-                document.getElementById('userName').textContent = currentUser.first_name || 'Пользователь';
+                document.getElementById('userName').textContent = currentUser.first_name || t('USER');
+                
+                addDebugInfo('Displayed points', currentUser.points);
+                addDebugInfo('Displayed name', currentUser.first_name || t('USER'));
+                addDebugInfo('Final translation check', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
+                addDebugInfo('=== INIT APP END ===', 'SUCCESS');
 
-                // Загружаем подарки и заказы
+                // Загружаем подарки и заказы (они используют переводы через функцию t())
                 await loadGifts();
                 await loadRedemptions();
+                
+                addDebugInfo('=== INIT APP END ===', 'SUCCESS');
             } catch (error) {
+                addDebugInfo('ERROR', error.message);
+                addDebugInfo('ERROR STACK', error.stack);
                 console.error('Error initializing app:', error);
-                showError('Ошибка загрузки данных: ' + error.message);
+                showError(t('WEBAPP_ERROR', {error: error.message}));
             }
         }
 
@@ -368,7 +558,7 @@
                 const container = document.getElementById('giftsContainer');
                 
                 if (gifts.length === 0) {
-                    container.innerHTML = '<div class="loading">Нет доступных подарков</div>';
+                    container.innerHTML = `<div class="loading">${t('WEBAPP_NO_GIFTS')}</div>`;
                     return;
                 }
 
@@ -379,14 +569,14 @@
                              onclick="${canAfford ? `requestGift(${gift.id})` : ''}">
                             <img src="${gift.image}" alt="${gift.name}" class="gift-image" onerror="this.style.display='none'">
                             <div class="gift-name">${gift.name}</div>
-                            <div class="gift-cost">${gift.points_cost} баллов</div>
+                            <div class="gift-cost">${gift.points_cost} ${t('WEBAPP_POINTS')}</div>
                         </div>
                     `;
                 }).join('');
             } catch (error) {
                 console.error('Error loading gifts:', error);
                 document.getElementById('giftsContainer').innerHTML = 
-                    '<div class="error">Ошибка загрузки подарков</div>';
+                    `<div class="error">${t('WEBAPP_ERROR_LOADING_GIFTS')}</div>`;
             }
         }
 
@@ -401,7 +591,7 @@
                 const container = document.getElementById('redemptionsContainer');
                 
                 if (redemptions.length === 0) {
-                    container.innerHTML = '<div class="loading">У вас пока нет заказов</div>';
+                    container.innerHTML = `<div class="loading">${t('WEBAPP_NO_ORDERS')}</div>`;
                     return;
                 }
 
@@ -417,7 +607,7 @@
                         deliveryInfo = `
                             <div class="delivery-info">
                                 <div class="delivery-status">
-                                    Статус доставки: <span class="status-badge ${deliveryStatusClass}">
+                                    ${t('WEBAPP_DELIVERY_STATUS')} <span class="status-badge ${deliveryStatusClass}">
                                         ${getDeliveryStatusText(redemption.delivery_status)}
                                     </span>
                                 </div>
@@ -430,7 +620,7 @@
                         confirmSection = `
                             <div class="confirm-buttons">
                                 <button class="btn btn-success" onclick="openConfirmModal(${redemption.id})">
-                                    Подтвердить получение
+                                    ${t('WEBAPP_CONFIRM_RECEIPT_BUTTON')}
                                 </button>
                             </div>
                         `;
@@ -440,7 +630,7 @@
                     if (redemption.user_comment) {
                         deliveryInfo += `
                             <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 8px; font-size: 12px;">
-                                <strong>Ваш комментарий:</strong> ${redemption.user_comment}
+                                <strong>${t('WEBAPP_YOUR_COMMENT')}</strong> ${redemption.user_comment}
                             </div>
                         `;
                     }
@@ -452,7 +642,7 @@
                                 <span class="status-badge ${statusClass}">${getStatusText(redemption.status)}</span>
                             </div>
                             <div style="font-size: 14px; color: var(--tg-theme-hint-color, #999999);">
-                                Запрошено: ${new Date(redemption.requested_at).toLocaleDateString('ru-RU')}
+                                ${t('WEBAPP_REQUESTED')} ${new Date(redemption.requested_at).toLocaleDateString()}
                             </div>
                             ${deliveryInfo}
                             ${confirmSection}
@@ -469,7 +659,7 @@
         async function requestGift(giftId) {
             if (!currentUser) return;
             
-            if (!confirm('Вы уверены, что хотите запросить этот подарок?')) {
+            if (!confirm(t('WEBAPP_CONFIRM_REQUEST'))) {
                 return;
             }
 
@@ -491,13 +681,13 @@
                 }
 
                 const redemption = await response.json();
-                tg.showAlert('Запрос на получение подарка отправлен!');
+                tg.showAlert(t('WEBAPP_REQUEST_SENT'));
                 
                 // Обновляем данные
                 await initApp();
             } catch (error) {
                 console.error('Error requesting gift:', error);
-                tg.showAlert('Ошибка: ' + error.message);
+                tg.showAlert(t('WEBAPP_ERROR', {error: error.message}));
             }
         }
 
@@ -519,7 +709,7 @@
             
             // Если не получил, требуем комментарий
             if (!confirmed && !comment.trim()) {
-                tg.showAlert('Пожалуйста, укажите причину, почему вы не получили заказ');
+                tg.showAlert(t('WEBAPP_COMMENT_REQUIRED'));
                 return;
             }
 
@@ -544,36 +734,105 @@
                 closeModal();
                 
                 if (confirmed) {
-                    tg.showAlert('Спасибо за подтверждение!');
+                    tg.showAlert(t('WEBAPP_THANKS_CONFIRMATION'));
                 } else {
-                    tg.showAlert('Ваш комментарий отправлен. С вами свяжутся.');
+                    tg.showAlert(t('WEBAPP_COMMENT_SENT'));
                 }
                 
                 // Обновляем заказы
                 await loadRedemptions();
             } catch (error) {
                 console.error('Error confirming delivery:', error);
-                tg.showAlert('Ошибка: ' + error.message);
+                tg.showAlert(t('WEBAPP_ERROR', {error: error.message}));
             }
         }
 
         function getStatusText(status) {
-            const statuses = {
-                'pending': 'Ожидает',
-                'approved': 'Одобрено',
-                'rejected': 'Отклонено',
-                'completed': 'Выполнено'
+            const statusMap = {
+                'pending': 'WEBAPP_STATUS_PENDING',
+                'approved': 'WEBAPP_STATUS_APPROVED',
+                'rejected': 'WEBAPP_STATUS_REJECTED',
+                'completed': 'WEBAPP_STATUS_COMPLETED'
             };
-            return statuses[status] || status;
+            return t(statusMap[status] || status);
         }
 
         function getDeliveryStatusText(status) {
-            const statuses = {
-                'pending': 'Ожидает отправки',
-                'sent': 'Отправлено',
-                'delivered': 'Доставлено'
+            const statusMap = {
+                'pending': 'WEBAPP_DELIVERY_PENDING',
+                'sent': 'WEBAPP_DELIVERY_SENT',
+                'delivered': 'WEBAPP_DELIVERY_DELIVERED'
             };
-            return statuses[status] || status;
+            return t(statusMap[status] || status);
+        }
+
+        // Функция для обновления статических текстов на странице
+        function updatePageTexts() {
+            addDebugInfo('=== UPDATE PAGE TEXTS START ===', '');
+            
+            // Обновляем заголовки секций
+            const sectionTitles = document.querySelectorAll('.section-title');
+            if (sectionTitles.length >= 1) {
+                const oldText = sectionTitles[0].textContent;
+                const newText = t('WEBAPP_AVAILABLE_GIFTS');
+                addDebugInfo('Section title 1', `"${oldText}" -> "${newText}"`);
+                sectionTitles[0].textContent = newText;
+            }
+            if (sectionTitles.length >= 2) {
+                const oldText = sectionTitles[1].textContent;
+                const newText = t('WEBAPP_MY_ORDERS');
+                addDebugInfo('Section title 2', `"${oldText}" -> "${newText}"`);
+                sectionTitles[1].textContent = newText;
+            }
+            
+            // Обновляем заголовок в header
+            const headerTitle = document.querySelector('.header > div:first-child');
+            if (headerTitle) {
+                const oldText = headerTitle.textContent;
+                const newText = t('WEBAPP_YOUR_POINTS');
+                addDebugInfo('Header title', `"${oldText}" -> "${newText}"`);
+                headerTitle.textContent = newText;
+            }
+            
+            // Обновляем модальное окно
+            const modalTitle = document.querySelector('.modal-title');
+            if (modalTitle) {
+                const oldText = modalTitle.textContent;
+                const newText = t('WEBAPP_CONFIRM_RECEIPT');
+                addDebugInfo('Modal title', `"${oldText}" -> "${newText}"`);
+                modalTitle.textContent = newText;
+            }
+            
+            const modalQuestion = document.querySelector('.modal-content p');
+            if (modalQuestion) {
+                const oldText = modalQuestion.textContent;
+                const newText = t('WEBAPP_DID_YOU_RECEIVE');
+                addDebugInfo('Modal question', `"${oldText}" -> "${newText}"`);
+                modalQuestion.textContent = newText;
+            }
+            
+            const commentPlaceholder = document.getElementById('commentInput');
+            if (commentPlaceholder) {
+                const oldText = commentPlaceholder.placeholder;
+                const newText = t('WEBAPP_COMMENT_PLACEHOLDER');
+                addDebugInfo('Comment placeholder', `"${oldText}" -> "${newText}"`);
+                commentPlaceholder.placeholder = newText;
+            }
+            
+            const yesButton = document.querySelector('.btn-success[onclick*="confirmDelivery(true)"]');
+            if (yesButton) {
+                yesButton.textContent = t('WEBAPP_YES_RECEIVED');
+            }
+            
+            const noButton = document.querySelector('.btn-danger[onclick*="confirmDelivery(false)"]');
+            if (noButton) {
+                noButton.textContent = t('WEBAPP_NO_NOT_RECEIVED');
+            }
+            
+            const cancelButton = document.querySelector('.btn-secondary[onclick="closeModal()"]');
+            if (cancelButton) {
+                cancelButton.textContent = t('WEBAPP_CANCEL');
+            }
         }
 
         function showError(message) {

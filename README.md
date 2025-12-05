@@ -68,6 +68,30 @@ docker-compose exec web python manage.py createsuperuser
 ### 6. Запуск бота
 Бот запускается автоматически при старте Django приложения через `bot/apps.py`.
 
+### 7. Настройка Web App для тестирования
+Для тестирования Web App в режиме разработки используйте ngrok (Telegram требует HTTPS):
+
+```bash
+# Установите ngrok
+brew install ngrok  # macOS
+
+# Запустите ngrok в отдельном терминале
+ngrok http 8000
+
+# Добавьте HTTPS URL в .env
+echo "WEB_APP_URL=https://your-ngrok-url.ngrok-free.app" >> .env
+
+# Перезапустите бота
+docker-compose restart bot
+```
+
+Или используйте автоматический скрипт:
+```bash
+./scripts/setup_ngrok.sh
+```
+
+Подробнее см. [WEBAPP_TESTING.md](WEBAPP_TESTING.md)
+
 ## Использование
 
 ### Доступ к админ-панели

@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.conf import settings
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption
+    Gift, GiftRedemption, BroadcastMessage
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -22,12 +22,16 @@ class TelegramUserAdmin(admin.ModelAdmin):
     """Админка для пользователей Telegram."""
     list_display = [
         'telegram_id', 'first_name', 'username', 'phone_number',
-        'user_type', 'points', 'created_at'
+        'user_type', 'points', 'language', 'is_active', 'created_at'
     ]
-    list_filter = ['user_type', 'created_at']
+    list_filter = ['user_type', 'is_active', 'language', 'created_at']
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
-    readonly_fields = ['telegram_id', 'created_at', 'updated_at']
+    readonly_fields = [
+        'telegram_id', 'created_at', 'updated_at',
+        'last_message_sent_at', 'blocked_bot_at'
+    ]
     ordering = ['-points', '-created_at']
+    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive']
     
     fieldsets = (
         ('Основная информация', {
@@ -39,10 +43,89 @@ class TelegramUserAdmin(admin.ModelAdmin):
         ('Тип и баллы', {
             'fields': ('user_type', 'points')
         }),
+        ('Настройки', {
+            'fields': ('language',)
+        }),
+        ('Активность', {
+            'fields': ('is_active', 'last_message_sent_at', 'blocked_bot_at')
+        }),
         ('Даты', {
             'fields': ('created_at', 'updated_at')
         }),
     )
+    
+    def send_personal_message_action(self, request, queryset):
+        """Действие для отправки персонального сообщения."""
+        from django.shortcuts import render
+        from django import forms
+        
+        class MessageForm(forms.Form):
+            message = forms.CharField(widget=forms.Textarea, label='Текст сообщения')
+            parse_mode = forms.ChoiceField(
+                choices=[('', 'Без форматирования'), ('HTML', 'HTML'), ('Markdown', 'Markdown')],
+                required=False,
+                label='Режим парсинга'
+            )
+        
+        if request.method == 'POST':
+            form = MessageForm(request.POST)
+            if form.is_valid():
+                message_text = form.cleaned_data['message']
+                parse_mode = form.cleaned_data['parse_mode'] or None
+                
+                import asyncio
+                from django.conf import settings
+                from aiogram import Bot
+                from core.messaging import send_personal_message
+                
+                async def send_messages():
+                    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+                    try:
+                        sent = 0
+                        failed = 0
+                        for user in queryset:
+                            success, error = await send_personal_message(
+                                bot=bot,
+                                telegram_id=user.telegram_id,
+                                text=message_text,
+                                parse_mode=parse_mode
+                            )
+                            if success:
+                                sent += 1
+                            else:
+                                failed += 1
+                        return sent, failed
+                    finally:
+                        await bot.session.close()
+                
+                sent, failed = asyncio.run(send_messages())
+                self.message_user(
+                    request,
+                    f'Отправлено: {sent}, Ошибок: {failed}',
+                    level=messages.SUCCESS if failed == 0 else messages.WARNING
+                )
+                return redirect('admin:core_telegramuser_changelist')
+        else:
+            form = MessageForm()
+        
+        return render(request, 'admin/core/telegramuser/send_message.html', {
+            'form': form,
+            'users': queryset,
+            'title': 'Отправить сообщение пользователям'
+        })
+    send_personal_message_action.short_description = 'Отправить персональное сообщение выбранным пользователям'
+    
+    def mark_as_active(self, request, queryset):
+        """Пометить пользователей как активных."""
+        queryset.update(is_active=True, blocked_bot_at=None)
+        self.message_user(request, f'{queryset.count()} пользователей помечено как активные')
+    mark_as_active.short_description = 'Пометить как активных'
+    
+    def mark_as_inactive(self, request, queryset):
+        """Пометить пользователей как неактивных."""
+        queryset.update(is_active=False)
+        self.message_user(request, f'{queryset.count()} пользователей помечено как неактивные')
+    mark_as_inactive.short_description = 'Пометить как неактивных'
 
 
 class QRCodeScanAttemptInline(admin.TabularInline):
@@ -57,13 +140,13 @@ class QRCodeScanAttemptInline(admin.TabularInline):
 class QRCodeAdmin(admin.ModelAdmin):
     """Админка для QR-кодов (только просмотр)."""
     list_display = [
-        'masked_code', 'code_type', 'points', 'generated_at',
+        'serial_number', 'masked_code', 'code_type', 'points', 'generated_at',
         'scanned_at', 'scanned_by_display', 'is_scanned'
     ]
     list_filter = ['code_type', 'is_scanned', 'generated_at']
-    search_fields = ['code', 'hash_code']
+    search_fields = ['code', 'hash_code', 'serial_number']
     readonly_fields = [
-        'code', 'code_type', 'hash_code', 'image_path',
+        'code', 'code_type', 'hash_code', 'serial_number', 'image_path',
         'points', 'generated_at', 'scanned_at', 'scanned_by', 'is_scanned'
     ]
     ordering = ['-generated_at']
@@ -89,8 +172,12 @@ class QRCodeAdmin(admin.ModelAdmin):
     
     def masked_code(self, obj):
         """Маскирует часть кода для отображения."""
-        if len(obj.code) > 8:
-            return obj.code[:4] + '*' * (len(obj.code) - 8) + obj.code[-4:]
+        if len(obj.code) > 5:
+            # Для коротких кодов: E-ABC123 -> E-AB***3
+            prefix = obj.code[:3]  # E- или D- + первый символ
+            suffix = obj.code[-1]   # Последний символ
+            masked = '*' * max(1, len(obj.code) - 4)
+            return f"{prefix}{masked}{suffix}"
         return obj.code
     masked_code.short_description = 'Штрих-код'
     
@@ -220,6 +307,67 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
                 from django.utils import timezone
                 obj.processed_at = timezone.now()
         super().save_model(request, obj, form, change)
+
+
+@admin.register(BroadcastMessage)
+class BroadcastMessageAdmin(admin.ModelAdmin):
+    """Админка для массовых рассылок."""
+    list_display = [
+        'title', 'status', 'user_type_filter', 'total_users',
+        'sent_count', 'failed_count', 'created_at', 'completed_at'
+    ]
+    list_filter = ['status', 'user_type_filter', 'created_at']
+    search_fields = ['title', 'message_text']
+    readonly_fields = [
+        'status', 'total_users', 'sent_count', 'failed_count',
+        'created_at', 'started_at', 'completed_at'
+    ]
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('title', 'message_text', 'user_type_filter')
+        }),
+        ('Статистика', {
+            'fields': (
+                'status', 'total_users', 'sent_count', 'failed_count',
+                'created_at', 'started_at', 'completed_at'
+            )
+        }),
+    )
+    
+    actions = ['send_broadcast_action']
+    
+    def send_broadcast_action(self, request, queryset):
+        """Действие для отправки рассылки."""
+        import subprocess
+        from django.contrib import messages
+        
+        for broadcast in queryset:
+            if broadcast.status != 'pending':
+                self.message_user(
+                    request,
+                    f'Рассылка "{broadcast.title}" уже была отправлена',
+                    level=messages.WARNING
+                )
+                continue
+            
+            # Запускаем команду отправки в фоне
+            try:
+                subprocess.Popen([
+                    'python', 'manage.py', 'send_broadcast', str(broadcast.id)
+                ])
+                self.message_user(
+                    request,
+                    f'Рассылка "{broadcast.title}" запущена',
+                    level=messages.SUCCESS
+                )
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'Ошибка при запуске рассылки: {e}',
+                    level=messages.ERROR
+                )
+    send_broadcast_action.short_description = 'Отправить выбранные рассылки'
 
 
 # Кастомная админка для дашборда

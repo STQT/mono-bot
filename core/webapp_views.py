@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
+from django.utils import translation
 from .models import TelegramUser, Gift, GiftRedemption
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
@@ -14,7 +15,29 @@ from django.utils import timezone
 
 def webapp_view(request):
     """Главная страница веб-приложения."""
-    return render(request, 'webapp/index.html')
+    # Определяем язык пользователя из initData или параметра
+    user_language = 'uz_latin'  # По умолчанию
+    
+    # Пытаемся получить язык из Telegram initData (передается через JavaScript)
+    # Telegram Web App передает initData через window.Telegram.WebApp.initData
+    # Мы будем получать язык через JavaScript и передавать в контекст
+    
+    # Если передан telegram_id в GET параметрах, получаем язык из БД
+    telegram_id = request.GET.get('telegram_id')
+    if telegram_id:
+        try:
+            user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+            user_language = user.language
+        except (TelegramUser.DoesNotExist, ValueError):
+            pass
+    
+    # Не используем Django i18n для кастомных языков, используем наш template tag
+    # Просто передаем язык в контекст для использования в шаблоне
+    context = {
+        'user_language': user_language,
+    }
+    
+    return render(request, 'webapp/index.html', context)
 
 
 @api_view(['GET'])
@@ -38,6 +61,7 @@ def get_user_data(request):
             'username': user.username,
             'points': user.points,
             'user_type': user.user_type,
+            'language': user.language,
         }
         return Response(serializer)
     except TelegramUser.DoesNotExist:
@@ -45,6 +69,20 @@ def get_user_data(request):
             {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_translations(request):
+    """Получает переводы для Web App на указанном языке."""
+    from bot.translations import TRANSLATIONS
+    
+    language = request.GET.get('lang', 'uz_latin')
+    
+    # Получаем переводы для указанного языка
+    translations = TRANSLATIONS.get(language, TRANSLATIONS.get('uz_latin', {}))
+    
+    return Response(translations)
 
 
 @api_view(['GET'])
@@ -98,8 +136,11 @@ def request_gift(request):
         gift = Gift.objects.get(id=gift_id, is_active=True)
         
         if user.points < gift.points_cost:
+            # Получаем перевод ошибки
+            from bot.translations import get_text
+            error_message = get_text(user, 'INSUFFICIENT_POINTS')
             return Response(
-                {'error': 'Недостаточно баллов'},
+                {'error': error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

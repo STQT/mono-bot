@@ -3,17 +3,18 @@ Core models for the mona project.
 """
 import hashlib
 import secrets
+import string
+import random
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
-from django.contrib.auth.models import User
 
 
 class TelegramUser(models.Model):
     """Модель пользователя Telegram."""
     USER_TYPE_CHOICES = [
-        ('electrician', 'Электрик'),
-        ('seller', 'Продавец'),
+        ('electrician', 'Elektrik'),
+        ('seller', 'Sotuvchi'),
     ]
     
     telegram_id = models.BigIntegerField(unique=True, db_index=True)
@@ -30,12 +31,25 @@ class TelegramUser(models.Model):
         blank=True
     )
     points = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    is_active = models.BooleanField(default=True, verbose_name='Faol', db_index=True)
+    language = models.CharField(
+        max_length=15,
+        choices=[
+            ('uz_latin', 'O\'zbek (Lotin)'),
+            ('uz_cyrillic', 'O\'zbek (Kirill)'),
+            ('ru', 'Русский'),
+        ],
+        default='uz_latin',
+        verbose_name='Til'
+    )
+    last_message_sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Oxirgi xabar yuborilgan vaqt')
+    blocked_bot_at = models.DateTimeField(null=True, blank=True, verbose_name='Botni bloklagan vaqt')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = 'Пользователь Telegram'
-        verbose_name_plural = 'Пользователи Telegram'
+        verbose_name = 'Telegram foydalanuvchi'
+        verbose_name_plural = 'Telegram foydalanuvchilar'
         ordering = ['-created_at']
     
     def __str__(self):
@@ -45,13 +59,14 @@ class TelegramUser(models.Model):
 class QRCode(models.Model):
     """Модель QR-кода (скретч-карты)."""
     CODE_TYPE_CHOICES = [
-        ('electrician', 'Электрик (E-)'),
-        ('seller', 'Продавец (D-)'),
+        ('electrician', 'Elektrik (E-)'),
+        ('seller', 'Sotuvchi (D-)'),
     ]
     
     code = models.CharField(max_length=255, unique=True, db_index=True)
     code_type = models.CharField(max_length=20, choices=CODE_TYPE_CHOICES)
-    hash_code = models.CharField(max_length=64, unique=True, db_index=True)
+    hash_code = models.CharField(max_length=32, unique=True, db_index=True)
+    serial_number = models.CharField(max_length=50, unique=True, db_index=True, verbose_name='Seriya raqami')
     image_path = models.CharField(max_length=500, null=True, blank=True)
     points = models.IntegerField(validators=[MinValueValidator(0)])
     generated_at = models.DateTimeField(auto_now_add=True)
@@ -66,8 +81,8 @@ class QRCode(models.Model):
     is_scanned = models.BooleanField(default=False)
     
     class Meta:
-        verbose_name = 'QR-код'
-        verbose_name_plural = 'QR-коды'
+        verbose_name = 'QR-kod'
+        verbose_name_plural = 'QR-kodlar'
         ordering = ['-generated_at']
         indexes = [
             models.Index(fields=['code']),
@@ -76,16 +91,89 @@ class QRCode(models.Model):
         ]
     
     def __str__(self):
-        masked_code = self.code[:4] + '*' * (len(self.code) - 8) + self.code[-4:] if len(self.code) > 8 else self.code
+        """Маскирует код для отображения (E-ABC123 -> E-AB***3)."""
+        if len(self.code) > 5:
+            # Для коротких кодов показываем первые 3 символа, маскируем середину, последний символ
+            prefix = self.code[:3]  # E- или D- + первый символ
+            suffix = self.code[-1]   # Последний символ
+            masked = '*' * max(1, len(self.code) - 4)
+            masked_code = f"{prefix}{masked}{suffix}"
+        else:
+            masked_code = self.code
         return f"{masked_code} ({self.get_code_type_display()})"
     
     @classmethod
-    def generate_hash(cls):
-        """Генерирует уникальный хеш для QR-кода."""
-        while True:
-            hash_code = secrets.token_hex(16)
+    def generate_hash(cls, length=6):
+        """
+        Генерирует уникальный короткий хеш для QR-кода.
+        
+        Args:
+            length: Длина хеша (минимум 6 символов, по умолчанию 6)
+        
+        Returns:
+            str: Уникальный хеш-код из букв и цифр
+        """
+        # Используем буквы и цифры для более короткого кода
+        characters = string.ascii_uppercase + string.digits
+        
+        # Убираем похожие символы для избежания путаницы (0, O, I, 1)
+        characters = ''.join(c for c in characters if c not in '0O1I')
+        
+        max_attempts = 1000  # Защита от бесконечного цикла
+        attempts = 0
+        
+        while attempts < max_attempts:
+            # Генерируем случайный код заданной длины
+            hash_code = ''.join(random.choice(characters) for _ in range(length))
+            
+            # Проверяем уникальность
             if not cls.objects.filter(hash_code=hash_code).exists():
                 return hash_code
+            
+            attempts += 1
+        
+        # Если не удалось найти уникальный код за 1000 попыток, увеличиваем длину
+        if attempts >= max_attempts:
+            return cls.generate_hash(length + 1)
+    
+    @classmethod
+    def generate_serial_number(cls, code_type):
+        """
+        Генерирует уникальный серийный номер для QR-кода.
+        
+        Args:
+            code_type: Тип кода ('electrician' или 'seller')
+        
+        Returns:
+            str: Уникальный серийный номер
+        """
+        prefix = 'E' if code_type == 'electrician' else 'D'
+        
+        # Получаем последний серийный номер для этого типа
+        last_qr = cls.objects.filter(code_type=code_type).order_by('-id').first()
+        
+        if last_qr and last_qr.serial_number:
+            # Извлекаем номер из последнего серийного номера
+            try:
+                last_num = int(last_qr.serial_number.replace(prefix, ''))
+                new_num = last_num + 1
+            except ValueError:
+                new_num = 1
+        else:
+            new_num = 1
+        
+        # Форматируем с ведущими нулями (например, E000001, D000001)
+        serial_number = f"{prefix}{new_num:06d}"
+        
+        # Проверяем уникальность
+        max_attempts = 1000
+        attempts = 0
+        while cls.objects.filter(serial_number=serial_number).exists() and attempts < max_attempts:
+            new_num += 1
+            serial_number = f"{prefix}{new_num:06d}"
+            attempts += 1
+        
+        return serial_number
     
     @classmethod
     def create_code(cls, code_type, points=None):
@@ -93,6 +181,7 @@ class QRCode(models.Model):
         from django.conf import settings
         
         hash_code = cls.generate_hash()
+        serial_number = cls.generate_serial_number(code_type)
         prefix = 'E-' if code_type == 'electrician' else 'D-'
         code = f"{prefix}{hash_code}"
         
@@ -103,6 +192,7 @@ class QRCode(models.Model):
             code=code,
             code_type=code_type,
             hash_code=hash_code,
+            serial_number=serial_number,
             points=points
         )
 
@@ -123,87 +213,129 @@ class QRCodeScanAttempt(models.Model):
     is_successful = models.BooleanField(default=False)
     
     class Meta:
-        verbose_name = 'Попытка сканирования'
-        verbose_name_plural = 'Попытки сканирования'
+        verbose_name = 'Skanerlash urinishi'
+        verbose_name_plural = 'Skanerlash urinishlari'
         ordering = ['-attempted_at']
         unique_together = [['user', 'qr_code']]
     
     def __str__(self):
-        status = 'Успешно' if self.is_successful else 'Неудачно'
-        return f"{self.user} - {self.qr_code.code[:10]}... - {status}"
+        status = 'Muvaffaqiyatli' if self.is_successful else 'Muvaffaqiyatsiz'
+        # Для коротких кодов показываем полностью или первые символы
+        code_display = self.qr_code.code if len(self.qr_code.code) <= 10 else f"{self.qr_code.code[:10]}..."
+        return f"{self.user} - {code_display} - {status}"
 
 
 class Gift(models.Model):
     """Модель подарка."""
-    name = models.CharField(max_length=255, verbose_name='Название')
-    description = models.TextField(blank=True, verbose_name='Описание')
-    image = models.ImageField(upload_to='gifts/', verbose_name='Изображение')
+    name = models.CharField(max_length=255, verbose_name='Nomi')
+    description = models.TextField(blank=True, verbose_name='Tavsif')
+    image = models.ImageField(upload_to='gifts/', verbose_name='Rasm')
     points_cost = models.IntegerField(
         validators=[MinValueValidator(1)],
-        verbose_name='Стоимость в баллах'
+        verbose_name='Ballar narxi'
     )
-    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = 'Подарок'
-        verbose_name_plural = 'Подарки'
+        verbose_name = 'Sovg\'a'
+        verbose_name_plural = 'Sovg\'alar'
         ordering = ['points_cost', 'name']
     
     def __str__(self):
-        return f"{self.name} ({self.points_cost} баллов)"
+        return f"{self.name} ({self.points_cost} ball)"
 
 
 class GiftRedemption(models.Model):
     """Модель получения подарка пользователем."""
     STATUS_CHOICES = [
-        ('pending', 'Ожидает'),
-        ('approved', 'Одобрено'),
-        ('rejected', 'Отклонено'),
-        ('completed', 'Выполнено'),
+        ('pending', 'Kutilmoqda'),
+        ('approved', 'Tasdiqlandi'),
+        ('rejected', 'Rad etildi'),
+        ('completed', 'Bajarildi'),
     ]
     
     user = models.ForeignKey(
         TelegramUser,
         on_delete=models.CASCADE,
         related_name='gift_redemptions',
-        verbose_name='Пользователь'
+        verbose_name='Foydalanuvchi'
     )
     gift = models.ForeignKey(
         Gift,
         on_delete=models.CASCADE,
         related_name='redemptions',
-        verbose_name='Подарок'
+        verbose_name='Sovg\'a'
     )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default='pending',
-        verbose_name='Статус'
+        verbose_name='Holat'
     )
-    requested_at = models.DateTimeField(auto_now_add=True, verbose_name='Запрошено')
-    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Обработано')
-    admin_notes = models.TextField(blank=True, verbose_name='Заметки администратора')
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name='So\'ralgan vaqt')
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Qayta ishlangan vaqt')
+    admin_notes = models.TextField(blank=True, verbose_name='Administrator eslatmalari')
     delivery_status = models.CharField(
         max_length=20,
         choices=[
-            ('pending', 'Ожидает отправки'),
-            ('sent', 'Отправлено'),
-            ('delivered', 'Доставлено'),
+            ('pending', 'Yuborish kutilmoqda'),
+            ('sent', 'Yuborildi'),
+            ('delivered', 'Yetkazildi'),
         ],
         default='pending',
-        verbose_name='Статус доставки'
+        verbose_name='Yetkazib berish holati'
     )
-    user_confirmed = models.BooleanField(default=False, verbose_name='Подтверждено пользователем')
-    user_comment = models.TextField(blank=True, verbose_name='Комментарий пользователя')
-    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name='Подтверждено')
+    user_confirmed = models.BooleanField(default=False, verbose_name='Foydalanuvchi tomonidan tasdiqlandi')
+    user_comment = models.TextField(blank=True, verbose_name='Foydalanuvchi sharhi')
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name='Tasdiqlangan vaqt')
     
     class Meta:
-        verbose_name = 'Получение подарка'
-        verbose_name_plural = 'Получения подарков'
+        verbose_name = 'Sovg\'a olish'
+        verbose_name_plural = 'Sovg\'a olishlar'
         ordering = ['-requested_at']
     
     def __str__(self):
         return f"{self.user} - {self.gift.name} ({self.get_status_display()})"
+
+
+class BroadcastMessage(models.Model):
+    """Модель для массовых рассылок."""
+    STATUS_CHOICES = [
+        ('pending', 'Yuborish kutilmoqda'),
+        ('sending', 'Yuborilmoqda'),
+        ('completed', 'Yakunlandi'),
+        ('failed', 'Xatolik'),
+    ]
+    
+    title = models.CharField(max_length=255, verbose_name='Yuborish nomi')
+    message_text = models.TextField(verbose_name='Xabar matni')
+    user_type_filter = models.CharField(
+        max_length=20,
+        choices=TelegramUser.USER_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Foydalanuvchi turi bo\'yicha filtr'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Holat'
+    )
+    total_users = models.IntegerField(default=0, verbose_name='Jami foydalanuvchilar')
+    sent_count = models.IntegerField(default=0, verbose_name='Yuborildi')
+    failed_count = models.IntegerField(default=0, verbose_name='Xatolar')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='Yuborish boshlangan')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Yakunlangan')
+    
+    class Meta:
+        verbose_name = 'Yuborish'
+        verbose_name_plural = 'Yuborishlar'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
 
