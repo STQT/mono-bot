@@ -1,0 +1,17 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}
+<div style="background: #417690; padding: 10px; margin-bottom: 20px;">
+    <a href="{% url 'admin:index' %}" style="color: white; margin-right: 20px;">Главная</a>
+    <a href="{% url 'dashboard' %}" style="color: white; margin-right: 20px;">📊 Дашборд</a>
+    <a href="{% url 'admin:core_qrcode_changelist' %}" style="color: white; margin-right: 20px;">QR-коды</a>
+    <a href="{% url 'admin:core_qrcode_generate' %}" style="color: white; margin-right: 20px;">Генерация QR-кодов</a>
+</div>
+{% endblock %}
+

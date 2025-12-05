@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мои подарки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .points-display {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .gift-card {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .gift-card:hover {
+            transform: scale(1.05);
+        }
+
+        .gift-card.available {
+            border-color: var(--tg-theme-button-color, #3390ec);
+        }
+
+        .gift-card.unavailable {
+            opacity: 0.6;
+        }
+
+        .gift-image {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .gift-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .gift-cost {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .redemption-item {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .redemption-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .redemption-gift-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            background: #ffa500;
+            color: white;
+        }
+
+        .status-approved {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-sent {
+            background: #2196f3;
+            color: white;
+        }
+
+        .status-delivered {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-rejected {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-completed {
+            background: #9c27b0;
+            color: white;
+        }
+
+        .delivery-info {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .delivery-status {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.7;
+        }
+
+        .btn-primary {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            border-radius: 8px;
+            margin-top: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .phone-number {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--tg-theme-button-color, #3390ec);
+            text-decoration: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 16px; opacity: 0.9;">Ваши баллы</div>
+            <div class="points-display" id="points">0</div>
+            <div style="font-size: 14px; opacity: 0.8;" id="userName">Загрузка...</div>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <div class="section">
+            <div class="section-title">🎁 Доступные подарки</div>
+            <div class="gifts-grid" id="giftsContainer">
+                <div class="loading">Загрузка подарков...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📦 Мои заказы</div>
+            <div id="redemptionsContainer">
+                <div class="loading">Загрузка заказов...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal для подтверждения -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-title">Подтверждение получения</div>
+            <p>Вы получили заказ?</p>
+            <textarea class="comment-input" id="commentInput" placeholder="Если не получили, укажите причину и просьбу позвонить..."></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-success" onclick="confirmDelivery(true)">Да, получил</button>
+                <button class="btn btn-danger" onclick="confirmDelivery(false)">Нет, не получил</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        let currentUser = null;
+        let currentRedemptionId = null;
+        const API_BASE = '/api/webapp';
+
+        // Получаем данные пользователя из initData
+        async function initApp() {
+            try {
+                const initData = tg.initDataUnsafe;
+                const user = initData.user;
+                
+                if (!user || !user.id) {
+                    showError('Не удалось получить данные пользователя');
+                    return;
+                }
+
+                // Загружаем данные пользователя
+                const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${user.id}`);
+                if (!userResponse.ok) {
+                    throw new Error('Не удалось загрузить данные пользователя');
+                }
+                currentUser = await userResponse.json();
+                
+                document.getElementById('points').textContent = currentUser.points;
+                document.getElementById('userName').textContent = currentUser.first_name || 'Пользователь';
+
+                // Загружаем подарки и заказы
+                await loadGifts();
+                await loadRedemptions();
+            } catch (error) {
+                console.error('Error initializing app:', error);
+                showError('Ошибка загрузки данных: ' + error.message);
+            }
+        }
+
+        async function loadGifts() {
+            try {
+                const response = await fetch(`${API_BASE}/gifts/`);
+                if (!response.ok) throw new Error('Не удалось загрузить подарки');
+                
+                const gifts = await response.json();
+                const container = document.getElementById('giftsContainer');
+                
+                if (gifts.length === 0) {
+                    container.innerHTML = '<div class="loading">Нет доступных подарков</div>';
+                    return;
+                }
+
+                container.innerHTML = gifts.map(gift => {
+                    const canAfford = currentUser.points >= gift.points_cost;
+                    return `
+                        <div class="gift-card ${canAfford ? 'available' : 'unavailable'}" 
+                             onclick="${canAfford ? `requestGift(${gift.id})` : ''}">
+                            <img src="${gift.image}" alt="${gift.name}" class="gift-image" onerror="this.style.display='none'">
+                            <div class="gift-name">${gift.name}</div>
+                            <div class="gift-cost">${gift.points_cost} баллов</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading gifts:', error);
+                document.getElementById('giftsContainer').innerHTML = 
+                    '<div class="error">Ошибка загрузки подарков</div>';
+            }
+        }
+
+        async function loadRedemptions() {
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                if (!response.ok) throw new Error('Не удалось загрузить заказы');
+                
+                const redemptions = await response.json();
+                const container = document.getElementById('redemptionsContainer');
+                
+                if (redemptions.length === 0) {
+                    container.innerHTML = '<div class="loading">У вас пока нет заказов</div>';
+                    return;
+                }
+
+                container.innerHTML = redemptions.map(redemption => {
+                    const statusClass = `status-${redemption.status}`;
+                    const deliveryStatusClass = `status-${redemption.delivery_status}`;
+                    
+                    let deliveryInfo = '';
+                    let confirmSection = '';
+                    
+                    // Показываем статус доставки если заказ одобрен
+                    if (redemption.status === 'approved' || redemption.delivery_status !== 'pending') {
+                        deliveryInfo = `
+                            <div class="delivery-info">
+                                <div class="delivery-status">
+                                    Статус доставки: <span class="status-badge ${deliveryStatusClass}">
+                                        ${getDeliveryStatusText(redemption.delivery_status)}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Показываем кнопки подтверждения если доставлено и не подтверждено
+                    if (redemption.delivery_status === 'delivered' && !redemption.user_confirmed) {
+                        confirmSection = `
+                            <div class="confirm-buttons">
+                                <button class="btn btn-success" onclick="openConfirmModal(${redemption.id})">
+                                    Подтвердить получение
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    // Показываем комментарий если есть
+                    if (redemption.user_comment) {
+                        deliveryInfo += `
+                            <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 8px; font-size: 12px;">
+                                <strong>Ваш комментарий:</strong> ${redemption.user_comment}
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="redemption-item">
+                            <div class="redemption-header">
+                                <div class="redemption-gift-name">${redemption.gift.name}</div>
+                                <span class="status-badge ${statusClass}">${getStatusText(redemption.status)}</span>
+                            </div>
+                            <div style="font-size: 14px; color: var(--tg-theme-hint-color, #999999);">
+                                Запрошено: ${new Date(redemption.requested_at).toLocaleDateString('ru-RU')}
+                            </div>
+                            ${deliveryInfo}
+                            ${confirmSection}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading redemptions:', error);
+                document.getElementById('redemptionsContainer').innerHTML = 
+                    '<div class="error">Ошибка загрузки заказов</div>';
+            }
+        }
+
+        async function requestGift(giftId) {
+            if (!currentUser) return;
+            
+            if (!confirm('Вы уверены, что хотите запросить этот подарок?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/request-gift/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        telegram_id: currentUser.telegram_id,
+                        gift_id: giftId
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка при запросе подарка');
+                }
+
+                const redemption = await response.json();
+                tg.showAlert('Запрос на получение подарка отправлен!');
+                
+                // Обновляем данные
+                await initApp();
+            } catch (error) {
+                console.error('Error requesting gift:', error);
+                tg.showAlert('Ошибка: ' + error.message);
+            }
+        }
+
+        function openConfirmModal(redemptionId) {
+            currentRedemptionId = redemptionId;
+            document.getElementById('confirmModal').classList.add('active');
+            document.getElementById('commentInput').value = '';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+            currentRedemptionId = null;
+        }
+
+        async function confirmDelivery(confirmed) {
+            if (!currentRedemptionId) return;
+
+            const comment = document.getElementById('commentInput').value;
+            
+            // Если не получил, требуем комментарий
+            if (!confirmed && !comment.trim()) {
+                tg.showAlert('Пожалуйста, укажите причину, почему вы не получили заказ');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/confirm-delivery/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        redemption_id: currentRedemptionId,
+                        confirmed: confirmed,
+                        comment: comment
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка при подтверждении');
+                }
+
+                closeModal();
+                
+                if (confirmed) {
+                    tg.showAlert('Спасибо за подтверждение!');
+                } else {
+                    tg.showAlert('Ваш комментарий отправлен. С вами свяжутся.');
+                }
+                
+                // Обновляем заказы
+                await loadRedemptions();
+            } catch (error) {
+                console.error('Error confirming delivery:', error);
+                tg.showAlert('Ошибка: ' + error.message);
+            }
+        }
+
+        function getStatusText(status) {
+            const statuses = {
+                'pending': 'Ожидает',
+                'approved': 'Одобрено',
+                'rejected': 'Отклонено',
+                'completed': 'Выполнено'
+            };
+            return statuses[status] || status;
+        }
+
+        function getDeliveryStatusText(status) {
+            const statuses = {
+                'pending': 'Ожидает отправки',
+                'sent': 'Отправлено',
+                'delivered': 'Доставлено'
+            };
+            return statuses[status] || status;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Инициализация при загрузке
+        initApp();
+    </script>
+</body>
+</html>
+

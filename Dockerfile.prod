@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем requirements
+COPY requirements-prod.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем проект
+COPY . .
+
+# Создаем директории
+RUN mkdir -p /app/media /app/staticfiles
+
+# Собираем статические файлы
+RUN python manage.py collectstatic --noinput || true
+
+# Открываем порты
+EXPOSE 8000 8443
+
+# Команда по умолчанию (переопределяется в docker-compose)
+CMD ["gunicorn", "mona.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+
