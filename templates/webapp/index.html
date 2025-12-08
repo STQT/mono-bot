@@ -13,7 +13,7 @@
     <div class="main-container">
         <!-- Профиль пользователя -->
         <div class="user-header">
-            <div class="user-info">
+            <div class="user-info" onclick="showProfile()" style="cursor: pointer;">
                 <div class="user-avatar" id="userAvatar">👤</div>
                 <div class="user-details">
                     <div class="user-name">
@@ -52,14 +52,15 @@
 
         <!-- Поле ввода QR кода -->
         <div class="qr-input-section">
-            <input type="text" class="qr-input" id="qrInput" placeholder="AB0000" maxlength="10">
+            <input type="text" class="qr-input" id="qrInput" placeholder="{% trans 'WEBAPP_QR_PLACEHOLDER' %}" maxlength="10">
             <button class="register-btn" onclick="registerQRCode()">
                 <svg class="register-icon" width="12" height="18" viewBox="0 0 2 3" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M0.75 0.75V2.08333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span>{% trans "WEBAPP_REGISTER" %}</span>
+                <span class="register-text">{% trans "WEBAPP_REGISTER" %}</span>
             </button>
         </div>
+        <div class="qr-error" id="qrError" style="display: none;"></div>
 
         <!-- Карточка подарков -->
         <div class="gifts-card">
@@ -68,13 +69,13 @@
                 <div class="gifts-title">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
             </div>
             <button class="view-gifts-btn" onclick="showGifts()">
-                <span>{% trans "WEBAPP_VIEW_GIFTS" %}</span>
+                <span class="view-gifts-text">{% trans "WEBAPP_VIEW_GIFTS" %}</span>
                 <span class="gifts-count" id="giftsCount">0</span>
             </button>
         </div>
 
         <!-- Карточка статуса продукта -->
-        <div class="product-status-card" id="productStatusCard" style="display: none;">
+        <div class="product-status-card" id="productStatusCard" style="display: none;" onclick="showProfileGifts()">
             <div class="product-image">
                 <img src="" alt="" id="productImage" onerror="this.style.display='none'">
             </div>
@@ -99,6 +100,121 @@
         <!-- Политика конфиденциальности -->
         <div class="privacy-link">
             <a href="#" onclick="showPrivacy(); return false;">{% trans "WEBAPP_PRIVACY_POLICY" %}</a>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Список подарков -->
+    <div class="screen" id="giftsListScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('home')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_GIFTS_TITLE" %}</h2>
+        </div>
+        <div class="gifts-list-container" id="giftsListContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING_GIFTS" %}</div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Детальная страница подарка -->
+    <div class="screen" id="giftDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('giftsList')">‹</button>
+            <h2 class="screen-title" id="giftDetailTitle">{% trans "WEBAPP_GIFT_NAME" %}</h2>
+            <span class="gift-badge" id="giftDetailBadge" style="display: none;">20</span>
+        </div>
+        <div class="gift-detail-container" id="giftDetailContainer">
+            <!-- Контент будет загружен динамически -->
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Успешное получение подарка -->
+    <div class="screen" id="successScreen" style="display: none;">
+        <div class="success-container">
+            <div class="success-icon">✓</div>
+            <h2 class="success-title">{% trans "WEBAPP_SUCCESS_TITLE" %}</h2>
+            <p class="success-message">{% trans "WEBAPP_SUCCESS_MESSAGE" %}</p>
+            <button class="btn btn-primary" onclick="showScreen('home')">{% trans "WEBAPP_TO_HOME" %}</button>
+            <button class="btn btn-secondary" onclick="contactAdmin()">{% trans "WEBAPP_CONTACT_ADMIN" %}</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Профиль -->
+    <div class="screen" id="profileScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('home')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_PROFILE" %}</h2>
+        </div>
+        <div class="profile-container">
+            <div class="profile-menu">
+                <div class="menu-item" onclick="showLanguageModal()">
+                    <span class="menu-icon">🌐</span>
+                    <span class="menu-text">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</span>
+                    <span class="menu-value" id="currentLanguage">O'zbekcha</span>
+                    <span class="menu-arrow">›</span>
+                </div>
+                <div class="menu-item" onclick="showScreen('profileGifts')">
+                    <span class="menu-icon">🎁</span>
+                    <span class="menu-text">{% trans "WEBAPP_GIFTS" %}</span>
+                    <span class="menu-arrow">›</span>
+                </div>
+                <div class="menu-item" onclick="showScreen('qrHistory')">
+                    <span class="menu-icon">🕐</span>
+                    <span class="menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
+                    <span class="menu-arrow">›</span>
+                </div>
+                <div class="menu-item" onclick="showPrivacy()">
+                    <span class="menu-icon">🔒</span>
+                    <span class="menu-text">{% trans "WEBAPP_PRIVACY_POLICY" %}</span>
+                    <span class="menu-arrow">›</span>
+                </div>
+            </div>
+            <button class="contact-admin-btn" onclick="contactAdmin()">
+                <span class="contact-icon">🎧</span>
+                <span>{% trans "WEBAPP_CONTACT_ADMIN" %}</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Подарки в профиле -->
+    <div class="screen" id="profileGiftsScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_GIFTS" %}</h2>
+        </div>
+        <div class="profile-gifts-container" id="profileGiftsContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING_ORDERS" %}</div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: История QR-кодов -->
+    <div class="screen" id="qrHistoryScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_QR_HISTORY" %}</h2>
+        </div>
+        <div class="qr-history-container" id="qrHistoryContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING_QR_HISTORY" %}</div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: Выбор языка -->
+    <div class="modal" id="languageModal">
+        <div class="modal-content language-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</h3>
+                <button class="modal-close" onclick="closeLanguageModal()">✕</button>
+            </div>
+            <div class="language-options">
+                <div class="language-option" onclick="changeLanguage('uz_latin')">
+                    <span class="language-flag">🇺🇿</span>
+                    <span class="language-name">{% trans "WEBAPP_UZBEK" %}</span>
+                    <span class="language-check" id="checkUzLatin" style="display: none;">✓</span>
+                </div>
+                <div class="language-option" onclick="changeLanguage('ru')">
+                    <span class="language-flag">🇷🇺</span>
+                    <span class="language-name">{% trans "WEBAPP_RUSSIAN" %}</span>
+                    <span class="language-check" id="checkRu" style="display: none;">✓</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -136,6 +252,32 @@
             'WEBAPP_COMMENT_SENT': '{% trans "WEBAPP_COMMENT_SENT" %}',
             'WEBAPP_COMMENT_REQUIRED': '{% trans "WEBAPP_COMMENT_REQUIRED" %}',
             'USER': '{% trans "USER" %}',
+            'WEBAPP_QR_ERROR': '{% trans "WEBAPP_QR_ERROR" %}',
+            'WEBAPP_QR_PLACEHOLDER': '{% trans "WEBAPP_QR_PLACEHOLDER" %}',
+            'WEBAPP_GIFTS_TITLE': '{% trans "WEBAPP_GIFTS_TITLE" %}',
+            'WEBAPP_GIFT_NAME': '{% trans "WEBAPP_GIFT_NAME" %}',
+            'WEBAPP_GET_GIFT': '{% trans "WEBAPP_GET_GIFT" %}',
+            'WEBAPP_NOT_ENOUGH_POINTS': '{% trans "WEBAPP_NOT_ENOUGH_POINTS" %}',
+            'WEBAPP_WAITING_PROCESS': '{% trans "WEBAPP_WAITING_PROCESS" %}',
+            'WEBAPP_SUCCESS_TITLE': '{% trans "WEBAPP_SUCCESS_TITLE" %}',
+            'WEBAPP_SUCCESS_MESSAGE': '{% trans "WEBAPP_SUCCESS_MESSAGE" %}',
+            'WEBAPP_TO_HOME': '{% trans "WEBAPP_TO_HOME" %}',
+            'WEBAPP_PROFILE': '{% trans "WEBAPP_PROFILE" %}',
+            'WEBAPP_INTERFACE_LANGUAGE': '{% trans "WEBAPP_INTERFACE_LANGUAGE" %}',
+            'WEBAPP_GIFTS': '{% trans "WEBAPP_GIFTS" %}',
+            'WEBAPP_QR_HISTORY': '{% trans "WEBAPP_QR_HISTORY" %}',
+            'WEBAPP_UZBEK': '{% trans "WEBAPP_UZBEK" %}',
+            'WEBAPP_RUSSIAN': '{% trans "WEBAPP_RUSSIAN" %}',
+            'WEBAPP_CLOSE': '{% trans "WEBAPP_CLOSE" %}',
+            'WEBAPP_BALL': '{% trans "WEBAPP_BALL" %}',
+            'WEBAPP_LOADING_QR_HISTORY': '{% trans "WEBAPP_LOADING_QR_HISTORY" %}',
+            'WEBAPP_NO_QR_HISTORY': '{% trans "WEBAPP_NO_QR_HISTORY" %}',
+            'WEBAPP_LOADING_GIFTS': '{% trans "WEBAPP_LOADING_GIFTS" %}',
+            'WEBAPP_LOADING_ORDERS': '{% trans "WEBAPP_LOADING_ORDERS" %}',
+            'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
+            'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
+            'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
+            'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
         };
 
         async function loadTranslations(language) {
@@ -272,8 +414,23 @@
 
         function registerQRCode() {
             const qrCode = document.getElementById('qrInput').value.trim();
+            const errorDiv = document.getElementById('qrError');
+            
+            // Очищаем предыдущую ошибку
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            
             if (!qrCode) {
-                tg.showAlert('Введите QR код');
+                errorDiv.textContent = t('WEBAPP_QR_ERROR');
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Валидация формата QR кода (E-XXXXXX или D-XXXXXX)
+            const qrPattern = /^[ED]-\w{6,}$/;
+            if (!qrPattern.test(qrCode)) {
+                errorDiv.textContent = t('WEBAPP_QR_ERROR');
+                errorDiv.style.display = 'block';
                 return;
             }
             
@@ -282,13 +439,307 @@
             if (botUsername) {
                 tg.openTelegramLink(`https://t.me/${botUsername}?start=${qrCode}`);
             } else {
-                tg.showAlert('Bot username not configured');
+                errorDiv.textContent = t('WEBAPP_QR_ERROR');
+                errorDiv.style.display = 'block';
             }
         }
 
         function showGifts() {
-            // Открываем страницу с подарками (можно сделать отдельную страницу или модальное окно)
-            tg.showAlert('Функция просмотра подарков будет реализована');
+            showScreen('giftsList');
+            loadGiftsList();
+        }
+
+        // Система навигации между экранами
+        function showScreen(screenName) {
+            // Скрываем все экраны
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.style.display = 'none';
+            });
+            document.querySelector('.main-container').style.display = screenName === 'home' ? 'flex' : 'none';
+            
+            // Показываем нужный экран
+            if (screenName === 'home') {
+                document.querySelector('.main-container').style.display = 'flex';
+            } else {
+                const screen = document.getElementById(`${screenName}Screen`);
+                if (screen) {
+                    screen.style.display = 'block';
+                }
+            }
+        }
+
+        async function loadGiftsList() {
+            const container = document.getElementById('giftsListContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_GIFTS') + '</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/gifts/`);
+                if (!response.ok) throw new Error();
+                
+                const gifts = await response.json();
+                const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                const redemptions = redemptionsResponse.ok ? await redemptionsResponse.json() : [];
+                
+                if (gifts.length === 0) {
+                    container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_GIFTS') + '</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                gifts.forEach(gift => {
+                    const redemption = redemptions.find(r => r.gift.id === gift.id);
+                    const userPoints = currentUser.points || 0;
+                    const hasEnoughPoints = userPoints >= gift.points_cost;
+                    const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
+                    
+                    const giftCard = document.createElement('div');
+                    giftCard.className = 'gift-card';
+                    giftCard.onclick = () => showGiftDetail(gift.id);
+                    
+                    let statusHtml = '';
+                    if (redemption) {
+                        if (redemption.status === 'pending') {
+                            statusHtml = `<div class="gift-status waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
+                        } else if (redemption.status === 'approved') {
+                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
+                        } else if (redemption.status === 'rejected') {
+                            statusHtml = `<div class="gift-status rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
+                        }
+                    } else if (hasEnoughPoints) {
+                        statusHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">${t('WEBAPP_GET_GIFT')}</button>`;
+                    } else {
+                        statusHtml = `<div class="gift-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        </div>`;
+                    }
+                    
+                    giftCard.innerHTML = `
+                        <img src="${gift.image || '/static/images/gift-box.png'}" alt="${gift.name}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
+                        ${statusHtml}
+                        <div class="gift-card-name">${gift.name}</div>
+                        <div class="gift-card-points">${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                    `;
+                    container.appendChild(giftCard);
+                });
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
+            }
+        }
+
+        async function showGiftDetail(giftId) {
+            showScreen('giftDetail');
+            const container = document.getElementById('giftDetailContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                const giftsResponse = await fetch(`${API_BASE}/gifts/`);
+                const gifts = await giftsResponse.json();
+                const gift = gifts.find(g => g.id === giftId);
+                
+                if (!gift) throw new Error('Gift not found');
+                
+                const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                const redemptions = redemptionsResponse.ok ? await redemptionsResponse.json() : [];
+                const redemption = redemptions.find(r => r.gift.id === gift.id);
+                
+                const userPoints = currentUser.points || 0;
+                const hasEnoughPoints = userPoints >= gift.points_cost;
+                const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
+                
+                document.getElementById('giftDetailTitle').textContent = gift.name;
+                
+                let actionHtml = '';
+                if (redemption) {
+                    if (redemption.status === 'pending') {
+                        actionHtml = `<div class="gift-status-badge waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
+                    } else if (redemption.status === 'approved') {
+                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
+                    } else if (redemption.status === 'rejected') {
+                        actionHtml = `<div class="gift-status-badge rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
+                    }
+                } else if (hasEnoughPoints) {
+                    actionHtml = `<button class="btn btn-primary gift-detail-btn" onclick="requestGift(${gift.id})">
+                        <span class="btn-icon">🔄</span>
+                        ${t('WEBAPP_GET_GIFT')}
+                    </button>`;
+                } else {
+                    actionHtml = `
+                        <div class="gift-progress-detail">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        </div>
+                        <div class="not-enough-points">${t('WEBAPP_NOT_ENOUGH_POINTS')}</div>
+                    `;
+                }
+                
+                container.innerHTML = `
+                    <div class="gift-detail-image">
+                        <img src="${gift.image || '/static/images/gift-box.png'}" alt="${gift.name}" onerror="this.src='/static/images/gift-box.png'">
+                    </div>
+                    <div class="gift-detail-info">
+                        <div class="gift-detail-name">${gift.name}</div>
+                        <div class="gift-detail-points">${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        ${gift.description ? `<div class="gift-detail-description">${gift.description}</div>` : ''}
+                    </div>
+                    ${actionHtml}
+                `;
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
+            }
+        }
+
+        async function requestGift(giftId) {
+            if (!confirm(t('WEBAPP_CONFIRM_REQUEST'))) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/request-gift/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        telegram_id: currentUser.telegram_id,
+                        gift_id: giftId
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || t('WEBAPP_ERROR_REQUESTING_GIFT'));
+                }
+                
+                const redemption = await response.json();
+                currentUser.points = redemption.user.points;
+                document.getElementById('points').textContent = currentUser.points.toLocaleString();
+                showScreen('success');
+            } catch (error) {
+                tg.showAlert(error.message || t('WEBAPP_ERROR_REQUESTING_GIFT'));
+            }
+        }
+
+        async function loadProfileGifts() {
+            const container = document.getElementById('profileGiftsContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_ORDERS') + '</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                if (!response.ok) throw new Error();
+                
+                const redemptions = await response.json();
+                
+                if (redemptions.length === 0) {
+                    container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_ORDERS') + '</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                redemptions.forEach(redemption => {
+                    const card = document.createElement('div');
+                    card.className = 'profile-gift-card';
+                    card.onclick = () => showGiftDetail(redemption.gift.id);
+                    
+                    let statusClass = 'pending';
+                    let statusText = t('WEBAPP_STATUS_PENDING');
+                    if (redemption.status === 'approved') {
+                        statusClass = 'approved';
+                        statusText = t('WEBAPP_STATUS_APPROVED');
+                    } else if (redemption.status === 'rejected') {
+                        statusClass = 'rejected';
+                        statusText = t('WEBAPP_STATUS_REJECTED');
+                    }
+                    
+                    card.innerHTML = `
+                        <img src="${redemption.gift.image || '/static/images/gift-box.png'}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
+                        <div class="profile-gift-info">
+                            <div class="profile-gift-name">${redemption.gift.name}</div>
+                            <div class="profile-gift-status ${statusClass}">${statusText}</div>
+                        </div>
+                        <span class="profile-gift-arrow">›</span>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+            }
+        }
+
+        async function loadQRHistory() {
+            const container = document.getElementById('qrHistoryContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_QR_HISTORY') + '</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/qr-history/?telegram_id=${currentUser.telegram_id}`);
+                if (!response.ok) throw new Error();
+                
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_QR_HISTORY') + '</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                history.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'qr-history-card';
+                    card.innerHTML = `
+                        <div class="qr-history-icon">📱</div>
+                        <div class="qr-history-info">
+                            <div class="qr-history-code">#${item.code}</div>
+                            <div class="qr-history-date">${item.scanned_at}</div>
+                        </div>
+                        <div class="qr-history-points">
+                            <div class="qr-history-points-value">${item.points}</div>
+                            <div class="qr-history-points-label">${t('WEBAPP_BALL')}</div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+            }
+        }
+
+        function showLanguageModal() {
+            document.getElementById('languageModal').classList.add('active');
+            updateLanguageChecks();
+        }
+
+        function closeLanguageModal() {
+            document.getElementById('languageModal').classList.remove('active');
+        }
+
+        function updateLanguageChecks() {
+            document.getElementById('checkUzLatin').style.display = currentUser.language === 'uz_latin' ? 'block' : 'none';
+            document.getElementById('checkRu').style.display = currentUser.language === 'ru' ? 'block' : 'none';
+        }
+
+        async function changeLanguage(language) {
+            // TODO: Отправить запрос на сервер для изменения языка
+            currentUser.language = language;
+            await loadTranslations(language);
+            updateLanguageChecks();
+            closeLanguageModal();
+            // Обновляем текст в меню профиля
+            document.getElementById('currentLanguage').textContent = language === 'uz_latin' ? t('WEBAPP_UZBEK') : t('WEBAPP_RUSSIAN');
+        }
+
+        // Обновляем функции для работы с экранами
+        function showProfile() {
+            showScreen('profile');
+        }
+
+        function showQRHistory() {
+            showScreen('qrHistory');
+            loadQRHistory();
+        }
+
+        function showProfileGifts() {
+            showScreen('profileGifts');
+            loadProfileGifts();
         }
 
         function contactAdmin() {

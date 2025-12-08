@@ -8,7 +8,7 @@ from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
-from .models import TelegramUser, Gift, GiftRedemption
+from .models import TelegramUser, Gift, GiftRedemption, QRCode
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
 
@@ -200,6 +200,44 @@ def confirm_delivery(request):
     except GiftRedemption.DoesNotExist:
         return Response(
             {'error': 'Redemption not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_qr_history(request):
+    """Получает историю отсканированных QR-кодов пользователя."""
+    telegram_id = request.GET.get('telegram_id')
+    
+    if not telegram_id:
+        return Response(
+            {'error': 'telegram_id is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+        # Получаем все отсканированные QR-коды пользователя
+        qr_codes = QRCode.objects.filter(
+            scanned_by=user,
+            is_scanned=True
+        ).order_by('-scanned_at')
+        
+        history = []
+        for qr in qr_codes:
+            history.append({
+                'id': qr.id,
+                'code': qr.code,
+                'points': qr.points,
+                'scanned_at': qr.scanned_at.strftime('%d.%m.%Y') if qr.scanned_at else None,
+                'code_type': qr.get_code_type_display(),
+            })
+        
+        return Response(history)
+    except TelegramUser.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
         )
 
