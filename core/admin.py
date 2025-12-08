@@ -66,9 +66,10 @@ class TelegramUserAdmin(admin.ModelAdmin):
     
     def points_display(self, obj):
         """Отображает баллы с цветом."""
+        points_formatted = f"{obj.points:,}"
         return format_html(
-            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{:,}</span>',
-            obj.points
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
+            points_formatted
         )
     points_display.short_description = 'Баллы'
     points_display.admin_order_field = 'points'
@@ -256,9 +257,10 @@ class QRCodeAdmin(admin.ModelAdmin):
     
     def points_display(self, obj):
         """Отображает баллы."""
+        points_formatted = f"{obj.points:,}"
         return format_html(
             '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
-            obj.points
+            points_formatted
         )
     points_display.short_description = 'Баллы'
     points_display.admin_order_field = 'points'
@@ -392,9 +394,10 @@ class GiftAdmin(admin.ModelAdmin):
     
     def points_cost_display(self, obj):
         """Отображает стоимость с цветом."""
+        points_formatted = f"{obj.points_cost:,}"
         return format_html(
-            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{:,}</span> баллов',
-            obj.points_cost
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span> баллов',
+            points_formatted
         )
     points_cost_display.short_description = 'Стоимость'
     points_cost_display.admin_order_field = 'points_cost'

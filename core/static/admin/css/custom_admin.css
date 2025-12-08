@@ -55,11 +55,11 @@ body {
 }
 
 .nav-item {
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: 8px;
     padding: 14px 20px;
-    color: #555;
+    color: #555 !important;
     text-decoration: none;
     border-bottom: 3px solid transparent;
     transition: all 0.2s ease;
@@ -69,22 +69,28 @@ body {
 
 .nav-item:hover {
     background: #f8f9fa;
-    color: #667eea;
+    color: #667eea !important;
     border-bottom-color: #667eea;
 }
 
 .nav-item.active {
-    color: #667eea;
+    color: #667eea !important;
     background: #f0f4ff;
     border-bottom-color: #667eea;
 }
 
 .nav-icon {
     font-size: 18px;
+    display: inline-block !important;
+    visibility: visible !important;
 }
 
 .nav-text {
     font-size: 14px;
+    display: inline-block !important;
+    visibility: visible !important;
+    color: inherit !important;
+    opacity: 1 !important;
 }
 
 /* Улучшение таблиц */
@@ -375,11 +381,19 @@ fieldset legend {
         width: 100%;
         border-bottom: 1px solid #e0e0e0;
         border-left: 3px solid transparent;
+        color: #555 !important;
     }
     
     .nav-item.active {
         border-left-color: #667eea;
         border-bottom-color: #e0e0e0;
+        color: #667eea !important;
+    }
+    
+    .nav-text {
+        display: inline-block !important;
+        visibility: visible !important;
+        color: inherit !important;
     }
 }
 
