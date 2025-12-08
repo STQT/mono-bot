@@ -15,217 +15,300 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
+            background: #f5f5f5;
+            color: #000000;
             padding: 0;
             margin: 0;
+            position: relative;
         }
 
-        .container {
-            max-width: 100%;
-            padding: 16px;
-            padding-bottom: 80px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 24px;
-            padding: 16px;
-            background: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-
-        .points-display {
-            font-size: 32px;
-            font-weight: bold;
-            margin: 8px 0;
-        }
-
-        .section {
-            margin-bottom: 24px;
-        }
-
-        .section-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 16px;
-            color: var(--tg-theme-text-color, #000000);
-        }
-
-        .gifts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .gift-card {
-            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
+        /* Кнопка назад */
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 16px;
+            background: none;
+            border: none;
+            color: #3390ec;
+            font-size: 16px;
             cursor: pointer;
-            transition: transform 0.2s;
-            border: 2px solid transparent;
+            z-index: 10;
+            padding: 8px;
         }
 
-        .gift-card:hover {
-            transform: scale(1.05);
+        /* Основной белый контейнер */
+        .main-container {
+            position: absolute;
+            width: 375px;
+            max-width: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 79px;
+            background: #FFFFFF;
+            box-shadow: 0px -2px 58px rgba(0, 0, 0, 0.25);
+            border-radius: 19px;
+            padding: 20px 16px;
+            padding-bottom: 100px;
+            min-height: calc(100vh - 79px);
         }
 
-        .gift-card.available {
-            border-color: var(--tg-theme-button-color, #3390ec);
+        /* Карточка с баллами */
+        .points-card {
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .gift-card.unavailable {
-            opacity: 0.6;
+        .points-icon {
+            width: 48px;
+            height: 48px;
+            background: #FFD700;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
         }
 
-        .gift-image {
-            width: 100%;
-            height: 120px;
+        .points-info {
+            flex: 1;
+        }
+
+        .points-label {
+            font-size: 14px;
+            color: #999999;
+            margin-bottom: 4px;
+        }
+
+        .points-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3390ec;
+        }
+
+        .points-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             object-fit: cover;
-            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Баннер карточка */
+        .banner-card {
+            background: linear-gradient(135deg, #3390ec 0%, #1e6bb8 100%);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            min-height: 120px;
+        }
+
+        .banner-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+        }
+
+        .banner-text {
+            flex: 1;
+        }
+
+        .banner-title {
+            font-size: 16px;
+            font-weight: bold;
             margin-bottom: 8px;
         }
 
-        .gift-name {
+        .banner-date {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .banner-image {
+            width: 120px;
+            height: 80px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .banner-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 0, 0, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 3;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .banner-nav-left {
+            left: 8px;
+        }
+
+        .banner-nav-right {
+            right: 8px;
+        }
+
+        /* Карточка с подарками */
+        .gifts-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .gifts-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .gifts-icon {
+            width: 24px;
+            height: 24px;
+            color: #3390ec;
+        }
+
+        .gifts-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #000000;
+            line-height: 1.4;
+        }
+
+        /* Сетка подарков 2x2 */
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .gift-grid-item {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .gift-grid-item:active {
+            transform: scale(0.98);
+        }
+
+        .gift-grid-image {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            background: #f5f5f5;
+        }
+
+        .gift-grid-footer {
+            background: #3390ec;
+            padding: 12px;
+            color: white;
+        }
+
+        .gift-grid-points {
             font-size: 14px;
             font-weight: bold;
             margin-bottom: 4px;
         }
 
-        .gift-cost {
+        .gift-grid-name {
             font-size: 12px;
-            color: var(--tg-theme-hint-color, #999999);
+            opacity: 0.9;
         }
 
-        .redemption-item {
-            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        /* Карточка с информацией о пользователе */
+        .user-info-card {
+            background: white;
             border-radius: 12px;
             padding: 16px;
-            margin-bottom: 12px;
-        }
-
-        .redemption-header {
+            margin-bottom: 16px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            gap: 12px;
         }
 
-        .redemption-gift-name {
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .status-pending {
-            background: #ffa500;
-            color: white;
-        }
-
-        .status-approved {
-            background: #4caf50;
-            color: white;
-        }
-
-        .status-sent {
-            background: #2196f3;
-            color: white;
-        }
-
-        .status-delivered {
-            background: #4caf50;
-            color: white;
-        }
-
-        .status-rejected {
-            background: #f44336;
-            color: white;
-        }
-
-        .status-completed {
-            background: #9c27b0;
-            color: white;
-        }
-
-        .delivery-info {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid var(--tg-theme-hint-color, #e0e0e0);
-        }
-
-        .delivery-status {
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .confirm-buttons {
+        .user-info-icon {
+            width: 40px;
+            height: 40px;
+            background: #3390ec;
+            border-radius: 50%;
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            flex-shrink: 0;
         }
 
-        .btn {
+        .user-info-text {
             flex: 1;
-            padding: 12px;
+        }
+
+        .user-info-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 4px;
+        }
+
+        .user-info-id {
+            font-size: 12px;
+            color: #999999;
+        }
+
+        /* Футер с текстом и кнопкой */
+        .footer-section {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: #666666;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .contact-admin-btn {
+            width: 100%;
+            padding: 14px;
+            background: #3390ec;
+            color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 12px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             transition: opacity 0.2s;
         }
 
-        .btn:active {
+        .contact-admin-btn:active {
             opacity: 0.7;
-        }
-
-        .btn-primary {
-            background: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-        }
-
-        .btn-success {
-            background: #4caf50;
-            color: white;
-        }
-
-        .btn-danger {
-            background: #f44336;
-            color: white;
-        }
-
-        .btn-secondary {
-            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
-            color: var(--tg-theme-text-color, #000000);
-        }
-
-        .comment-input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
-            border-radius: 8px;
-            margin-top: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--tg-theme-hint-color, #999999);
         }
 
         .error {
@@ -236,11 +319,10 @@
             margin-bottom: 16px;
         }
 
-        .phone-number {
-            margin-top: 8px;
-            font-size: 14px;
-            color: var(--tg-theme-button-color, #3390ec);
-            text-decoration: none;
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999999;
         }
 
         .modal {
@@ -261,7 +343,7 @@
         }
 
         .modal-content {
-            background: var(--tg-theme-bg-color, #ffffff);
+            background: white;
             border-radius: 16px;
             padding: 24px;
             max-width: 90%;
@@ -281,57 +363,113 @@
             margin-top: 16px;
         }
 
-        /* Debug panel styles */
-        .debug-panel {
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            padding: 10px;
-            margin: 10px;
-            border: 2px solid #0f0;
-            border-radius: 4px;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
         }
 
-        .debug-panel h3 {
-            color: #0f0;
-            margin: 0 0 10px 0;
-            font-size: 12px;
+        .btn:active {
+            opacity: 0.7;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #000000;
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        @media (max-width: 375px) {
+            .main-container {
+                width: 100%;
+                left: 0;
+                transform: none;
+                border-radius: 19px 19px 0 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 16px; opacity: 0.9;">{% trans "WEBAPP_YOUR_POINTS" %}</div>
-            <div class="points-display" id="points">0</div>
-            <div style="font-size: 14px; opacity: 0.8;" id="userName">{% trans "WEBAPP_LOADING" %}</div>
+    <button class="back-button" onclick="goBack()">{% trans "WEBAPP_BACK" %}</button>
+    
+    <div class="main-container">
+        <!-- Карточка с баллами -->
+        <div class="points-card">
+            <div class="points-icon">⭐</div>
+            <div class="points-info">
+                <div class="points-label">{% trans "WEBAPP_YOUR_POINTS" %}</div>
+                <div class="points-value" id="points">0</div>
+            </div>
+            <img src="" alt="" class="points-avatar" id="userAvatar" style="display: none;" onerror="this.style.display='none'">
         </div>
 
         <div id="errorContainer"></div>
 
-        <!-- Debug Panel -->
-        <div class="debug-panel" id="debugPanel">
-            <h3>🔍 DEBUG INFO</h3>
-            <div id="debugContent">Initializing...</div>
+        <!-- Баннер -->
+        <div class="banner-card" id="bannerCard" style="display: none;">
+            <div class="banner-nav banner-nav-left" onclick="prevBanner()">‹</div>
+            <div class="banner-content">
+                <div class="banner-text">
+                    <div class="banner-title" id="bannerTitle"></div>
+                    <div class="banner-date" id="bannerDate"></div>
+                </div>
+                <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
+            </div>
+            <div class="banner-nav banner-nav-right" onclick="nextBanner()">›</div>
         </div>
 
-        <div class="section">
-            <div class="section-title">{% trans "WEBAPP_AVAILABLE_GIFTS" %}</div>
+        <!-- Карточка с подарками -->
+        <div class="gifts-card">
+            <div class="gifts-header">
+                <svg class="gifts-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/>
+                </svg>
+                <div class="gifts-title">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
+            </div>
             <div class="gifts-grid" id="giftsContainer">
                 <div class="loading">{% trans "WEBAPP_LOADING_GIFTS" %}</div>
             </div>
         </div>
 
-        <div class="section">
-            <div class="section-title">{% trans "WEBAPP_MY_ORDERS" %}</div>
-            <div id="redemptionsContainer">
-                <div class="loading">{% trans "WEBAPP_LOADING_ORDERS" %}</div>
+        <!-- Карточка с информацией о пользователе -->
+        <div class="user-info-card" id="userInfoCard" style="display: none;">
+            <div class="user-info-icon">👤</div>
+            <div class="user-info-text">
+                <div class="user-info-name" id="userName"></div>
+                <div class="user-info-id" id="userId"></div>
             </div>
+        </div>
+
+        <!-- Футер с текстом и кнопкой -->
+        <div class="footer-section">
+            <div class="footer-text">{% trans "WEBAPP_INFO_TEXT" %}</div>
+            <button class="contact-admin-btn" onclick="contactAdmin()">{% trans "WEBAPP_CONTACT_ADMIN" %}</button>
         </div>
     </div>
 
@@ -354,39 +492,15 @@
         tg.ready();
         tg.expand();
 
-        // Debug logging
-        let debugInfo = [];
-        
-        function addDebugInfo(key, value) {
-            debugInfo.push({key: key, value: value, time: new Date().toLocaleTimeString()});
-            updateDebugPanel();
-        }
-
-        function updateDebugPanel() {
-            const panel = document.getElementById('debugContent');
-            if (!panel) return;
-            
-            let html = '';
-            debugInfo.forEach(item => {
-                const valueStr = typeof item.value === 'object' ? JSON.stringify(item.value, null, 2) : String(item.value);
-                html += `<div><strong>[${item.time}] ${item.key}:</strong> ${valueStr}</div>\n`;
-            });
-            panel.innerHTML = html;
-            panel.scrollTop = panel.scrollHeight;
-        }
-
-        // Переводы для JavaScript (загружаются динамически)
+        // Переводы для JavaScript
         let translations = {
-            // Временные переводы по умолчанию (будут заменены после загрузки)
             'WEBAPP_LOADING': '{% trans "WEBAPP_LOADING" %}',
             'WEBAPP_NO_GIFTS': '{% trans "WEBAPP_NO_GIFTS" %}',
-            'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
             'WEBAPP_POINTS': '{% trans "WEBAPP_POINTS" %}',
             'WEBAPP_CONFIRM_REQUEST': '{% trans "WEBAPP_CONFIRM_REQUEST" %}',
             'WEBAPP_REQUEST_SENT': '{% trans "WEBAPP_REQUEST_SENT" %}',
             'WEBAPP_ERROR_LOADING_USER': '{% trans "WEBAPP_ERROR_LOADING_USER" %}',
             'WEBAPP_ERROR_LOADING_GIFTS': '{% trans "WEBAPP_ERROR_LOADING_GIFTS" %}',
-            'WEBAPP_ERROR_LOADING_ORDERS': '{% trans "WEBAPP_ERROR_LOADING_ORDERS" %}',
             'WEBAPP_ERROR_REQUESTING_GIFT': '{% trans "WEBAPP_ERROR_REQUESTING_GIFT" %}',
             'WEBAPP_ERROR_CONFIRMING': '{% trans "WEBAPP_ERROR_CONFIRMING" %}',
             'WEBAPP_THANKS_CONFIRMATION': '{% trans "WEBAPP_THANKS_CONFIRMATION" %}',
@@ -406,37 +520,20 @@
             'USER': '{% trans "USER" %}',
         };
 
-        // Загружает переводы для указанного языка
         async function loadTranslations(language) {
-            addDebugInfo('Loading translations', `Language: ${language}`);
             try {
                 const url = `${API_BASE}/translations/?lang=${language}`;
-                addDebugInfo('Translations URL', url);
-                
                 const response = await fetch(url);
-                addDebugInfo('Translations response', `Status: ${response.status}, OK: ${response.ok}`);
-                
                 if (response.ok) {
                     const data = await response.json();
-                    addDebugInfo('Translations received', `Total keys: ${Object.keys(data).length}`);
-                    
-                    // Обновляем только ключи, которые начинаются с WEBAPP_
-                    let updatedCount = 0;
                     Object.keys(data).forEach(key => {
                         if (key.startsWith('WEBAPP_') || key === 'USER') {
                             translations[key] = data[key];
-                            updatedCount++;
                         }
                     });
-                    addDebugInfo('Translations updated', `Updated ${updatedCount} keys`);
-                    addDebugInfo('Sample translation', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
-                    addDebugInfo('Sample translation', `WEBAPP_AVAILABLE_GIFTS = "${translations['WEBAPP_AVAILABLE_GIFTS']}"`);
-                } else {
-                    const errorText = await response.text();
-                    addDebugInfo('Translations error', `Status: ${response.status}, Text: ${errorText}`);
+                    updatePageTexts();
                 }
             } catch (error) {
-                addDebugInfo('Translations exception', error.message);
                 console.error('Error loading translations:', error);
             }
         }
@@ -455,130 +552,65 @@
         let currentRedemptionId = null;
         const API_BASE = '/api/webapp';
 
-        // Получаем данные пользователя из initData
         async function initApp() {
-            addDebugInfo('=== INIT APP START ===', '');
             try {
-                // Пробуем разные способы получения данных пользователя
-                addDebugInfo('tg object', typeof tg !== 'undefined' ? 'exists' : 'undefined');
-                addDebugInfo('tg.initDataUnsafe', tg.initDataUnsafe ? JSON.stringify(tg.initDataUnsafe, null, 2) : 'null');
-                addDebugInfo('tg.initData', tg.initData ? tg.initData.substring(0, 100) + '...' : 'null');
-                
                 const initData = tg.initDataUnsafe;
                 let user = initData ? initData.user : null;
                 
-                // Если user не найден, пробуем получить из initData строки
                 if (!user && tg.initData) {
-                    addDebugInfo('Trying to parse initData string', '');
                     try {
-                        // Парсим initData (формат: key=value&key2=value2)
                         const params = new URLSearchParams(tg.initData);
                         const userParam = params.get('user');
                         if (userParam) {
                             user = JSON.parse(decodeURIComponent(userParam));
-                            addDebugInfo('User parsed from initData string', JSON.stringify(user, null, 2));
                         }
                     } catch (e) {
-                        addDebugInfo('Error parsing initData string', e.message);
+                        console.error('Error parsing initData:', e);
                     }
                 }
                 
-                // Пробуем получить из query параметров (для тестирования или если initData пустой)
                 const urlParams = new URLSearchParams(window.location.search);
                 const testUserId = urlParams.get('telegram_id');
-                if (testUserId) {
-                    addDebugInfo('Using telegram_id from URL parameter', testUserId);
+                if (testUserId && !user) {
                     user = { id: parseInt(testUserId) };
                 }
                 
-                // Если все еще нет user, пробуем получить из hash или других источников
                 if (!user || !user.id) {
-                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                    const hashUserId = hashParams.get('telegram_id');
-                    if (hashUserId) {
-                        addDebugInfo('Using telegram_id from URL hash', hashUserId);
-                        user = { id: parseInt(hashUserId) };
-                    }
-                }
-                
-                addDebugInfo('Final user object', user ? JSON.stringify(user, null, 2) : 'null');
-                addDebugInfo('Current URL', window.location.href);
-                addDebugInfo('URL params', window.location.search);
-                addDebugInfo('Hash params', window.location.hash);
-                
-                if (!user || !user.id) {
-                    addDebugInfo('ERROR', 'No user found. Web App must be opened from Telegram bot or provide telegram_id parameter.');
-                    addDebugInfo('Available tg properties', Object.keys(tg).join(', '));
-                    
-                    // Показываем инструкцию пользователю
-                    const errorMsg = 'Web App должен быть открыт из Telegram бота.\n\n' +
-                                   'Для тестирования добавьте в URL: ?telegram_id=ВАШ_ID';
-                    showError(errorMsg);
-                    
-                    // Показываем форму для ввода telegram_id вручную (для отладки)
-                    const debugPanel = document.getElementById('debugPanel');
-                    if (debugPanel) {
-                        const manualInput = document.createElement('div');
-                        manualInput.style.marginTop = '10px';
-                        manualInput.style.padding = '10px';
-                        manualInput.style.border = '1px solid #0f0';
-                        manualInput.style.background = '#001100';
-                        manualInput.innerHTML = `
-                            <strong style="color: #0f0;">Ручной ввод telegram_id:</strong><br>
-                            <input type="number" id="manualTelegramId" placeholder="Введите telegram_id" style="padding: 5px; margin: 5px 0; background: #000; color: #0f0; border: 1px solid #0f0; width: 200px;">
-                            <button onclick="loadWithManualId()" style="padding: 5px 10px; margin-left: 5px; background: #0f0; color: #000; border: none; cursor: pointer; font-weight: bold;">Загрузить</button>
-                        `;
-                        debugPanel.appendChild(manualInput);
-                    }
+                    showError('Web App должен быть открыт из Telegram бота.');
                     return;
                 }
 
-                addDebugInfo('Loading user data', `telegram_id: ${user.id}`);
-                
-                // Загружаем данные пользователя
                 const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${user.id}`);
-                addDebugInfo('User API response', `Status: ${userResponse.status}, OK: ${userResponse.ok}`);
-                
                 if (!userResponse.ok) {
                     throw new Error(t('WEBAPP_ERROR_LOADING_USER'));
                 }
                 currentUser = await userResponse.json();
                 
-                addDebugInfo('User loaded', JSON.stringify(currentUser, null, 2));
-                addDebugInfo('User language', currentUser.language || 'NOT SET');
-                addDebugInfo('Current translations count', Object.keys(translations).length);
-                addDebugInfo('Translations before load', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
+                document.getElementById('points').textContent = currentUser.points.toLocaleString();
                 
-                // Загружаем переводы для языка пользователя
-                if (currentUser.language) {
-                    addDebugInfo('Loading translations', `Language: ${currentUser.language}`);
-                    await loadTranslations(currentUser.language);
-                    addDebugInfo('Translations loaded', 'Updating page texts...');
-                    // Обновляем статические тексты на странице
-                    updatePageTexts();
-                    addDebugInfo('Page texts updated', 'DONE');
-                } else {
-                    addDebugInfo('WARNING', 'No language in user data, using default');
+                // Показываем информацию о пользователе
+                const userInfoCard = document.getElementById('userInfoCard');
+                if (currentUser.first_name || currentUser.telegram_id) {
+                    userInfoCard.style.display = 'flex';
+                    document.getElementById('userName').textContent = currentUser.first_name || t('USER');
+                    document.getElementById('userId').textContent = `ID ${currentUser.telegram_id}`;
                 }
                 
-                document.getElementById('points').textContent = currentUser.points;
-                document.getElementById('userName').textContent = currentUser.first_name || t('USER');
+                // Показываем аватар если есть фото пользователя из Telegram
+                if (user.photo_url) {
+                    const avatar = document.getElementById('userAvatar');
+                    avatar.src = user.photo_url;
+                    avatar.style.display = 'block';
+                }
                 
-                addDebugInfo('Displayed points', currentUser.points);
-                addDebugInfo('Displayed name', currentUser.first_name || t('USER'));
-                addDebugInfo('Final translation check', `WEBAPP_YOUR_POINTS = "${translations['WEBAPP_YOUR_POINTS']}"`);
-                addDebugInfo('=== INIT APP END ===', 'SUCCESS');
-
-                // Загружаем подарки и заказы (они используют переводы через функцию t())
+                if (currentUser.language) {
+                    await loadTranslations(currentUser.language);
+                }
+                
                 await loadGifts();
-                await loadRedemptions();
-                
-                addDebugInfo('=== INIT APP END ===', 'SUCCESS');
             } catch (error) {
-                addDebugInfo('ERROR', error.message);
-                addDebugInfo('ERROR STACK', error.stack);
                 console.error('Error initializing app:', error);
-                showError(t('WEBAPP_ERROR', {error: error.message}));
+                showError(t('WEBAPP_ERROR_LOADING_USER'));
             }
         }
 
@@ -595,14 +627,18 @@
                     return;
                 }
 
+                // Сортируем подарки по стоимости (от меньшего к большему)
+                gifts.sort((a, b) => a.points_cost - b.points_cost);
+
                 container.innerHTML = gifts.map(gift => {
                     const canAfford = currentUser.points >= gift.points_cost;
                     return `
-                        <div class="gift-card ${canAfford ? 'available' : 'unavailable'}" 
-                             onclick="${canAfford ? `requestGift(${gift.id})` : ''}">
-                            <img src="${gift.image}" alt="${gift.name}" class="gift-image" onerror="this.style.display='none'">
-                            <div class="gift-name">${gift.name}</div>
-                            <div class="gift-cost">${gift.points_cost} ${t('WEBAPP_POINTS')}</div>
+                        <div class="gift-grid-item" onclick="${canAfford ? `requestGift(${gift.id})` : ''}" style="${!canAfford ? 'opacity: 0.6;' : ''}">
+                            <img src="${gift.image}" alt="${gift.name}" class="gift-grid-image" onerror="this.style.display='none'; this.parentElement.querySelector('.gift-grid-footer').style.borderTop='1px solid #e0e0e0';">
+                            <div class="gift-grid-footer">
+                                <div class="gift-grid-points">${gift.points_cost.toLocaleString()} ${t('WEBAPP_POINTS')}</div>
+                                <div class="gift-grid-name">${gift.name}</div>
+                            </div>
                         </div>
                     `;
                 }).join('');
@@ -610,82 +646,6 @@
                 console.error('Error loading gifts:', error);
                 document.getElementById('giftsContainer').innerHTML = 
                     `<div class="error">${t('WEBAPP_ERROR_LOADING_GIFTS')}</div>`;
-            }
-        }
-
-        async function loadRedemptions() {
-            if (!currentUser) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                if (!response.ok) throw new Error('Не удалось загрузить заказы');
-                
-                const redemptions = await response.json();
-                const container = document.getElementById('redemptionsContainer');
-                
-                if (redemptions.length === 0) {
-                    container.innerHTML = `<div class="loading">${t('WEBAPP_NO_ORDERS')}</div>`;
-                    return;
-                }
-
-                container.innerHTML = redemptions.map(redemption => {
-                    const statusClass = `status-${redemption.status}`;
-                    const deliveryStatusClass = `status-${redemption.delivery_status}`;
-                    
-                    let deliveryInfo = '';
-                    let confirmSection = '';
-                    
-                    // Показываем статус доставки если заказ одобрен
-                    if (redemption.status === 'approved' || redemption.delivery_status !== 'pending') {
-                        deliveryInfo = `
-                            <div class="delivery-info">
-                                <div class="delivery-status">
-                                    ${t('WEBAPP_DELIVERY_STATUS')} <span class="status-badge ${deliveryStatusClass}">
-                                        ${getDeliveryStatusText(redemption.delivery_status)}
-                                    </span>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Показываем кнопки подтверждения если доставлено и не подтверждено
-                    if (redemption.delivery_status === 'delivered' && !redemption.user_confirmed) {
-                        confirmSection = `
-                            <div class="confirm-buttons">
-                                <button class="btn btn-success" onclick="openConfirmModal(${redemption.id})">
-                                    ${t('WEBAPP_CONFIRM_RECEIPT_BUTTON')}
-                                </button>
-                            </div>
-                        `;
-                    }
-                    
-                    // Показываем комментарий если есть
-                    if (redemption.user_comment) {
-                        deliveryInfo += `
-                            <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 8px; font-size: 12px;">
-                                <strong>${t('WEBAPP_YOUR_COMMENT')}</strong> ${redemption.user_comment}
-                            </div>
-                        `;
-                    }
-
-                    return `
-                        <div class="redemption-item">
-                            <div class="redemption-header">
-                                <div class="redemption-gift-name">${redemption.gift.name}</div>
-                                <span class="status-badge ${statusClass}">${getStatusText(redemption.status)}</span>
-                            </div>
-                            <div style="font-size: 14px; color: var(--tg-theme-hint-color, #999999);">
-                                ${t('WEBAPP_REQUESTED')} ${new Date(redemption.requested_at).toLocaleDateString()}
-                            </div>
-                            ${deliveryInfo}
-                            ${confirmSection}
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error('Error loading redemptions:', error);
-                document.getElementById('redemptionsContainer').innerHTML = 
-                    '<div class="error">Ошибка загрузки заказов</div>';
             }
         }
 
@@ -713,158 +673,55 @@
                     throw new Error(error.error || 'Ошибка при запросе подарка');
                 }
 
-                const redemption = await response.json();
                 tg.showAlert(t('WEBAPP_REQUEST_SENT'));
-                
-                // Обновляем данные
                 await initApp();
             } catch (error) {
                 console.error('Error requesting gift:', error);
-                tg.showAlert(t('WEBAPP_ERROR', {error: error.message}));
+                tg.showAlert(error.message);
             }
         }
 
-        function openConfirmModal(redemptionId) {
-            currentRedemptionId = redemptionId;
-            document.getElementById('confirmModal').classList.add('active');
-            document.getElementById('commentInput').value = '';
+        function goBack() {
+            tg.close();
         }
 
-        function closeModal() {
-            document.getElementById('confirmModal').classList.remove('active');
-            currentRedemptionId = null;
-        }
-
-        async function confirmDelivery(confirmed) {
-            if (!currentRedemptionId) return;
-
-            const comment = document.getElementById('commentInput').value;
-            
-            // Если не получил, требуем комментарий
-            if (!confirmed && !comment.trim()) {
-                tg.showAlert(t('WEBAPP_COMMENT_REQUIRED'));
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/confirm-delivery/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        redemption_id: currentRedemptionId,
-                        confirmed: confirmed,
-                        comment: comment
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Ошибка при подтверждении');
-                }
-
-                closeModal();
-                
-                if (confirmed) {
-                    tg.showAlert(t('WEBAPP_THANKS_CONFIRMATION'));
-                } else {
-                    tg.showAlert(t('WEBAPP_COMMENT_SENT'));
-                }
-                
-                // Обновляем заказы
-                await loadRedemptions();
-            } catch (error) {
-                console.error('Error confirming delivery:', error);
-                tg.showAlert(t('WEBAPP_ERROR', {error: error.message}));
+        function contactAdmin() {
+            // Открываем Telegram бота для связи с админом
+            const botUsername = '{{ TELEGRAM_BOT_USERNAME }}';
+            if (botUsername) {
+                tg.openTelegramLink(`https://t.me/${botUsername}`);
+            } else {
+                tg.showAlert('Bot username not configured');
             }
         }
 
-        function getStatusText(status) {
-            const statusMap = {
-                'pending': 'WEBAPP_STATUS_PENDING',
-                'approved': 'WEBAPP_STATUS_APPROVED',
-                'rejected': 'WEBAPP_STATUS_REJECTED',
-                'completed': 'WEBAPP_STATUS_COMPLETED'
-            };
-            return t(statusMap[status] || status);
+        function prevBanner() {
+            // TODO: Реализовать навигацию по баннерам
         }
 
-        function getDeliveryStatusText(status) {
-            const statusMap = {
-                'pending': 'WEBAPP_DELIVERY_PENDING',
-                'sent': 'WEBAPP_DELIVERY_SENT',
-                'delivered': 'WEBAPP_DELIVERY_DELIVERED'
-            };
-            return t(statusMap[status] || status);
+        function nextBanner() {
+            // TODO: Реализовать навигацию по баннерам
         }
 
-        // Функция для обновления статических текстов на странице
         function updatePageTexts() {
-            addDebugInfo('=== UPDATE PAGE TEXTS START ===', '');
-            
-            // Обновляем заголовки секций
-            const sectionTitles = document.querySelectorAll('.section-title');
-            if (sectionTitles.length >= 1) {
-                const oldText = sectionTitles[0].textContent;
-                const newText = t('WEBAPP_AVAILABLE_GIFTS');
-                addDebugInfo('Section title 1', `"${oldText}" -> "${newText}"`);
-                sectionTitles[0].textContent = newText;
-            }
-            if (sectionTitles.length >= 2) {
-                const oldText = sectionTitles[1].textContent;
-                const newText = t('WEBAPP_MY_ORDERS');
-                addDebugInfo('Section title 2', `"${oldText}" -> "${newText}"`);
-                sectionTitles[1].textContent = newText;
+            const giftsTitle = document.querySelector('.gifts-title');
+            if (giftsTitle) {
+                giftsTitle.textContent = t('WEBAPP_PARTNER_TEXT');
             }
             
-            // Обновляем заголовок в header
-            const headerTitle = document.querySelector('.header > div:first-child');
-            if (headerTitle) {
-                const oldText = headerTitle.textContent;
-                const newText = t('WEBAPP_YOUR_POINTS');
-                addDebugInfo('Header title', `"${oldText}" -> "${newText}"`);
-                headerTitle.textContent = newText;
+            const pointsLabel = document.querySelector('.points-label');
+            if (pointsLabel) {
+                pointsLabel.textContent = t('WEBAPP_YOUR_POINTS');
             }
             
-            // Обновляем модальное окно
-            const modalTitle = document.querySelector('.modal-title');
-            if (modalTitle) {
-                const oldText = modalTitle.textContent;
-                const newText = t('WEBAPP_CONFIRM_RECEIPT');
-                addDebugInfo('Modal title', `"${oldText}" -> "${newText}"`);
-                modalTitle.textContent = newText;
+            const footerText = document.querySelector('.footer-text');
+            if (footerText) {
+                footerText.textContent = t('WEBAPP_INFO_TEXT');
             }
             
-            const modalQuestion = document.querySelector('.modal-content p');
-            if (modalQuestion) {
-                const oldText = modalQuestion.textContent;
-                const newText = t('WEBAPP_DID_YOU_RECEIVE');
-                addDebugInfo('Modal question', `"${oldText}" -> "${newText}"`);
-                modalQuestion.textContent = newText;
-            }
-            
-            const commentPlaceholder = document.getElementById('commentInput');
-            if (commentPlaceholder) {
-                const oldText = commentPlaceholder.placeholder;
-                const newText = t('WEBAPP_COMMENT_PLACEHOLDER');
-                addDebugInfo('Comment placeholder', `"${oldText}" -> "${newText}"`);
-                commentPlaceholder.placeholder = newText;
-            }
-            
-            const yesButton = document.querySelector('.btn-success[onclick*="confirmDelivery(true)"]');
-            if (yesButton) {
-                yesButton.textContent = t('WEBAPP_YES_RECEIVED');
-            }
-            
-            const noButton = document.querySelector('.btn-danger[onclick*="confirmDelivery(false)"]');
-            if (noButton) {
-                noButton.textContent = t('WEBAPP_NO_NOT_RECEIVED');
-            }
-            
-            const cancelButton = document.querySelector('.btn-secondary[onclick="closeModal()"]');
-            if (cancelButton) {
-                cancelButton.textContent = t('WEBAPP_CANCEL');
+            const contactBtn = document.querySelector('.contact-admin-btn');
+            if (contactBtn) {
+                contactBtn.textContent = t('WEBAPP_CONTACT_ADMIN');
             }
         }
 
@@ -876,26 +733,7 @@
             }, 5000);
         }
 
-        // Функция для загрузки с ручным вводом telegram_id
-        function loadWithManualId() {
-            const manualId = document.getElementById('manualTelegramId');
-            if (manualId && manualId.value) {
-                const telegramId = parseInt(manualId.value);
-                if (telegramId) {
-                    addDebugInfo('Manual load', `Loading with telegram_id: ${telegramId}`);
-                    // Перезагружаем страницу с параметром
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('telegram_id', telegramId);
-                    window.location.href = url.toString();
-                } else {
-                    addDebugInfo('ERROR', 'Invalid telegram_id');
-                }
-            }
-        }
-
-        // Инициализация при загрузке
         initApp();
     </script>
 </body>
 </html>
-

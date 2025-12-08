@@ -101,6 +101,10 @@ TRANSLATIONS = {
         'WEBAPP_REQUESTED': "So'ralgan:",
         'WEBAPP_YOUR_COMMENT': "Sizning izohingiz:",
         'WEBAPP_CONFIRM_RECEIPT_BUTTON': "Qabul qilishni tasdiqlash",
+        'WEBAPP_BACK': "Orqaga",
+        'WEBAPP_PARTNER_TEXT': "Mono Electric bilan hamkorlik qilib va sovg'alarga erishing",
+        'WEBAPP_CONTACT_ADMIN': "Admin bilan bog'lanish",
+        'WEBAPP_INFO_TEXT': "Sotilgan tovarlar summasi 1 ish kunida yangilanadi. Agar QR kod bilan muammo bo'lsa yoki 3 ish kunida ham o'zgarmagan taqdorda adminga aloqaga chiqing.",
     },
     
     'uz_cyrillic': {
@@ -198,6 +202,10 @@ TRANSLATIONS = {
         'WEBAPP_REQUESTED': "Сўралган:",
         'WEBAPP_YOUR_COMMENT': "Сизнинг изоҳингиз:",
         'WEBAPP_CONFIRM_RECEIPT_BUTTON': "Қабул қилишни тасдиқлаш",
+        'WEBAPP_BACK': "Орқага",
+        'WEBAPP_PARTNER_TEXT': "Mono Electric bilan hamkorlik qilib va sovg'alarga erishing",
+        'WEBAPP_CONTACT_ADMIN': "Admin bilan bog'lanish",
+        'WEBAPP_INFO_TEXT': "Sotilgan tovarlar summasi 1 ish kunida yangilanadi. Agar QR kod bilan muammo bo'lsa yoki 3 ish kunida ham o'zgarmagan taqdorda adminga aloqaga chiqing.",
     },
     
     'ru': {
@@ -295,6 +303,10 @@ TRANSLATIONS = {
         'WEBAPP_REQUESTED': "Запрошено:",
         'WEBAPP_YOUR_COMMENT': "Ваш комментарий:",
         'WEBAPP_CONFIRM_RECEIPT_BUTTON': "Подтвердить получение",
+        'WEBAPP_BACK': "Назад",
+        'WEBAPP_PARTNER_TEXT': "Сотрудничайте с Mono Electric и получайте подарки",
+        'WEBAPP_CONTACT_ADMIN': "Связаться с администратором",
+        'WEBAPP_INFO_TEXT': "Сумма проданных товаров обновляется в течение 1 рабочего дня. Если возникла проблема с QR-кодом или сумма не изменилась в течение 3 рабочих дней, свяжитесь с администратором.",
     },
 }
 

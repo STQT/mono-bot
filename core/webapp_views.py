@@ -35,6 +35,7 @@ def webapp_view(request):
     # Просто передаем язык в контекст для использования в шаблоне
     context = {
         'user_language': user_language,
+        'TELEGRAM_BOT_USERNAME': settings.TELEGRAM_BOT_USERNAME or '',
     }
     
     return render(request, 'webapp/index.html', context)
