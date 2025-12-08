@@ -206,6 +206,9 @@ TRANSLATIONS = {
         'WEBAPP_PARTNER_TEXT': "Mono Electric bilan hamkorlik qilib va sovg'alarga erishing",
         'WEBAPP_CONTACT_ADMIN': "Admin bilan bog'lanish",
         'WEBAPP_INFO_TEXT': "Sotilgan tovarlar summasi 1 ish kunida yangilanadi. Agar QR kod bilan muammo bo'lsa yoki 3 ish kunida ham o'zgarmagan taqdorda adminga aloqaga chiqing.",
+        'WEBAPP_REGISTER': "Ro'yxatdan o'tkazish",
+        'WEBAPP_VIEW_GIFTS': "Sovg'alarni ko'rish",
+        'WEBAPP_PRIVACY_POLICY': "Maxfiylik siyosati",
     },
     
     'ru': {
@@ -307,6 +310,9 @@ TRANSLATIONS = {
         'WEBAPP_PARTNER_TEXT': "Сотрудничайте с Mono Electric и получайте подарки",
         'WEBAPP_CONTACT_ADMIN': "Связаться с администратором",
         'WEBAPP_INFO_TEXT': "Сумма проданных товаров обновляется в течение 1 рабочего дня. Если возникла проблема с QR-кодом или сумма не изменилась в течение 3 рабочих дней, свяжитесь с администратором.",
+        'WEBAPP_REGISTER': "Зарегистрировать",
+        'WEBAPP_VIEW_GIFTS': "Посмотреть подарки",
+        'WEBAPP_PRIVACY_POLICY': "Политика конфиденциальности",
     },
 }
 
