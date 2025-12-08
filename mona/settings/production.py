@@ -76,12 +76,8 @@ LOGGING = {
 # Создаем директорию для логов если её нет
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 
-# WhiteNoise настройки для production
-# WhiteNoise автоматически сжимает и кеширует статические файлы
-# STATICFILES_STORAGE уже настроен в base.py как CompressedStaticFilesStorage
-# WhiteNoise middleware уже добавлен в base.py после SecurityMiddleware
-
-# Дополнительные настройки WhiteNoise для production
-WHITENOISE_USE_FINDERS = False  # Не использовать finders в production (только из STATIC_ROOT)
-WHITENOISE_AUTOREFRESH = False  # Не проверять изменения файлов в production (только при collectstatic)
+# Статические файлы в production отдаются через nginx контейнер, а не через Django/WhiteNoise
+# Это более эффективно с точки зрения производительности
+# WhiteNoise middleware отключен в production - статика обрабатывается nginx контейнером
+MIDDLEWARE = [m for m in MIDDLEWARE if m != 'whitenoise.middleware.WhiteNoiseMiddleware']
 
