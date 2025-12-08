@@ -9,6 +9,12 @@ DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
 
+# WhiteNoise настройки для разработки
+# В разработке используем более простой storage без манифеста
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+WHITENOISE_USE_FINDERS = True  # Использовать finders в разработке для автоматического обновления
+WHITENOISE_AUTOREFRESH = True  # Автоматически обновлять при изменениях в разработке
+
 # Дополнительные настройки для разработки
 # Можно добавить debug_toolbar если нужно:
 # if DEBUG:

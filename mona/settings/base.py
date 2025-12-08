@@ -135,7 +135,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # WhiteNoise configuration для статических файлов
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Используем CompressedStaticFilesStorage вместо CompressedManifestStaticFilesStorage
+# для более надежной работы (manifest может вызывать проблемы если не собран правильно)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
