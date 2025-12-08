@@ -58,6 +58,7 @@ services:
       - DB_PORT=5432
       # - MONGODB_HOST=mongodb
       - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.production}
     restart: unless-stopped
 
   bot-webhook:
@@ -80,6 +81,7 @@ services:
       - DB_PORT=5432
       # - MONGODB_HOST=mongodb
       - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.production}
     restart: unless-stopped
 
   nginx:

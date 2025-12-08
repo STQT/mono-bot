@@ -9,7 +9,7 @@ import logging
 from aiohttp import web
 
 # Настройка Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mona.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.environ.get('DJANGO_SETTINGS_MODULE', 'mona.settings.production'))
 django.setup()
 
 from django.conf import settings
