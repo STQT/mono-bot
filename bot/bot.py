@@ -64,6 +64,22 @@ def start_bot():
     loop.run_until_complete(run())
 
 
+def get_web_app_url():
+    """Получает URL для Web App на основе настроек."""
+    # Приоритет 1: Явно указанный WEB_APP_URL (для тестирования через ngrok)
+    if settings.WEB_APP_URL and settings.WEB_APP_URL.startswith('https://'):
+        return f"{settings.WEB_APP_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 2: WEBHOOK_URL (production)
+    elif settings.WEBHOOK_URL and settings.WEBHOOK_URL.startswith('https://'):
+        return f"{settings.WEBHOOK_URL.rstrip('/')}/api/webapp/"
+    # Приоритет 3: ALLOWED_HOSTS в production
+    elif not settings.DEBUG and settings.ALLOWED_HOSTS:
+        domain = settings.ALLOWED_HOSTS[0]
+        if domain and domain != 'localhost':
+            return f"https://{domain}/api/webapp/"
+    return None
+
+
 @sync_to_async
 def get_or_create_user(telegram_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получает или создает пользователя Telegram."""
@@ -261,35 +277,13 @@ async def show_main_menu(message: Message, user: TelegramUser):
     
     points = await get_user_points()
     
-    # Создаем кнопку для Web App только если есть HTTPS URL
+    # Создаем reply keyboard кнопки
     keyboard_buttons = []
     
-    from django.conf import settings
-    
     # Определяем URL для Web App
-    web_app_url = None
+    web_app_url = get_web_app_url()
     
-    # Приоритет 1: Явно указанный WEB_APP_URL (для тестирования через ngrok)
-    if settings.WEB_APP_URL and settings.WEB_APP_URL.startswith('https://'):
-        web_app_url = f"{settings.WEB_APP_URL.rstrip('/')}/api/webapp/"
-    # Приоритет 2: WEBHOOK_URL (production)
-    elif settings.WEBHOOK_URL and settings.WEBHOOK_URL.startswith('https://'):
-        web_app_url = f"{settings.WEBHOOK_URL.rstrip('/')}/api/webapp/"
-    # Приоритет 3: ALLOWED_HOSTS в production
-    elif not settings.DEBUG and settings.ALLOWED_HOSTS:
-        domain = settings.ALLOWED_HOSTS[0]
-        if domain and domain != 'localhost':
-            web_app_url = f"https://{domain}/api/webapp/"
-    
-    # Добавляем кнопку Web App только если есть валидный HTTPS URL
-    if web_app_url:
-        try:
-            web_app_button = types.WebAppInfo(url=web_app_url)
-            keyboard_buttons.append([types.KeyboardButton(text=get_text(user, 'MY_GIFTS'), web_app=web_app_button)])
-        except Exception as e:
-            logger.warning(f"Не удалось создать Web App кнопку: {e}")
-    
-    # Добавляем остальные кнопки
+    # Добавляем остальные кнопки (без Web App кнопки в reply keyboard)
     keyboard_buttons.extend([
         [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
         [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
@@ -301,10 +295,31 @@ async def show_main_menu(message: Message, user: TelegramUser):
         resize_keyboard=True
     )
     
+    # Создаем inline кнопку для Web App
+    inline_keyboard = None
+    if web_app_url:
+        try:
+            web_app_button = types.InlineKeyboardButton(
+                text=get_text(user, 'MY_GIFTS'),
+                web_app=types.WebAppInfo(url=web_app_url)
+            )
+            inline_keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[[web_app_button]]
+            )
+        except Exception as e:
+            logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
+    
     await message.answer(
         get_text(user, 'MAIN_MENU', points=points),
         reply_markup=keyboard
     )
+    
+    # Отправляем отдельное сообщение с inline кнопкой для Web App
+    if inline_keyboard:
+        await message.answer(
+            get_text(user, 'OPEN_WEB_APP'),
+            reply_markup=inline_keyboard
+        )
 
 
 @dp.message()
@@ -548,35 +563,13 @@ async def change_language(callback: CallbackQuery):
     
     points = await get_user_points()
     
-    # Создаем кнопку для Web App только если есть HTTPS URL
+    # Создаем reply keyboard кнопки
     keyboard_buttons = []
     
-    from django.conf import settings
-    
     # Определяем URL для Web App
-    web_app_url = None
+    web_app_url = get_web_app_url()
     
-    # Приоритет 1: Явно указанный WEB_APP_URL (для тестирования через ngrok)
-    if settings.WEB_APP_URL and settings.WEB_APP_URL.startswith('https://'):
-        web_app_url = f"{settings.WEB_APP_URL.rstrip('/')}/api/webapp/"
-    # Приоритет 2: WEBHOOK_URL (production)
-    elif settings.WEBHOOK_URL and settings.WEBHOOK_URL.startswith('https://'):
-        web_app_url = f"{settings.WEBHOOK_URL.rstrip('/')}/api/webapp/"
-    # Приоритет 3: ALLOWED_HOSTS в production
-    elif not settings.DEBUG and settings.ALLOWED_HOSTS:
-        domain = settings.ALLOWED_HOSTS[0]
-        if domain and domain != 'localhost':
-            web_app_url = f"https://{domain}/api/webapp/"
-    
-    # Добавляем кнопку Web App только если есть валидный HTTPS URL
-    if web_app_url:
-        try:
-            web_app_button = types.WebAppInfo(url=web_app_url)
-            keyboard_buttons.append([types.KeyboardButton(text=get_text(user, 'MY_GIFTS'), web_app=web_app_button)])
-        except Exception as e:
-            logger.warning(f"Не удалось создать Web App кнопку: {e}")
-    
-    # Добавляем остальные кнопки
+    # Добавляем остальные кнопки (без Web App кнопки в reply keyboard)
     keyboard_buttons.extend([
         [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
         [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
@@ -588,12 +581,34 @@ async def change_language(callback: CallbackQuery):
         resize_keyboard=True
     )
     
+    # Создаем inline кнопку для Web App
+    inline_keyboard = None
+    if web_app_url:
+        try:
+            web_app_button = types.InlineKeyboardButton(
+                text=get_text(user, 'MY_GIFTS'),
+                web_app=types.WebAppInfo(url=web_app_url)
+            )
+            inline_keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[[web_app_button]]
+            )
+        except Exception as e:
+            logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
+    
     # Отправляем сообщение через бота напрямую, чтобы обновить клавиатуру
     await bot.send_message(
         chat_id=callback.from_user.id,
         text=get_text(user, 'MAIN_MENU', points=points),
         reply_markup=keyboard
     )
+    
+    # Отправляем отдельное сообщение с inline кнопкой для Web App
+    if inline_keyboard:
+        await bot.send_message(
+            chat_id=callback.from_user.id,
+            text=get_text(user, 'OPEN_WEB_APP'),
+            reply_markup=inline_keyboard
+        )
 
 
 async def handle_unknown_message(message: Message):

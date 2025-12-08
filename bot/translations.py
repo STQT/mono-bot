@@ -26,6 +26,7 @@ TRANSLATIONS = {
         # Главное меню
         'MAIN_MENU': "👋 Asosiy menyu\n\n💰 Balansingiz: {points} ball\n\nHarakatni tanlang:",
         'MY_GIFTS': "📱 Mening sovg'alarim",
+        'OPEN_WEB_APP': "📱 Web ilovani ochish uchun quyidagi tugmani bosing:",
         'GIFTS': "🎁 Sovg'alar",
         'MY_BALANCE': "📊 Mening balansim",
         'TOP_LEADERS': "🏆 TOP yetakchilar",
@@ -122,6 +123,7 @@ TRANSLATIONS = {
         # Главное меню
         'MAIN_MENU': "👋 Асосий меню\n\n💰 Балансингиз: {points} балл\n\nҲаракатни танланг:",
         'MY_GIFTS': "📱 Менинг совғаларим",
+        'OPEN_WEB_APP': "📱 Web иловани очиш учун қуйидаги tugmani босинг:",
         'GIFTS': "🎁 Совғалар",
         'MY_BALANCE': "📊 Менинг балансим",
         'TOP_LEADERS': "🏆 TOP етакчилар",
@@ -218,6 +220,7 @@ TRANSLATIONS = {
         # Главное меню
         'MAIN_MENU': "👋 Главное меню\n\n💰 Ваш баланс: {points} баллов\n\nВыберите действие:",
         'MY_GIFTS': "📱 Мои подарки",
+        'OPEN_WEB_APP': "📱 Нажмите кнопку ниже, чтобы открыть веб-приложение:",
         'GIFTS': "🎁 Подарки",
         'MY_BALANCE': "📊 Мой баланс",
         'TOP_LEADERS': "🏆 ТОП лидеры",
