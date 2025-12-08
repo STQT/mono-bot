@@ -134,6 +134,11 @@ USE_L10N = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Additional locations of static files
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'core', 'static'),
+]
+
 # WhiteNoise configuration для статических файлов
 # Используем CompressedStaticFilesStorage вместо CompressedManifestStaticFilesStorage
 # для более надежной работы (manifest может вызывать проблемы если не собран правильно)

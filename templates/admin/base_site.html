@@ -1,17 +1,71 @@
 {% extends "admin/base.html" %}
+{% load static %}
 
 {% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
-{% block branding %}
-<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/custom_admin.css' %}">
 {% endblock %}
 
-{% block nav-global %}
-<div style="background: #417690; padding: 10px; margin-bottom: 20px;">
-    <a href="{% url 'admin:index' %}" style="color: white; margin-right: 20px;">Главная</a>
-    <a href="{% url 'dashboard' %}" style="color: white; margin-right: 20px;">📊 Дашборд</a>
-    <a href="{% url 'admin:core_qrcode_changelist' %}" style="color: white; margin-right: 20px;">QR-коды</a>
-    <a href="{% url 'admin:core_qrcode_generate' %}" style="color: white; margin-right: 20px;">Генерация QR-кодов</a>
+{% block branding %}
+<div class="site-branding">
+    <h1 id="site-name">
+        <a href="{% url 'admin:index' %}">
+            <span class="brand-icon">⚡</span>
+            <span class="brand-text">{{ site_header|default:_('Django administration') }}</span>
+        </a>
+    </h1>
 </div>
 {% endblock %}
 
+{% block nav-global %}
+<nav class="admin-nav">
+    <div class="nav-container">
+        <a href="{% url 'admin:index' %}" class="nav-item {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-text">Главная</span>
+        </a>
+        <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Дашборд</span>
+        </a>
+        <a href="{% url 'admin:core_telegramuser_changelist' %}" class="nav-item {% if 'telegramuser' in request.path %}active{% endif %}">
+            <span class="nav-icon">👥</span>
+            <span class="nav-text">Пользователи</span>
+        </a>
+        <a href="{% url 'admin:core_qrcode_changelist' %}" class="nav-item {% if 'qrcode' in request.path %}active{% endif %}">
+            <span class="nav-icon">📱</span>
+            <span class="nav-text">QR-коды</span>
+        </a>
+        <a href="{% url 'admin:core_qrcode_generate' %}" class="nav-item {% if 'generate' in request.path %}active{% endif %}">
+            <span class="nav-icon">➕</span>
+            <span class="nav-text">Генерация QR</span>
+        </a>
+        <a href="{% url 'admin:core_gift_changelist' %}" class="nav-item {% if 'gift' in request.path and 'redemption' not in request.path %}active{% endif %}">
+            <span class="nav-icon">🎁</span>
+            <span class="nav-text">Подарки</span>
+        </a>
+        <a href="{% url 'admin:core_giftredemption_changelist' %}" class="nav-item {% if 'redemption' in request.path %}active{% endif %}">
+            <span class="nav-icon">📦</span>
+            <span class="nav-text">Заказы</span>
+        </a>
+        <a href="{% url 'admin:core_broadcastmessage_changelist' %}" class="nav-item {% if 'broadcast' in request.path %}active{% endif %}">
+            <span class="nav-icon">📢</span>
+            <span class="nav-text">Рассылки</span>
+        </a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block footer %}
+<div class="admin-footer">
+    <div class="footer-content">
+        <p>&copy; {% now "Y" %} Mona Admin Panel. Все права защищены.</p>
+        <p class="footer-links">
+            <a href="{% url 'admin:index' %}">Главная</a> |
+            <a href="{% url 'dashboard' %}">Дашборд</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -21,8 +21,8 @@ from .utils import generate_qr_code_image, generate_qr_codes_batch
 class TelegramUserAdmin(admin.ModelAdmin):
     """Админка для пользователей Telegram."""
     list_display = [
-        'telegram_id', 'first_name', 'username', 'phone_number',
-        'user_type', 'points', 'language', 'is_active', 'created_at'
+        'user_display', 'phone_number', 'user_type_badge', 
+        'points_display', 'language_badge', 'status_badge', 'created_at'
     ]
     list_filter = ['user_type', 'is_active', 'language', 'created_at']
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
@@ -32,6 +32,78 @@ class TelegramUserAdmin(admin.ModelAdmin):
     ]
     ordering = ['-points', '-created_at']
     actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive']
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+    
+    def user_display(self, obj):
+        """Отображает пользователя с иконкой и ссылкой."""
+        icon = "⚡" if obj.user_type == 'electrician' else "🛒"
+        name = obj.first_name or "Пользователь"
+        username = f"@{obj.username}" if obj.username else ""
+        return format_html(
+            '<span style="font-size: 18px;">{}</span> <strong>{}</strong> <span style="color: #718096;">{}</span><br>'
+            '<span style="color: #718096; font-size: 12px;">ID: {}</span>',
+            icon, name, username, obj.telegram_id
+        )
+    user_display.short_description = 'Пользователь'
+    user_display.admin_order_field = 'first_name'
+    
+    def user_type_badge(self, obj):
+        """Отображает тип пользователя с цветным badge."""
+        if obj.user_type == 'electrician':
+            return format_html(
+                '<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⚡ Elektrik</span>'
+            )
+        elif obj.user_type == 'seller':
+            return format_html(
+                '<span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">🛒 Sotuvchi</span>'
+            )
+        return '-'
+    user_type_badge.short_description = 'Тип'
+    user_type_badge.admin_order_field = 'user_type'
+    
+    def points_display(self, obj):
+        """Отображает баллы с цветом."""
+        return format_html(
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{:,}</span>',
+            obj.points
+        )
+    points_display.short_description = 'Баллы'
+    points_display.admin_order_field = 'points'
+    
+    def language_badge(self, obj):
+        """Отображает язык с цветным badge."""
+        colors = {
+            'uz_latin': ('#dbeafe', '#1e40af', '🇺🇿'),
+            'uz_cyrillic': ('#fef3c7', '#92400e', '🇺🇿'),
+            'ru': ('#fee2e2', '#991b1b', '🇷🇺'),
+        }
+        bg, text, flag = colors.get(obj.language, ('#f3f4f6', '#374151', '🌐'))
+        label = dict(obj._meta.get_field('language').choices).get(obj.language, obj.language)
+        return format_html(
+            '<span style="background: {}; color: {}; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">{} {}</span>',
+            bg, text, flag, label.split('(')[0].strip()
+        )
+    language_badge.short_description = 'Язык'
+    language_badge.admin_order_field = 'language'
+    
+    def status_badge(self, obj):
+        """Отображает статус активности."""
+        if obj.is_active:
+            return format_html(
+                '<span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">✅ Активен</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #f8d7da; color: #721c24; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">❌ Неактивен</span>'
+            )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'is_active'
     
     fieldsets = (
         ('Основная информация', {
@@ -140,8 +212,8 @@ class QRCodeScanAttemptInline(admin.TabularInline):
 class QRCodeAdmin(admin.ModelAdmin):
     """Админка для QR-кодов (только просмотр)."""
     list_display = [
-        'serial_number', 'masked_code', 'code_type', 'points', 'generated_at',
-        'scanned_at', 'scanned_by_display', 'is_scanned'
+        'qr_display', 'code_type_badge', 'points_display', 
+        'status_badge', 'scanned_by_display', 'generated_at'
     ]
     list_filter = ['code_type', 'is_scanned', 'generated_at']
     search_fields = ['code', 'hash_code', 'serial_number']
@@ -151,6 +223,60 @@ class QRCodeAdmin(admin.ModelAdmin):
     ]
     ordering = ['-generated_at']
     inlines = [QRCodeScanAttemptInline]
+    list_per_page = 50
+    date_hierarchy = 'generated_at'
+    
+    def qr_display(self, obj):
+        """Отображает QR-код с серийным номером."""
+        return format_html(
+            '<div style="line-height: 1.6;">'
+            '<strong style="font-size: 16px;">📱 #{}</strong><br>'
+            '<span style="color: #718096; font-size: 12px; font-family: monospace;">{}</span>',
+            obj.serial_number,
+            self.masked_code(obj)
+        )
+    qr_display.short_description = 'QR-код'
+    qr_display.admin_order_field = 'serial_number'
+    
+    def code_type_badge(self, obj):
+        """Отображает тип кода."""
+        if obj.code_type == 'electrician':
+            return format_html(
+                '<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⚡ E-</span>'
+            )
+        elif obj.code_type == 'seller':
+            return format_html(
+                '<span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">🛒 D-</span>'
+            )
+        return '-'
+    code_type_badge.short_description = 'Тип'
+    code_type_badge.admin_order_field = 'code_type'
+    
+    def points_display(self, obj):
+        """Отображает баллы."""
+        return format_html(
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
+            obj.points
+        )
+    points_display.short_description = 'Баллы'
+    points_display.admin_order_field = 'points'
+    
+    def status_badge(self, obj):
+        """Отображает статус сканирования."""
+        if obj.is_scanned:
+            return format_html(
+                '<span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">✅ Использован</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⏳ Не использован</span>'
+            )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'is_scanned'
     
     def changelist_view(self, request, extra_context=None):
         """Добавляет кнопку для генерации QR-кодов."""
@@ -249,10 +375,54 @@ class QRCodeAdmin(admin.ModelAdmin):
 @admin.register(Gift)
 class GiftAdmin(admin.ModelAdmin):
     """Админка для подарков."""
-    list_display = ['name', 'points_cost', 'image_preview', 'is_active', 'created_at']
+    list_display = ['gift_display', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['name', 'description']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
+    list_per_page = 25
+    
+    def gift_display(self, obj):
+        """Отображает подарок с иконкой."""
+        return format_html(
+            '<span style="font-size: 20px;">🎁</span> <strong style="font-size: 16px;">{}</strong>',
+            obj.name
+        )
+    gift_display.short_description = 'Подарок'
+    gift_display.admin_order_field = 'name'
+    
+    def points_cost_display(self, obj):
+        """Отображает стоимость с цветом."""
+        return format_html(
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{:,}</span> баллов',
+            obj.points_cost
+        )
+    points_cost_display.short_description = 'Стоимость'
+    points_cost_display.admin_order_field = 'points_cost'
+    
+    def status_badge(self, obj):
+        """Отображает статус активности."""
+        if obj.is_active:
+            return format_html(
+                '<span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">✅ Активен</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #f8d7da; color: #721c24; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">❌ Неактивен</span>'
+            )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'is_active'
+    
+    def image_preview(self, obj):
+        """Превью изображения подарка."""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height: 100px; max-width: 100px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />',
+                obj.image.url
+            )
+        return '-'
+    image_preview.short_description = 'Превью'
     
     fieldsets = (
         ('Основная информация', {
@@ -265,28 +435,86 @@ class GiftAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
-    
-    def image_preview(self, obj):
-        """Превью изображения подарка."""
-        if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 100px; max-width: 100px;" />',
-                obj.image.url
-            )
-        return '-'
-    image_preview.short_description = 'Превью'
 
 
 @admin.register(GiftRedemption)
 class GiftRedemptionAdmin(admin.ModelAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
-        'user', 'gift', 'status', 'delivery_status', 'user_confirmed',
-        'requested_at', 'processed_at'
+        'redemption_display', 'status_badge', 'delivery_status_badge', 
+        'user_confirmed_badge', 'requested_at', 'processed_at'
     ]
     list_filter = ['status', 'delivery_status', 'user_confirmed', 'requested_at']
     search_fields = ['user__username', 'user__first_name', 'gift__name']
     readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
+    list_per_page = 50
+    date_hierarchy = 'requested_at'
+    
+    def redemption_display(self, obj):
+        """Отображает информацию о заказе."""
+        return format_html(
+            '<div style="line-height: 1.6;">'
+            '<strong style="font-size: 16px;">🎁 {}</strong><br>'
+            '<span style="color: #718096; font-size: 14px;">👤 {}</span>',
+            obj.gift.name,
+            obj.user.first_name or f"ID: {obj.user.telegram_id}"
+        )
+    redemption_display.short_description = 'Заказ'
+    redemption_display.admin_order_field = 'gift__name'
+    
+    def status_badge(self, obj):
+        """Отображает статус заказа."""
+        colors = {
+            'pending': ('#fff3cd', '#856404', '⏳'),
+            'approved': ('#d4edda', '#155724', '✅'),
+            'rejected': ('#f8d7da', '#721c24', '❌'),
+            'completed': ('#d1ecf1', '#0c5460', '✔️'),
+        }
+        bg, text, icon = colors.get(obj.status, ('#f3f4f6', '#374151', '📋'))
+        label = dict(obj._meta.get_field('status').choices).get(obj.status, obj.status)
+        return format_html(
+            '<span style="background: {}; color: {}; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">{} {}</span>',
+            bg, text, icon, label
+        )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'status'
+    
+    def delivery_status_badge(self, obj):
+        """Отображает статус доставки."""
+        colors = {
+            'pending': ('#fff3cd', '#856404', '⏳'),
+            'sent': ('#dbeafe', '#1e40af', '📦'),
+            'delivered': ('#d4edda', '#155724', '✅'),
+        }
+        bg, text, icon = colors.get(obj.delivery_status, ('#f3f4f6', '#374151', '📋'))
+        label = dict(obj._meta.get_field('delivery_status').choices).get(obj.delivery_status, obj.delivery_status)
+        return format_html(
+            '<span style="background: {}; color: {}; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">{} {}</span>',
+            bg, text, icon, label
+        )
+    delivery_status_badge.short_description = 'Доставка'
+    delivery_status_badge.admin_order_field = 'delivery_status'
+    
+    def user_confirmed_badge(self, obj):
+        """Отображает подтверждение пользователем."""
+        if obj.user_confirmed is True:
+            return format_html(
+                '<span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">✅ Подтверждено</span>'
+            )
+        elif obj.user_confirmed is False:
+            return format_html(
+                '<span style="background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⚠️ Не подтверждено</span>'
+            )
+        return format_html(
+            '<span style="background: #f3f4f6; color: #6b7280; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">-</span>'
+        )
+    user_confirmed_badge.short_description = 'Подтверждение'
+    user_confirmed_badge.admin_order_field = 'user_confirmed'
     
     fieldsets = (
         ('Информация о запросе', {
