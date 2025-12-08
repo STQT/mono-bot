@@ -11,9 +11,23 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 # Security settings для production
 if not DEBUG:
-    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+    # Настройки для работы за прокси (nginx)
+    # Django должен доверять заголовкам от прокси-сервера
+    # Внешний nginx передает X-Forwarded-Proto: https
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+    USE_X_FORWARDED_PORT = True
+    
+    # Отключаем SECURE_SSL_REDIRECT, так как внешний nginx уже делает редирект с HTTP на HTTPS
+    # Если включить SECURE_SSL_REDIRECT=True, Django будет пытаться редиректить HTTP->HTTPS,
+    # но так как запрос от прокси приходит по HTTP, это создаст бесконечный цикл редиректов
+    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=False)
+    
+    # Cookie security (работают только если SECURE_PROXY_SSL_HEADER настроен правильно)
     SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
     CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
+    
+    # Другие security настройки
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
