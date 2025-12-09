@@ -316,6 +316,7 @@
             'WEBAPP_GIFTS': '{% trans "WEBAPP_GIFTS" %}',
             'WEBAPP_QR_HISTORY': '{% trans "WEBAPP_QR_HISTORY" %}',
             'WEBAPP_UZBEK': '{% trans "WEBAPP_UZBEK" %}',
+            'WEBAPP_UZBEK_CYRILLIC': '{% trans "WEBAPP_UZBEK_CYRILLIC" %}',
             'WEBAPP_RUSSIAN': '{% trans "WEBAPP_RUSSIAN" %}',
             'WEBAPP_CLOSE': '{% trans "WEBAPP_CLOSE" %}',
             'WEBAPP_BALL': '{% trans "WEBAPP_BALL" %}',
@@ -327,7 +328,22 @@
             'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
             'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
+            'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
             'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
+            'WEBAPP_REGISTER': '{% trans "WEBAPP_REGISTER" %}',
+            'WEBAPP_PARTNER_TEXT': '{% trans "WEBAPP_PARTNER_TEXT" %}',
+            'WEBAPP_VIEW_GIFTS': '{% trans "WEBAPP_VIEW_GIFTS" %}',
+            'WEBAPP_INFO_TEXT': '{% trans "WEBAPP_INFO_TEXT" %}',
+            'WEBAPP_CONTACT_ADMIN': '{% trans "WEBAPP_CONTACT_ADMIN" %}',
+            'WEBAPP_PRIVACY_POLICY': '{% trans "WEBAPP_PRIVACY_POLICY" %}',
+            'WEBAPP_CONFIRM_RECEIPT': '{% trans "WEBAPP_CONFIRM_RECEIPT" %}',
+            'WEBAPP_DID_YOU_RECEIVE': '{% trans "WEBAPP_DID_YOU_RECEIVE" %}',
+            'WEBAPP_COMMENT_PLACEHOLDER': '{% trans "WEBAPP_COMMENT_PLACEHOLDER" %}',
+            'WEBAPP_YES_RECEIVED': '{% trans "WEBAPP_YES_RECEIVED" %}',
+            'WEBAPP_NO_NOT_RECEIVED': '{% trans "WEBAPP_NO_NOT_RECEIVED" %}',
+            'WEBAPP_CANCEL': '{% trans "WEBAPP_CANCEL" %}',
+            'WEBAPP_UPDATED': '{% trans "WEBAPP_UPDATED" %}',
+            'WEBAPP_QR_MAX_ATTEMPTS': '{% trans "WEBAPP_QR_MAX_ATTEMPTS" %}',
         };
 
         async function loadTranslations(language) {
@@ -341,6 +357,7 @@
                             translations[key] = data[key];
                         }
                     });
+                    // Обновляем все тексты на странице после загрузки переводов
                     updatePageTexts();
                 }
             } catch (error) {
@@ -1126,19 +1143,204 @@
         }
 
         function updatePageTexts() {
+            // Обновляем метку баллов
             const pointsLabel = document.querySelector('.points-label');
             if (pointsLabel) {
                 pointsLabel.textContent = t('WEBAPP_TOTAL_POINTS');
             }
             
+            // Обновляем информационный текст
             const infoText = document.querySelector('.info-text p');
             if (infoText) {
                 infoText.textContent = t('WEBAPP_INFO_TEXT');
             }
             
-            const contactBtn = document.querySelector('.contact-admin-btn span:last-child');
-            if (contactBtn) {
-                contactBtn.textContent = t('WEBAPP_CONTACT_ADMIN');
+            // Обновляем кнопки связи с админом
+            const contactBtns = document.querySelectorAll('.contact-admin-btn span:last-child');
+            contactBtns.forEach(btn => {
+                if (btn.textContent.trim() !== '') {
+                    btn.textContent = t('WEBAPP_CONTACT_ADMIN');
+                }
+            });
+            
+            // Обновляем текст кнопки регистрации QR
+            const registerText = document.querySelector('.register-text');
+            if (registerText) {
+                registerText.textContent = t('WEBAPP_REGISTER');
+            }
+            
+            // Обновляем placeholder для QR ввода
+            const qrInput = document.getElementById('qrInput');
+            if (qrInput) {
+                qrInput.placeholder = t('WEBAPP_QR_PLACEHOLDER');
+            }
+            
+            // Обновляем текст партнера
+            const partnerText = document.querySelector('.gifts-text');
+            if (partnerText) {
+                partnerText.textContent = t('WEBAPP_PARTNER_TEXT');
+            }
+            
+            // Обновляем текст кнопки просмотра подарков
+            const viewGiftsText = document.querySelector('.view-gifts-text');
+            if (viewGiftsText) {
+                viewGiftsText.textContent = t('WEBAPP_VIEW_GIFTS');
+            }
+            
+            // Обновляем ссылку на политику конфиденциальности
+            const privacyLink = document.querySelector('.privacy-link a');
+            if (privacyLink) {
+                privacyLink.textContent = t('WEBAPP_PRIVACY_POLICY');
+            }
+            
+            // Обновляем заголовки экранов
+            const screenTitles = document.querySelectorAll('.screen-title');
+            screenTitles.forEach(title => {
+                const screenId = title.closest('.screen')?.id;
+                if (screenId === 'giftsListScreen') {
+                    title.textContent = t('WEBAPP_GIFTS_TITLE');
+                } else if (screenId === 'profileScreen') {
+                    title.textContent = t('WEBAPP_PROFILE');
+                } else if (screenId === 'profileGiftsScreen') {
+                    title.textContent = t('WEBAPP_GIFTS');
+                } else if (screenId === 'qrHistoryScreen') {
+                    title.textContent = t('WEBAPP_QR_HISTORY');
+                } else if (screenId === 'privacyScreen') {
+                    title.textContent = t('WEBAPP_PRIVACY_POLICY');
+                } else if (screenId === 'successScreen') {
+                    // Не обновляем, так как это отдельный экран
+                }
+            });
+            
+            // Обновляем тексты в модальном окне выбора языка
+            const languageModalTitle = document.querySelector('.language-modal-content .modal-title');
+            if (languageModalTitle) {
+                languageModalTitle.textContent = t('WEBAPP_INTERFACE_LANGUAGE');
+            }
+            
+            // Обновляем названия языков в модальном окне
+            const languageOptions = document.querySelectorAll('.language-option .language-name');
+            languageOptions.forEach((option, index) => {
+                if (index === 0) {
+                    option.textContent = t('WEBAPP_UZBEK');
+                } else if (index === 1) {
+                    option.textContent = t('WEBAPP_UZBEK_CYRILLIC');
+                } else if (index === 2) {
+                    option.textContent = t('WEBAPP_RUSSIAN');
+                }
+            });
+            
+            // Обновляем тексты в меню профиля
+            const menuItems = document.querySelectorAll('.menu-item .menu-text');
+            menuItems.forEach((item, index) => {
+                const menuItem = item.closest('.menu-item');
+                if (menuItem) {
+                    const icon = menuItem.querySelector('.menu-icon')?.textContent;
+                    if (icon === '🌐') {
+                        item.textContent = t('WEBAPP_INTERFACE_LANGUAGE');
+                    } else if (icon === '🎁') {
+                        item.textContent = t('WEBAPP_GIFTS');
+                    } else if (icon === '🕐') {
+                        item.textContent = t('WEBAPP_QR_HISTORY');
+                    } else if (icon === '🔒') {
+                        item.textContent = t('WEBAPP_PRIVACY_POLICY');
+                    }
+                }
+            });
+            
+            // Обновляем тексты в экране успеха
+            const successTitle = document.querySelector('#successScreen .success-title');
+            if (successTitle) {
+                successTitle.textContent = t('WEBAPP_SUCCESS_TITLE');
+            }
+            
+            const successMessage = document.querySelector('#successScreen .success-message');
+            if (successMessage) {
+                successMessage.textContent = t('WEBAPP_SUCCESS_MESSAGE');
+            }
+            
+            const toHomeBtn = document.querySelector('#successScreen .btn-primary');
+            if (toHomeBtn) {
+                toHomeBtn.textContent = t('WEBAPP_TO_HOME');
+            }
+            
+            const contactAdminBtnSuccess = document.querySelector('#successScreen .btn-secondary');
+            if (contactAdminBtnSuccess) {
+                contactAdminBtnSuccess.textContent = t('WEBAPP_CONTACT_ADMIN');
+            }
+            
+            // Обновляем тексты в модальном окне подтверждения
+            const confirmModalTitle = document.querySelector('#confirmModal .modal-title');
+            if (confirmModalTitle) {
+                confirmModalTitle.textContent = t('WEBAPP_CONFIRM_RECEIPT');
+            }
+            
+            const confirmModalText = document.querySelector('#confirmModal p');
+            if (confirmModalText) {
+                confirmModalText.textContent = t('WEBAPP_DID_YOU_RECEIVE');
+            }
+            
+            const commentInput = document.getElementById('commentInput');
+            if (commentInput) {
+                commentInput.placeholder = t('WEBAPP_COMMENT_PLACEHOLDER');
+            }
+            
+            const yesBtn = document.querySelector('#confirmModal .btn-success');
+            if (yesBtn) {
+                yesBtn.textContent = t('WEBAPP_YES_RECEIVED');
+            }
+            
+            const noBtn = document.querySelector('#confirmModal .btn-danger');
+            if (noBtn) {
+                noBtn.textContent = t('WEBAPP_NO_NOT_RECEIVED');
+            }
+            
+            const cancelBtn = document.querySelector('#confirmModal .btn-secondary');
+            if (cancelBtn) {
+                cancelBtn.textContent = t('WEBAPP_CANCEL');
+            }
+            
+            // Если открыт экран со списком подарков, перезагружаем его
+            if (document.getElementById('giftsListScreen').style.display !== 'none') {
+                loadGiftsList();
+            }
+            
+            // Если открыт экран с историей QR, перезагружаем его
+            if (document.getElementById('qrHistoryScreen').style.display !== 'none') {
+                loadQRHistory();
+            }
+            
+            // Если открыт экран с подарками профиля, перезагружаем его
+            if (document.getElementById('profileGiftsScreen').style.display !== 'none') {
+                loadProfileGifts();
+            }
+            
+            // Если открыт экран деталей подарка, перезагружаем его
+            const giftDetailScreen = document.getElementById('giftDetailScreen');
+            if (giftDetailScreen && giftDetailScreen.style.display !== 'none') {
+                const giftDetailTitle = document.getElementById('giftDetailTitle');
+                if (giftDetailTitle && giftDetailTitle.textContent) {
+                    // Сохраняем ID подарка из контейнера, если возможно
+                    const container = document.getElementById('giftDetailContainer');
+                    if (container) {
+                        const giftIdMatch = container.innerHTML.match(/gift.*?id[=:](\d+)/i);
+                        if (giftIdMatch) {
+                            showGiftDetail(parseInt(giftIdMatch[1]));
+                        }
+                    }
+                }
+            }
+            
+            // Обновляем статус продукта, если он отображается
+            const productStatus = document.getElementById('productStatus');
+            if (productStatus && productStatus.textContent) {
+                const statusText = productStatus.textContent.trim();
+                if (statusText === t('WEBAPP_STATUS_PENDING') || 
+                    statusText.includes('pending') || 
+                    statusText.includes('Ожидает') ||
+                    statusText.includes('Kutilmoqda')) {
+                    productStatus.textContent = t('WEBAPP_STATUS_PENDING');
+                }
             }
         }
 
