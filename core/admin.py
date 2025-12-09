@@ -227,6 +227,18 @@ class QRCodeAdmin(admin.ModelAdmin):
     list_per_page = 50
     date_hierarchy = 'generated_at'
     
+    def has_view_permission(self, request, obj=None):
+        """Проверяет права доступа к просмотру QR-кода."""
+        # Superuser всегда имеет доступ
+        if request.user.is_superuser:
+            return True
+        
+        # Проверяем custom permission
+        if request.user.has_perm('core.view_qrcode_detail'):
+            return True
+        
+        return False
+    
     def get_list_display_links(self, request, list_display):
         """Скрывает ссылки на детальный просмотр для пользователей без permission."""
         if not self.has_view_permission(request):
@@ -234,6 +246,62 @@ class QRCodeAdmin(admin.ModelAdmin):
             return (None,)
         # По умолчанию Django использует первый элемент list_display как ссылку
         return super().get_list_display_links(request, list_display)
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Возвращает список readonly полей, добавляя маскированное поле code для пользователей без прав."""
+        readonly = list(super().get_readonly_fields(request, obj))
+        
+        # Если пользователь не имеет прав на просмотр деталей, маскируем код
+        if obj and not self.has_view_permission(request, obj):
+            # Убираем code из readonly, так как мы заменим его на masked_code
+            if 'code' in readonly:
+                readonly.remove('code')
+            # Добавляем masked_code вместо code
+            if 'masked_code_display' not in readonly:
+                readonly.append('masked_code_display')
+        
+        return readonly
+    
+    def masked_code_display(self, obj):
+        """Отображает замаскированный код для пользователей без прав."""
+        if obj:
+            masked = self.masked_code(obj)
+            return format_html(
+                '<div style="font-family: monospace; font-size: 14px; color: #333;">'
+                '<strong>{}</strong></div>',
+                masked
+            )
+        return '-'
+    masked_code_display.short_description = 'Code'
+    
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Переопределяем детальный просмотр для проверки прав доступа и маскирования кода."""
+        from django.template.response import TemplateResponse
+        
+        obj = self.get_object(request, object_id)
+        
+        # Проверяем права доступа
+        if not self.has_view_permission(request, obj):
+            # Если нет доступа, показываем кастомный шаблон с сообщением
+            extra_context = extra_context or {}
+            extra_context['no_access'] = True
+            extra_context['is_superuser'] = request.user.is_superuser
+            extra_context['has_permission'] = request.user.has_perm('core.view_qrcode_detail')
+            extra_context['title'] = 'Доступ запрещен'
+            extra_context['opts'] = self.model._meta
+            extra_context['has_view_permission'] = False
+            extra_context['has_add_permission'] = False
+            extra_context['has_change_permission'] = False
+            extra_context['has_delete_permission'] = False
+            
+            return TemplateResponse(
+                request,
+                'admin/core/qrcode/no_access.html',
+                extra_context,
+                status=403
+            )
+        
+        return super().change_view(request, object_id, form_url, extra_context)
     
     def qr_display(self, obj):
         """Отображает QR-код с серийным номером."""
