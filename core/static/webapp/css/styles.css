@@ -114,10 +114,11 @@ body {
 
 .banner-content {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: flex-start;
     position: relative;
     z-index: 2;
+    padding: 20px;
 }
 
 .banner-text {
@@ -133,6 +134,7 @@ body {
     line-height: 1.4;
     margin-bottom: 12px;
     color: #FFFFFF;
+    text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .banner-date-btn {
@@ -184,6 +186,7 @@ body {
     height: 100%;
     object-fit: cover;
     z-index: 1;
+    border-radius: 16px;
 }
 
 .banner-nav {
@@ -198,7 +201,7 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 3;
+    z-index: 4;
     color: #000000;
     font-size: 20px;
     font-weight: bold;

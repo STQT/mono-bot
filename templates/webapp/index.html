@@ -34,12 +34,12 @@
         <!-- Баннер с каруселью -->
         <div class="banner-section" id="bannerSection">
             <div class="banner-card">
+                <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
                 <div class="banner-nav banner-nav-left" onclick="prevBanner()">‹</div>
                 <div class="banner-content">
                     <div class="banner-text">
                         <div class="banner-title" id="bannerTitle"></div>
                     </div>
-                    <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
                 </div>
                 <div class="banner-date-btn">
                     <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -876,6 +876,7 @@
             const bannerTitle = document.getElementById('bannerTitle');
             const bannerDate = document.getElementById('bannerDate');
             const bannerImage = document.getElementById('bannerImage');
+            const bannerCard = document.querySelector('.banner-card');
             
             if (bannerTitle) {
                 bannerTitle.textContent = promotion.title || '';
@@ -888,11 +889,26 @@
             if (bannerImage && promotion.image) {
                 bannerImage.src = promotion.image;
                 bannerImage.style.display = 'block';
+                // Убираем градиентный фон и padding, когда есть изображение
+                if (bannerCard) {
+                    bannerCard.style.background = 'transparent';
+                    bannerCard.style.padding = '0';
+                }
                 bannerImage.onerror = function() {
                     this.style.display = 'none';
+                    // Возвращаем градиентный фон, если изображение не загрузилось
+                    if (bannerCard) {
+                        bannerCard.style.background = '';
+                        bannerCard.style.padding = '';
+                    }
                 };
             } else if (bannerImage) {
                 bannerImage.style.display = 'none';
+                // Возвращаем градиентный фон, если нет изображения
+                if (bannerCard) {
+                    bannerCard.style.background = '';
+                    bannerCard.style.padding = '';
+                }
             }
         }
 
