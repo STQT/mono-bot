@@ -272,6 +272,104 @@ def get_promotions(request):
         )
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_promotion_detail(request, promotion_id):
+    """Получает детальную информацию об акции."""
+    try:
+        promotion = Promotion.objects.get(id=promotion_id, is_active=True)
+        
+        promotion_data = {
+            'id': promotion.id,
+            'title': promotion.title,
+            'image': request.build_absolute_uri(promotion.image.url) if promotion.image else None,
+            'date': promotion.date.strftime('%d.%m.%Y') if promotion.date else None,
+        }
+        
+        return Response(promotion_data)
+    except Promotion.DoesNotExist:
+        return Response(
+            {'error': 'Promotion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_privacy_policy(request):
+    """Получает политику конфиденциальности на указанном языке."""
+    language = request.GET.get('lang', 'uz_latin')
+    
+    try:
+        policy = PrivacyPolicy.objects.filter(is_active=True).first()
+        
+        if not policy:
+            return Response(
+                {'error': 'Privacy policy not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Выбираем контент в зависимости от языка
+        if language == 'uz_latin':
+            content = policy.content_uz_latin
+        elif language == 'uz_cyrillic':
+            content = policy.content_uz_cyrillic or policy.content_uz_latin
+        elif language == 'ru':
+            content = policy.content_ru or policy.content_uz_latin
+        else:
+            content = policy.content_uz_latin
+        
+        return Response({
+            'content': content,
+            'updated_at': policy.updated_at.strftime('%d.%m.%Y %H:%M') if policy.updated_at else None
+        })
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def update_user_language(request):
+    """Обновляет язык пользователя."""
+    telegram_id = request.data.get('telegram_id')
+    language = request.data.get('language')
+    
+    if not telegram_id or not language:
+        return Response(
+            {'error': 'telegram_id and language are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if language not in ['uz_latin', 'uz_cyrillic', 'ru']:
+        return Response(
+            {'error': 'Invalid language'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+        user.language = language
+        user.save(update_fields=['language'])
+        
+        return Response({
+            'success': True,
+            'language': user.language
+        })
+    except TelegramUser.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_qr_code(request):
@@ -420,93 +518,3 @@ def register_qr_code(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def change_language(request):
-    """Изменяет язык пользователя."""
-    telegram_id = request.data.get('telegram_id')
-    language = request.data.get('language')
-    
-    if not telegram_id or not language:
-        return Response(
-            {'error': 'telegram_id and language are required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Проверяем, что язык валидный
-    valid_languages = ['uz_latin', 'uz_cyrillic', 'ru']
-    if language not in valid_languages:
-        return Response(
-            {'error': f'Invalid language. Must be one of: {", ".join(valid_languages)}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    try:
-        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
-        user.language = language
-        user.save(update_fields=['language'])
-        
-        return Response({
-            'success': True,
-            'language': language
-        })
-    except TelegramUser.DoesNotExist:
-        return Response(
-            {'error': 'User not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def get_privacy_policy(request):
-    """Получает политику конфиденциальности для указанного языка."""
-    language = request.GET.get('lang', 'uz_latin')
-    
-    try:
-        policy = PrivacyPolicy.objects.filter(is_active=True).order_by('-updated_at').first()
-        
-        if not policy:
-            return Response(
-                {'error': 'Privacy policy not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        content = policy.get_content(language)
-        
-        return Response({
-            'content': content,
-            'updated_at': policy.updated_at.strftime('%d.%m.%Y') if policy.updated_at else None
-        })
-    except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def get_promotion_detail(request, promotion_id):
-    """Получает детальную информацию об акции."""
-    try:
-        promotion = Promotion.objects.get(id=promotion_id, is_active=True)
-        
-        return Response({
-            'id': promotion.id,
-            'title': promotion.title,
-            'image': request.build_absolute_uri(promotion.image.url) if promotion.image else None,
-            'date': promotion.date.strftime('%d.%m.%Y') if promotion.date else None,
-        })
-    except Promotion.DoesNotExist:
-        return Response(
-            {'error': 'Promotion not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )

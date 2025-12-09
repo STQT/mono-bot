@@ -144,11 +144,12 @@ USE_L10N = True
 CELERY_TIMEZONE = TIME_ZONE
 
 # Celery Beat Schedule для периодических задач
-# Примечание: Задача удаления неудачных попыток удалена, так как история нужна для аналитики
-# Вместо удаления используется проверка количества попыток за сегодня через SQL запрос
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
-    # Периодические задачи можно добавить здесь
+    'reset-failed-qr-attempts-daily': {
+        'task': 'core.tasks.reset_failed_qr_attempts_daily',
+        'schedule': crontab(hour=3, minute=0),  # Каждый день в 3:00 ночи
+    },
 }
 
 # Static files (CSS, JavaScript, Images)

@@ -6,7 +6,8 @@ from rest_framework.routers import DefaultRouter
 from .views import TelegramUserViewSet, QRCodeViewSet, GiftViewSet
 from .webapp_views import (
     webapp_view, get_user_data, get_gifts,
-    get_user_redemptions, request_gift, confirm_delivery, get_translations, get_qr_history, get_promotions, register_qr_code, change_language, get_privacy_policy, get_promotion_detail
+    get_user_redemptions, request_gift, confirm_delivery, get_translations, get_qr_history, 
+    get_promotions, register_qr_code, get_promotion_detail, get_privacy_policy, update_user_language
 )
 
 router = DefaultRouter()
@@ -28,7 +29,7 @@ urlpatterns = [
     path('webapp/promotions/', get_promotions, name='webapp_promotions'),
     path('webapp/promotions/<int:promotion_id>/', get_promotion_detail, name='webapp_promotion_detail'),
     path('webapp/register-qr/', register_qr_code, name='webapp_register_qr'),
-    path('webapp/change-language/', change_language, name='webapp_change_language'),
     path('webapp/privacy-policy/', get_privacy_policy, name='webapp_privacy_policy'),
+    path('webapp/update-language/', update_user_language, name='webapp_update_language'),
 ]
 

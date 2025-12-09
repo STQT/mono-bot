@@ -876,7 +876,6 @@ class QRCodeGenerationAdmin(admin.ModelAdmin):
         return True
 
 
-# Кастомная админка для дашборда
 @admin.register(PrivacyPolicy)
 class PrivacyPolicyAdmin(admin.ModelAdmin):
     """Админка для политики конфиденциальности."""

@@ -33,9 +33,9 @@
 
         <!-- Баннер с каруселью -->
         <div class="banner-section" id="bannerSection">
-            <div class="banner-card" id="bannerCard" onclick="openPromotionDetail()" style="cursor: pointer;">
+            <div class="banner-card" id="bannerCard" onclick="handleBannerClick()" style="cursor: pointer;">
                 <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
-                <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner();">‹</div>
+                <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner()">‹</div>
                 <div class="banner-content">
                     <div class="banner-text">
                         <div class="banner-title" id="bannerTitle"></div>
@@ -53,7 +53,7 @@
                     </svg>
                     <span id="bannerDate"></span>
                 </div>
-                <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner();">›</div>
+                <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner()">›</div>
             </div>
             <div class="carousel-dots" id="carouselDots"></div>
         </div>
@@ -218,17 +218,6 @@
         </div>
     </div>
 
-    <!-- ЭКРАН: Политика конфиденциальности -->
-    <div class="screen" id="privacyScreen" style="display: none;">
-        <div class="screen-header">
-            <button class="back-btn" onclick="showScreen('profile')">‹</button>
-            <h2 class="screen-title">{% trans "WEBAPP_PRIVACY_POLICY" %}</h2>
-        </div>
-        <div class="privacy-container" id="privacyContainer">
-            <div class="loading">{% trans "WEBAPP_LOADING" %}</div>
-        </div>
-    </div>
-
     <!-- ЭКРАН: Детальный просмотр акции -->
     <div class="screen" id="promotionDetailScreen" style="display: none;">
         <div class="screen-header">
@@ -236,6 +225,17 @@
             <h2 class="screen-title" id="promotionDetailTitle"></h2>
         </div>
         <div class="promotion-detail-container" id="promotionDetailContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING" %}</div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Политика конфиденциальности -->
+    <div class="screen" id="privacyScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_PRIVACY_POLICY" %}</h2>
+        </div>
+        <div class="privacy-container" id="privacyContainer">
             <div class="loading">{% trans "WEBAPP_LOADING" %}</div>
         </div>
     </div>
@@ -585,13 +585,6 @@
                 const screen = document.getElementById(`${screenName}Screen`);
                 if (screen) {
                     screen.style.display = 'block';
-                } else {
-                    // Если экран не найден, пытаемся найти по полному ID
-                    const fullId = screenName.includes('Screen') ? screenName : `${screenName}Screen`;
-                    const altScreen = document.getElementById(fullId);
-                    if (altScreen) {
-                        altScreen.style.display = 'block';
-                    }
                 }
             }
         }
@@ -814,17 +807,25 @@
                     
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
-                    if (redemption.status === 'approved' || redemption.status === 'completed') {
+                    
+                    // Определяем статус в зависимости от статуса и delivery_status
+                    if (redemption.status === 'approved') {
                         statusClass = 'approved';
-                        statusText = redemption.status === 'completed' ? t('WEBAPP_STATUS_COMPLETED') : t('WEBAPP_STATUS_APPROVED');
+                        statusText = t('WEBAPP_STATUS_APPROVED');
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
+                    } else if (redemption.status === 'completed') {
+                        statusClass = 'approved';
+                        statusText = t('WEBAPP_STATUS_COMPLETED');
+                    } else {
+                        // pending
+                        statusClass = 'pending';
+                        statusText = t('WEBAPP_STATUS_PENDING');
                     }
                     
-                    const giftImage = redemption.gift.image || '/static/images/gift-box.png';
                     card.innerHTML = `
-                        <img src="${giftImage}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
+                        <img src="${redemption.gift.image || '/static/images/gift-box.png'}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
                         <div class="profile-gift-info">
                             <div class="profile-gift-name">${redemption.gift.name}</div>
                             <div class="profile-gift-status ${statusClass}">${statusText}</div>
@@ -890,15 +891,22 @@
             document.getElementById('checkRu').style.display = currentUser.language === 'ru' ? 'block' : 'none';
         }
 
+        function getLanguageName(language) {
+            if (language === 'uz_latin') return t('WEBAPP_UZBEK');
+            if (language === 'uz_cyrillic') return t('WEBAPP_UZBEK_CYRILLIC');
+            if (language === 'ru') return t('WEBAPP_RUSSIAN');
+            return t('WEBAPP_UZBEK');
+        }
+
         async function changeLanguage(language) {
             if (!currentUser || !currentUser.telegram_id) {
-                showError('User not loaded');
+                tg.showAlert(t('WEBAPP_ERROR_LOADING_USER'));
                 return;
             }
             
             try {
                 // Отправляем запрос на сервер для изменения языка
-                const response = await fetch(`${API_BASE}/change-language/`, {
+                const response = await fetch(`${API_BASE}/update-language/`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -908,26 +916,23 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Failed to change language');
+                    throw new Error('Failed to update language');
                 }
                 
-                // Обновляем язык пользователя
-                currentUser.language = language;
-                await loadTranslations(language);
-                updateLanguageChecks();
-                closeLanguageModal();
-                updatePageTexts();
-                
-                // Обновляем текст в меню профиля
-                const languageNames = {
-                    'uz_latin': t('WEBAPP_UZBEK'),
-                    'uz_cyrillic': t('WEBAPP_UZBEK_CYRILLIC'),
-                    'ru': t('WEBAPP_RUSSIAN')
-                };
-                document.getElementById('currentLanguage').textContent = languageNames[language] || languageNames['uz_latin'];
+                const data = await response.json();
+                if (data.success) {
+                    currentUser.language = language;
+                    await loadTranslations(language);
+                    updateLanguageChecks();
+                    closeLanguageModal();
+                    // Обновляем текст в меню профиля
+                    document.getElementById('currentLanguage').textContent = getLanguageName(language);
+                    // Обновляем все тексты на странице
+                    updatePageTexts();
+                }
             } catch (error) {
-                console.error('Error changing language:', error);
-                showError('Failed to change language');
+                console.error('Error updating language:', error);
+                tg.showAlert(t('WEBAPP_ERROR_LOADING_USER'));
             }
         }
 
@@ -957,35 +962,39 @@
 
         async function showPrivacy() {
             showScreen('privacy');
+            await loadPrivacyPolicy();
+        }
+
+        async function loadPrivacyPolicy() {
             const container = document.getElementById('privacyContainer');
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
             
             try {
-                const language = currentUser ? currentUser.language : 'uz_latin';
-                const response = await fetch(`${API_BASE}/privacy-policy/?lang=${language}`);
+                const response = await fetch(`${API_BASE}/privacy-policy/?lang=${currentUser.language}`);
                 if (!response.ok) throw new Error();
                 
                 const data = await response.json();
+                
                 container.innerHTML = `
                     <div class="privacy-content">
-                        ${data.content.replace(/\n/g, '<br>')}
+                        <div class="privacy-text">${data.content.replace(/\n/g, '<br>')}</div>
+                        ${data.updated_at ? `<div class="privacy-updated">${t('WEBAPP_UPDATED')}: ${data.updated_at}</div>` : ''}
                     </div>
                 `;
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
             }
         }
 
-        function openPromotionDetail() {
-            if (promotions.length === 0 || !promotions[currentBannerIndex]) return;
-            const promotion = promotions[currentBannerIndex];
-            showPromotionDetail(promotion.id);
+        function handleBannerClick() {
+            if (promotions.length > 0 && promotions[currentBannerIndex]) {
+                showPromotionDetail(promotions[currentBannerIndex].id);
+            }
         }
 
         async function showPromotionDetail(promotionId) {
             showScreen('promotionDetail');
             const container = document.getElementById('promotionDetailContainer');
-            const title = document.getElementById('promotionDetailTitle');
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
             
             try {
@@ -993,7 +1002,8 @@
                 if (!response.ok) throw new Error();
                 
                 const promotion = await response.json();
-                title.textContent = promotion.title || '';
+                
+                document.getElementById('promotionDetailTitle').textContent = promotion.title || '';
                 
                 container.innerHTML = `
                     <div class="promotion-detail-image">
@@ -1015,7 +1025,7 @@
                     </div>
                 `;
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
             }
         }
 
