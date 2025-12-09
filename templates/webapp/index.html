@@ -52,25 +52,39 @@
 
         <!-- Поле ввода QR кода -->
         <div class="qr-input-section">
-            <input type="text" class="qr-input" id="qrInput" placeholder="{% trans 'WEBAPP_QR_PLACEHOLDER' %}" maxlength="10">
-            <button class="register-btn" onclick="registerQRCode()">
-                <svg class="register-icon" width="12" height="18" viewBox="0 0 2 3" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M0.75 0.75V2.08333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span class="register-text">{% trans "WEBAPP_REGISTER" %}</span>
-            </button>
+            <div class="qr-input-wrapper" id="qrInputWrapper">
+                <input type="text" class="qr-input" id="qrInput" placeholder="AB0000" maxlength="10">
+                <button class="register-btn" onclick="registerQRCode()">
+                    <svg class="register-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Barcode icon -->
+                        <rect x="2.67" y="2.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
+                        <rect x="2.67" y="10.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
+                        <rect x="10.67" y="2.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
+                        <rect x="10.67" y="10.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
+                        <line x1="3.33" y1="7.33" x2="3.33" y2="8.67" stroke="white" stroke-width="1.5"/>
+                        <line x1="6.67" y1="7.33" x2="6.67" y2="8.67" stroke="white" stroke-width="1.5"/>
+                        <line x1="9.33" y1="7.33" x2="9.33" y2="8.67" stroke="white" stroke-width="1.5"/>
+                        <line x1="12.67" y1="7.33" x2="12.67" y2="8.67" stroke="white" stroke-width="1.5"/>
+                    </svg>
+                    <span class="register-text">{% trans "WEBAPP_REGISTER" %}</span>
+                </button>
+            </div>
+            <div class="qr-error" id="qrError" style="display: none;"></div>
         </div>
-        <div class="qr-error" id="qrError" style="display: none;"></div>
 
         <!-- Карточка подарков -->
         <div class="gifts-card">
-            <div class="gifts-header">
-                <img src="/static/images/gift-box.png" alt="Gift" class="gift-image" onerror="this.style.display='none'">
-                <div class="gifts-title">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
+            <div class="gifts-content">
+                <div class="gifts-image-wrapper">
+                    <img src="/static/images/gift-box.png" alt="Gift" class="gifts-main-image" id="giftsMainImage" onerror="this.style.display='none'">
+                </div>
+                <div class="gifts-text">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
             </div>
             <button class="view-gifts-btn" onclick="showGifts()">
                 <span class="view-gifts-text">{% trans "WEBAPP_VIEW_GIFTS" %}</span>
-                <span class="gifts-count" id="giftsCount">0</span>
+                <span class="gifts-count-badge">
+                    <span class="gifts-count" id="giftsCount">0</span>
+                </span>
             </button>
         </div>
 
@@ -379,7 +393,23 @@
                 const response = await fetch(`${API_BASE}/gifts/`);
                 if (response.ok) {
                     const gifts = await response.json();
-                    document.getElementById('giftsCount').textContent = gifts.length;
+                    const countElement = document.getElementById('giftsCount');
+                    if (countElement) {
+                        countElement.textContent = gifts.length;
+                    }
+                    
+                    // Показываем первый подарок на главной странице
+                    if (gifts.length > 0) {
+                        const firstGift = gifts[0];
+                        const giftImage = document.getElementById('giftsMainImage');
+                        if (giftImage && firstGift.image) {
+                            giftImage.src = firstGift.image;
+                            giftImage.style.display = 'block';
+                            giftImage.onerror = function() {
+                                this.src = '/static/images/gift-box.png';
+                            };
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error loading gifts count:', error);
@@ -415,22 +445,22 @@
         function registerQRCode() {
             const qrCode = document.getElementById('qrInput').value.trim();
             const errorDiv = document.getElementById('qrError');
+            const inputWrapper = document.getElementById('qrInputWrapper');
             
             // Очищаем предыдущую ошибку
             errorDiv.style.display = 'none';
             errorDiv.textContent = '';
+            inputWrapper.classList.remove('error');
             
             if (!qrCode) {
-                errorDiv.textContent = t('WEBAPP_QR_ERROR');
-                errorDiv.style.display = 'block';
+                showQRError(t('WEBAPP_QR_ERROR'));
                 return;
             }
             
             // Валидация формата QR кода (E-XXXXXX или D-XXXXXX)
             const qrPattern = /^[ED]-\w{6,}$/;
             if (!qrPattern.test(qrCode)) {
-                errorDiv.textContent = t('WEBAPP_QR_ERROR');
-                errorDiv.style.display = 'block';
+                showQRError(t('WEBAPP_QR_ERROR'));
                 return;
             }
             
@@ -439,9 +469,17 @@
             if (botUsername) {
                 tg.openTelegramLink(`https://t.me/${botUsername}?start=${qrCode}`);
             } else {
-                errorDiv.textContent = t('WEBAPP_QR_ERROR');
-                errorDiv.style.display = 'block';
+                showQRError(t('WEBAPP_QR_ERROR'));
             }
+        }
+
+        function showQRError(message) {
+            const errorDiv = document.getElementById('qrError');
+            const inputWrapper = document.getElementById('qrInputWrapper');
+            
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'flex';
+            inputWrapper.classList.add('error');
         }
 
         function showGifts() {
@@ -787,6 +825,21 @@
                 container.innerHTML = '';
             }, 5000);
         }
+
+        // Очистка ошибки при вводе
+        document.addEventListener('DOMContentLoaded', function() {
+            const qrInput = document.getElementById('qrInput');
+            if (qrInput) {
+                qrInput.addEventListener('input', function() {
+                    const errorDiv = document.getElementById('qrError');
+                    const inputWrapper = document.getElementById('qrInputWrapper');
+                    if (errorDiv && errorDiv.style.display !== 'none') {
+                        errorDiv.style.display = 'none';
+                        if (inputWrapper) inputWrapper.classList.remove('error');
+                    }
+                });
+            }
+        });
 
         initApp();
     </script>
