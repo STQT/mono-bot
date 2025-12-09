@@ -271,3 +271,121 @@ def get_promotions(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_qr_code(request):
+    """Регистрирует QR-код для пользователя."""
+    from django.utils import timezone
+    from django.conf import settings
+    from core.models import QRCode, QRCodeScanAttempt
+    
+    telegram_id = request.data.get('telegram_id')
+    qr_code_str = request.data.get('qr_code')
+    
+    if not telegram_id or not qr_code_str:
+        return Response(
+            {'error': 'telegram_id and qr_code are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+    except TelegramUser.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        # Проверяем количество неудачных попыток за сегодня
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_attempts = QRCodeScanAttempt.objects.filter(
+            user=user,
+            attempted_at__gte=today_start,
+            is_successful=False
+        ).count()
+        
+        max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 3)
+        if today_attempts >= max_attempts:
+            from bot.translations import get_text
+            error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Ищем QR-код по коду или hash_code
+        try:
+            # Сначала ищем по полному коду (E-ABC123 или D-ABC123)
+            qr_code = QRCode.objects.get(code=qr_code_str)
+        except QRCode.DoesNotExist:
+            # Если не нашли, пробуем найти по hash_code (без префикса)
+            try:
+                qr_code = QRCode.objects.get(hash_code=qr_code_str)
+            except QRCode.DoesNotExist:
+                from bot.translations import get_text
+                error_message = get_text(user, 'QR_NOT_FOUND')
+                return Response(
+                    {'error': error_message},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        # Проверяем, не был ли уже отсканирован
+        if qr_code.is_scanned:
+            # Создаем запись о неудачной попытке
+            QRCodeScanAttempt.objects.create(
+                user=user,
+                qr_code=qr_code,
+                is_successful=False
+            )
+            from bot.translations import get_text
+            error_message = get_text(user, 'QR_ALREADY_SCANNED')
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
+        if not user.user_type:
+            user.user_type = qr_code.code_type
+            user.save(update_fields=['user_type'])
+        
+        # Начисляем баллы
+        user.points += qr_code.points
+        user.save(update_fields=['points'])
+        
+        # Отмечаем QR-код как отсканированный
+        qr_code.is_scanned = True
+        qr_code.scanned_at = timezone.now()
+        qr_code.scanned_by = user
+        qr_code.save(update_fields=['is_scanned', 'scanned_at', 'scanned_by'])
+        
+        # Создаем запись об успешной попытке
+        QRCodeScanAttempt.objects.create(
+            user=user,
+            qr_code=qr_code,
+            is_successful=True
+        )
+        
+        from bot.translations import get_text
+        success_message = get_text(user, 'QR_ACTIVATED',
+            points=qr_code.points,
+            total_points=user.points
+        )
+        
+        return Response({
+            'success': True,
+            'message': success_message,
+            'points': qr_code.points,
+            'total_points': user.points
+        })
+        
+    except Exception as e:
+        from bot.translations import get_text
+        error_message = get_text(user, 'QR_ERROR')
+        return Response(
+            {'error': error_message},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

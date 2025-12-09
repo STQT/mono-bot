@@ -454,7 +454,7 @@
             }
         }
 
-        function registerQRCode() {
+        async function registerQRCode() {
             const qrCode = document.getElementById('qrInput').value.trim();
             const errorDiv = document.getElementById('qrError');
             const inputWrapper = document.getElementById('qrInputWrapper');
@@ -476,11 +476,50 @@
                 return;
             }
             
-            // Открываем бота для регистрации QR кода
-            const botUsername = '{{ TELEGRAM_BOT_USERNAME }}';
-            if (botUsername) {
-                tg.openTelegramLink(`https://t.me/${botUsername}?start=${qrCode}`);
-            } else {
+            if (!currentUser || !currentUser.telegram_id) {
+                showQRError(t('WEBAPP_ERROR_LOADING_USER'));
+                return;
+            }
+            
+            try {
+                // Отправляем запрос на регистрацию QR кода
+                const response = await fetch(`${API_BASE}/register-qr/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        telegram_id: currentUser.telegram_id,
+                        qr_code: qrCode
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    showQRError(data.error || t('WEBAPP_QR_ERROR'));
+                    return;
+                }
+                
+                // Успешная регистрация
+                if (data.success) {
+                    // Обновляем баллы пользователя
+                    currentUser.points = data.total_points;
+                    document.getElementById('points').textContent = data.total_points.toLocaleString();
+                    
+                    // Очищаем поле ввода
+                    document.getElementById('qrInput').value = '';
+                    
+                    // Показываем сообщение об успехе
+                    tg.showAlert(data.message || t('WEBAPP_SUCCESS_MESSAGE'));
+                    
+                    // Обновляем историю QR кодов, если пользователь на странице истории
+                    if (document.getElementById('qrHistoryScreen').style.display !== 'none') {
+                        await loadQRHistory();
+                    }
+                } else {
+                    showQRError(data.error || t('WEBAPP_QR_ERROR'));
+                }
+            } catch (error) {
+                console.error('Error registering QR code:', error);
                 showQRError(t('WEBAPP_QR_ERROR'));
             }
         }

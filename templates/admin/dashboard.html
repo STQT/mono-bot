@@ -212,6 +212,53 @@
         margin-bottom: 12px;
         display: block;
     }
+    
+    .filter-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+    
+    .filter-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .filter-button.electrician {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
+    }
+    
+    .filter-button.electrician:hover {
+        box-shadow: 0 4px 8px rgba(251, 191, 36, 0.4);
+    }
+    
+    .filter-button.seller {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .filter-button.seller:hover {
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+    }
 </style>
 {% endblock %}
 
@@ -238,6 +285,16 @@
                 <span class="stat-detail-label">🛒 Продавцы:</span>
                 <span class="stat-detail-value">{{ total_sellers }}</span>
             </div>
+        </div>
+        <div class="filter-buttons">
+            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=electrician" class="filter-button electrician">
+                <span>⚡</span>
+                <span>Показать электриков</span>
+            </a>
+            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=seller" class="filter-button seller">
+                <span>🛒</span>
+                <span>Показать продавцов</span>
+            </a>
         </div>
     </div>
     
