@@ -365,3 +365,61 @@ class Promotion(models.Model):
             date_str = "Sana yo'q"
         return f"{self.title} ({date_str})"
 
+
+class QRCodeGeneration(models.Model):
+    """Модель для истории генерации QR-кодов."""
+    STATUS_CHOICES = [
+        ('pending', 'Kutilmoqda'),
+        ('processing', 'Jarayonda'),
+        ('completed', 'Yakunlandi'),
+        ('failed', 'Xatolik'),
+    ]
+    
+    code_type = models.CharField(
+        max_length=20,
+        choices=QRCode.CODE_TYPE_CHOICES,
+        verbose_name='QR-kod turi'
+    )
+    quantity = models.IntegerField(validators=[MinValueValidator(1)], verbose_name='Miqdori')
+    points = models.IntegerField(validators=[MinValueValidator(0)], verbose_name='Ballar')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Holat'
+    )
+    zip_file = models.FileField(
+        upload_to='qrcodes/generations/',
+        null=True,
+        blank=True,
+        verbose_name='ZIP fayl'
+    )
+    qr_codes = models.ManyToManyField(
+        QRCode,
+        related_name='generations',
+        blank=True,
+        verbose_name='QR-kodlar'
+    )
+    error_message = models.TextField(blank=True, verbose_name='Xatolik xabari')
+    created_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='qr_generations',
+        verbose_name='Yaratgan foydalanuvchi'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Yakunlangan')
+    
+    class Meta:
+        verbose_name = 'QR-kod generatsiyasi'
+        verbose_name_plural = 'QR-kod generatsiyalari'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_code_type_display()} - {self.quantity} ta ({self.get_status_display()})"
+

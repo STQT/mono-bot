@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.conf import settings
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion
+    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -321,7 +321,6 @@ class QRCodeAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path('generate/', self.admin_site.admin_view(self.generate_qr_codes_view), name='core_qrcode_generate'),
-            path('download-zip/', self.admin_site.admin_view(self.download_zip_view), name='core_qrcode_download_zip'),
         ]
         return custom_urls + urls
     
@@ -330,48 +329,40 @@ class QRCodeAdmin(admin.ModelAdmin):
         if request.method == 'POST':
             code_type = request.POST.get('code_type')
             quantity = int(request.POST.get('quantity', 0))
+            points = request.POST.get('points')
             
             if code_type and quantity > 0:
                 try:
-                    qr_codes = generate_qr_codes_batch(code_type, quantity)
-                    request.session['generated_qr_codes'] = [qr.id for qr in qr_codes]
-                    messages.success(request, f'Успешно сгенерировано {quantity} QR-кодов!')
-                    return redirect('admin:core_qrcode_download_zip')
+                    # Определяем баллы
+                    if points:
+                        points = int(points)
+                    else:
+                        # Используем значения по умолчанию
+                        points = settings.ELECTRICIAN_POINTS if code_type == 'electrician' else settings.SELLER_POINTS
+                    
+                    # Создаем запись о генерации
+                    generation = QRCodeGeneration.objects.create(
+                        code_type=code_type,
+                        quantity=quantity,
+                        points=points,
+                        created_by=request.user if request.user.is_authenticated else None,
+                        status='pending'
+                    )
+                    
+                    # Запускаем Celery задачу
+                    from core.tasks import generate_qr_codes_task
+                    generate_qr_codes_task.delay(generation.id)
+                    
+                    messages.success(request, f'Генерация QR-кодов запущена! Вы будете перенаправлены на страницу со списком генераций.')
+                    return redirect('admin:core_qrcodegeneration_changelist')
                 except Exception as e:
-                    messages.error(request, f'Ошибка при генерации: {str(e)}')
+                    messages.error(request, f'Ошибка при запуске генерации: {str(e)}')
             else:
                 messages.error(request, 'Заполните все поля корректно!')
         
         return render(request, 'admin/core/qrcode/generate.html', {
             'title': 'Генерация QR-кодов',
         })
-    
-    def download_zip_view(self, request):
-        """Представление для скачивания ZIP архива с QR-кодами."""
-        qr_code_ids = request.session.get('generated_qr_codes', [])
-        
-        if not qr_code_ids:
-            messages.warning(request, 'Нет сгенерированных QR-кодов для скачивания.')
-            return redirect('admin:core_qrcode_changelist')
-        
-        qr_codes = QRCode.objects.filter(id__in=qr_code_ids)
-        
-        # Создаем ZIP архив
-        response = HttpResponse(content_type='application/zip')
-        response['Content-Disposition'] = 'attachment; filename="qrcodes.zip"'
-        
-        with zipfile.ZipFile(response, 'w') as zip_file:
-            for qr_code in qr_codes:
-                if qr_code.image_path and os.path.exists(qr_code.image_path):
-                    zip_file.write(
-                        qr_code.image_path,
-                        os.path.basename(qr_code.image_path)
-                    )
-        
-        # Очищаем сессию
-        request.session.pop('generated_qr_codes', None)
-        
-        return response
 
 
 @admin.register(Gift)
@@ -653,6 +644,140 @@ class PromotionAdmin(admin.ModelAdmin):
             '<span style="background: #EF4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Nofaol</span>'
         )
     status_badge.short_description = 'Holat'
+
+
+@admin.register(QRCodeGeneration)
+class QRCodeGenerationAdmin(admin.ModelAdmin):
+    """Админка для истории генерации QR-кодов."""
+    list_display = [
+        'generation_display', 'code_type_badge', 'quantity_display',
+        'points_display', 'status_badge', 'created_by_display',
+        'created_at', 'completed_at_display', 'download_button'
+    ]
+    list_filter = ['status', 'code_type', 'created_at']
+    search_fields = ['id']
+    readonly_fields = [
+        'code_type', 'quantity', 'points', 'status', 'zip_file',
+        'qr_codes', 'error_message', 'created_by', 'created_at', 'completed_at'
+    ]
+    ordering = ['-created_at']
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+    
+    def generation_display(self, obj):
+        """Отображает информацию о генерации."""
+        return format_html(
+            '<div style="line-height: 1.6;">'
+            '<strong style="font-size: 16px;">#{}</strong><br>'
+            '<span style="color: #718096; font-size: 12px;">{} шт.</span>',
+            obj.id,
+            obj.quantity
+        )
+    generation_display.short_description = 'Генерация'
+    generation_display.admin_order_field = 'id'
+    
+    def code_type_badge(self, obj):
+        """Отображает тип кода."""
+        if obj.code_type == 'electrician':
+            return format_html(
+                '<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⚡ E-</span>'
+            )
+        elif obj.code_type == 'seller':
+            return format_html(
+                '<span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">🛒 D-</span>'
+            )
+        return '-'
+    code_type_badge.short_description = 'Тип'
+    code_type_badge.admin_order_field = 'code_type'
+    
+    def quantity_display(self, obj):
+        """Отображает количество."""
+        return format_html(
+            '<span style="font-weight: 600;">{}</span>',
+            obj.quantity
+        )
+    quantity_display.short_description = 'Количество'
+    quantity_display.admin_order_field = 'quantity'
+    
+    def points_display(self, obj):
+        """Отображает баллы."""
+        return format_html(
+            '<span style="color: #667eea; font-weight: 700;">{} баллов</span>',
+            obj.points
+        )
+    points_display.short_description = 'Баллы'
+    points_display.admin_order_field = 'points'
+    
+    def status_badge(self, obj):
+        """Отображает статус генерации."""
+        colors = {
+            'pending': ('#fff3cd', '#856404', '⏳'),
+            'processing': ('#dbeafe', '#1e40af', '🔄'),
+            'completed': ('#d4edda', '#155724', '✅'),
+            'failed': ('#f8d7da', '#721c24', '❌'),
+        }
+        bg, text, icon = colors.get(obj.status, ('#f3f4f6', '#374151', '📋'))
+        label = dict(obj._meta.get_field('status').choices).get(obj.status, obj.status)
+        return format_html(
+            '<span style="background: {}; color: {}; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">{} {}</span>',
+            bg, text, icon, label
+        )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'status'
+    
+    def created_by_display(self, obj):
+        """Отображает создателя."""
+        if obj.created_by:
+            return obj.created_by.username or str(obj.created_by)
+        return '-'
+    created_by_display.short_description = 'Создал'
+    
+    def completed_at_display(self, obj):
+        """Отображает время завершения."""
+        if obj.completed_at:
+            return obj.completed_at.strftime('%d.%m.%Y %H:%M')
+        return '-'
+    completed_at_display.short_description = 'Завершено'
+    completed_at_display.admin_order_field = 'completed_at'
+    
+    def download_button(self, obj):
+        """Кнопка для скачивания ZIP файла."""
+        if obj.status == 'completed' and obj.zip_file:
+            return format_html(
+                '<a href="{}" style="background: #417690; color: white; padding: 6px 12px; '
+                'border-radius: 4px; text-decoration: none; display: inline-block;">📥 Скачать</a>',
+                obj.zip_file.url
+            )
+        elif obj.status == 'failed':
+            return format_html(
+                '<span style="color: #dc3545; font-size: 11px;">{}</span>',
+                obj.error_message[:50] + '...' if obj.error_message and len(obj.error_message) > 50 else obj.error_message or 'Ошибка'
+            )
+        return '-'
+    download_button.short_description = 'Действие'
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('code_type', 'quantity', 'points', 'status')
+        }),
+        ('Результаты', {
+            'fields': ('zip_file', 'qr_codes', 'error_message')
+        }),
+        ('Системная информация', {
+            'fields': ('created_by', 'created_at', 'completed_at')
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        """Отключаем добавление через админку."""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Разрешаем удаление."""
+        return True
 
 
 # Кастомная админка для дашборда

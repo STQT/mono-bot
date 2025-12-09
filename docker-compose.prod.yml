@@ -96,6 +96,47 @@ services:
       - web
     restart: unless-stopped
 
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A mona worker --loglevel=info
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.production}
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A mona beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.production}
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   # mongodb_data:

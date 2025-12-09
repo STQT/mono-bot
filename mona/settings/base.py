@@ -88,6 +88,16 @@ MONGODB_SETTINGS = {
 REDIS_HOST = env('REDIS_HOST', default='redis')
 REDIS_PORT = int(env('REDIS_PORT', default='6379'))
 
+# Celery Configuration (будет настроено после определения TIME_ZONE)
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+
 # Channels
 CHANNEL_LAYERS = {
     'default': {
@@ -129,6 +139,18 @@ TIME_ZONE = 'Asia/Tashkent'  # Временная зона Узбекистан�
 USE_I18N = True
 USE_TZ = True
 USE_L10N = True
+
+# Celery Timezone (должно быть после определения TIME_ZONE)
+CELERY_TIMEZONE = TIME_ZONE
+
+# Celery Beat Schedule для периодических задач
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'reset-failed-qr-attempts-daily': {
+        'task': 'core.tasks.reset_failed_qr_attempts_daily',
+        'schedule': crontab(hour=3, minute=0),  # Каждый день в 3:00 ночи
+    },
+}
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'

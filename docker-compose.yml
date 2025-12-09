@@ -82,6 +82,41 @@ services:
       - REDIS_HOST=redis
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.local}
 
+  celery:
+    build: .
+    command: celery -A mona worker --loglevel=info
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.local}
+
+  celery-beat:
+    build: .
+    command: celery -A mona beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-mona.settings.local}
+
 volumes:
   postgres_data:
   # mongodb_data:

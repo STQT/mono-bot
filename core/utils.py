@@ -169,13 +169,14 @@ def generate_qr_code_image(qr_code_instance):
     return filepath
 
 
-def generate_qr_codes_batch(code_type, quantity):
+def generate_qr_codes_batch(code_type, quantity, points=None):
     """
     Генерирует несколько QR-кодов за раз.
     
     Args:
         code_type: Тип кода ('electrician' или 'seller')
         quantity: Количество QR-кодов для генерации
+        points: Количество баллов (опционально, используется значение по умолчанию если не указано)
     
     Returns:
         list: Список созданных экземпляров QRCode
@@ -183,7 +184,7 @@ def generate_qr_codes_batch(code_type, quantity):
     qr_codes = []
     
     for _ in range(quantity):
-        qr_code = QRCode.create_code(code_type)
+        qr_code = QRCode.create_code(code_type, points=points)
         generate_qr_code_image(qr_code)
         qr_codes.append(qr_code)
     
