@@ -25,14 +25,14 @@
             </div>
             <div class="points-badge">
                 <div class="points-value" id="points">0</div>
-                <div class="points-label">{% trans "WEBAPP_YOUR_POINTS" %}</div>
+                <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
             </div>
         </div>
 
         <div id="errorContainer"></div>
 
         <!-- Баннер с каруселью -->
-        <div class="banner-section" id="bannerSection" style="display: none;">
+        <div class="banner-section" id="bannerSection">
             <div class="banner-card">
                 <div class="banner-nav banner-nav-left" onclick="prevBanner()">‹</div>
                 <div class="banner-content">
@@ -292,6 +292,7 @@
             'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
             'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
+            'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
         };
 
         async function loadTranslations(language) {
@@ -508,24 +509,42 @@
 
         async function loadGiftsList() {
             const container = document.getElementById('giftsListContainer');
+            if (!container) return;
+            
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_GIFTS') + '</div>';
             
             try {
+                if (!currentUser || !currentUser.telegram_id) {
+                    throw new Error('User not loaded');
+                }
+                
                 const response = await fetch(`${API_BASE}/gifts/`);
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
                 
                 const gifts = await response.json();
-                const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                const redemptions = redemptionsResponse.ok ? await redemptionsResponse.json() : [];
                 
-                if (gifts.length === 0) {
+                // Загружаем redemptions отдельно, если не удалось - продолжаем без них
+                let redemptions = [];
+                try {
+                    const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                    if (redemptionsResponse.ok) {
+                        redemptions = await redemptionsResponse.json();
+                    }
+                } catch (e) {
+                    console.warn('Failed to load redemptions:', e);
+                }
+                
+                if (!gifts || gifts.length === 0) {
                     container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_GIFTS') + '</div>';
                     return;
                 }
                 
                 container.innerHTML = '';
                 gifts.forEach(gift => {
-                    const redemption = redemptions.find(r => r.gift.id === gift.id);
+                    const redemption = redemptions.find(r => r.gift && r.gift.id === gift.id);
                     const userPoints = currentUser.points || 0;
                     const hasEnoughPoints = userPoints >= gift.points_cost;
                     const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
@@ -554,15 +573,30 @@
                         </div>`;
                     }
                     
+                    // Обрабатываем URL изображения
+                    let imageUrl = '/static/images/gift-box.png';
+                    if (gift.image) {
+                        // Если это полный URL, используем как есть
+                        if (gift.image.startsWith('http://') || gift.image.startsWith('https://')) {
+                            imageUrl = gift.image;
+                        } else {
+                            // Если это относительный путь, добавляем базовый URL
+                            imageUrl = gift.image.startsWith('/') ? gift.image : `/${gift.image}`;
+                        }
+                    }
+                    
                     giftCard.innerHTML = `
-                        <img src="${gift.image || '/static/images/gift-box.png'}" alt="${gift.name}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
+                        <div class="gift-card-image-wrapper">
+                            <img src="${imageUrl}" alt="${gift.name || 'Gift'}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
+                        </div>
                         ${statusHtml}
-                        <div class="gift-card-name">${gift.name}</div>
-                        <div class="gift-card-points">${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                        <div class="gift-card-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
                     `;
                     container.appendChild(giftCard);
                 });
             } catch (error) {
+                console.error('Error loading gifts:', error);
                 container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
             }
         }
@@ -615,13 +649,23 @@
                     `;
                 }
                 
+                // Обрабатываем URL изображения
+                let detailImageUrl = '/static/images/gift-box.png';
+                if (gift.image) {
+                    if (gift.image.startsWith('http://') || gift.image.startsWith('https://')) {
+                        detailImageUrl = gift.image;
+                    } else {
+                        detailImageUrl = gift.image.startsWith('/') ? gift.image : `/${gift.image}`;
+                    }
+                }
+                
                 container.innerHTML = `
                     <div class="gift-detail-image">
-                        <img src="${gift.image || '/static/images/gift-box.png'}" alt="${gift.name}" onerror="this.src='/static/images/gift-box.png'">
+                        <img src="${detailImageUrl}" alt="${gift.name || 'Gift'}" onerror="this.src='/static/images/gift-box.png'">
                     </div>
                     <div class="gift-detail-info">
-                        <div class="gift-detail-name">${gift.name}</div>
-                        <div class="gift-detail-points">${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-detail-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                        <div class="gift-detail-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
                         ${gift.description ? `<div class="gift-detail-description">${gift.description}</div>` : ''}
                     </div>
                     ${actionHtml}
@@ -804,7 +848,7 @@
         function updatePageTexts() {
             const pointsLabel = document.querySelector('.points-label');
             if (pointsLabel) {
-                pointsLabel.textContent = t('WEBAPP_YOUR_POINTS');
+                pointsLabel.textContent = t('WEBAPP_TOTAL_POINTS');
             }
             
             const infoText = document.querySelector('.info-text p');

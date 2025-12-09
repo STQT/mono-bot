@@ -90,9 +90,15 @@ def get_translations(request):
 @permission_classes([AllowAny])
 def get_gifts(request):
     """Получает список активных подарков."""
-    gifts = Gift.objects.filter(is_active=True).order_by('points_cost')
-    serializer = GiftSerializer(gifts, many=True, context={'request': request})
-    return Response(serializer.data)
+    try:
+        gifts = Gift.objects.filter(is_active=True).order_by('points_cost')
+        serializer = GiftSerializer(gifts, many=True, context={'request': request})
+        return Response(serializer.data)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])

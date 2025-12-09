@@ -65,6 +65,7 @@ TRANSLATIONS = {
         # Web App переводы
         'WEBAPP_MY_GIFTS': "Mening sovg'alarim",
         'WEBAPP_YOUR_POINTS': "Sizning ballingiz",
+        'WEBAPP_TOTAL_POINTS': "Jami ballar",
         'WEBAPP_AVAILABLE_GIFTS': "🎁 Mavjud sovg'alar",
         'WEBAPP_MY_ORDERS': "📦 Mening buyurtmalarim",
         'WEBAPP_LOADING': "Yuklanmoqda...",
@@ -313,6 +314,7 @@ TRANSLATIONS = {
         # Web App переводы
         'WEBAPP_MY_GIFTS': "Мои подарки",
         'WEBAPP_YOUR_POINTS': "Ваши баллы",
+        'WEBAPP_TOTAL_POINTS': "Всего баллов",
         'WEBAPP_AVAILABLE_GIFTS': "🎁 Доступные подарки",
         'WEBAPP_MY_ORDERS': "📦 Мои заказы",
         'WEBAPP_LOADING': "Загрузка...",

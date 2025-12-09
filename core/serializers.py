@@ -33,6 +33,7 @@ class QRCodeSerializer(serializers.ModelSerializer):
 
 class GiftSerializer(serializers.ModelSerializer):
     """Сериализатор для подарка."""
+    image = serializers.SerializerMethodField()
     
     class Meta:
         model = Gift
@@ -41,6 +42,15 @@ class GiftSerializer(serializers.ModelSerializer):
             'points_cost', 'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+    
+    def get_image(self, obj):
+        """Возвращает полный URL изображения."""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 
 class GiftRedemptionSerializer(serializers.ModelSerializer):
