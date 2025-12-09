@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.conf import settings
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration
+    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -246,6 +246,25 @@ class QRCodeAdmin(admin.ModelAdmin):
             return (None,)
         # По умолчанию Django использует первый элемент list_display как ссылку
         return super().get_list_display_links(request, list_display)
+    
+    def get_fields(self, request, obj=None):
+        """Возвращает список полей для отображения, заменяя code на masked_code_display для пользователей без прав."""
+        fields = list(super().get_fields(request, obj))
+        
+        # Если пользователь не имеет прав на просмотр деталей, заменяем code на masked_code_display
+        if obj and not self.has_view_permission(request, obj):
+            if 'code' in fields:
+                fields.remove('code')
+            if 'masked_code_display' not in fields:
+                # Вставляем masked_code_display на место code
+                try:
+                    code_index = fields.index('code')
+                    fields.insert(code_index, 'masked_code_display')
+                except ValueError:
+                    # Если code не найден, просто добавляем в начало
+                    fields.insert(0, 'masked_code_display')
+        
+        return fields
     
     def get_readonly_fields(self, request, obj=None):
         """Возвращает список readonly полей, добавляя маскированное поле code для пользователей без прав."""
@@ -855,6 +874,32 @@ class QRCodeGenerationAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Разрешаем удаление."""
         return True
+
+
+# Кастомная админка для дашборда
+@admin.register(PrivacyPolicy)
+class PrivacyPolicyAdmin(admin.ModelAdmin):
+    """Админка для политики конфиденциальности."""
+    list_display = ['is_active', 'updated_at', 'created_at']
+    list_filter = ['is_active', 'created_at', 'updated_at']
+    fieldsets = (
+        ('Контент', {
+            'fields': ('content_uz_latin', 'content_uz_cyrillic', 'content_ru', 'is_active')
+        }),
+        ('Системная информация', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    readonly_fields = ['created_at', 'updated_at']
+    
+    def has_add_permission(self, request):
+        """Разрешаем создание только для superuser."""
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        """Разрешаем удаление только для superuser."""
+        return request.user.is_superuser
 
 
 # Кастомная админка для дашборда

@@ -33,9 +33,9 @@
 
         <!-- Баннер с каруселью -->
         <div class="banner-section" id="bannerSection">
-            <div class="banner-card">
+            <div class="banner-card" id="bannerCard" onclick="openPromotionDetail()" style="cursor: pointer;">
                 <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
-                <div class="banner-nav banner-nav-left" onclick="prevBanner()">‹</div>
+                <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner();">‹</div>
                 <div class="banner-content">
                     <div class="banner-text">
                         <div class="banner-title" id="bannerTitle"></div>
@@ -53,7 +53,7 @@
                     </svg>
                     <span id="bannerDate"></span>
                 </div>
-                <div class="banner-nav banner-nav-right" onclick="nextBanner()">›</div>
+                <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner();">›</div>
             </div>
             <div class="carousel-dots" id="carouselDots"></div>
         </div>
@@ -218,6 +218,28 @@
         </div>
     </div>
 
+    <!-- ЭКРАН: Политика конфиденциальности -->
+    <div class="screen" id="privacyScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <h2 class="screen-title">{% trans "WEBAPP_PRIVACY_POLICY" %}</h2>
+        </div>
+        <div class="privacy-container" id="privacyContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING" %}</div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Детальный просмотр акции -->
+    <div class="screen" id="promotionDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('home')">‹</button>
+            <h2 class="screen-title" id="promotionDetailTitle"></h2>
+        </div>
+        <div class="promotion-detail-container" id="promotionDetailContainer">
+            <div class="loading">{% trans "WEBAPP_LOADING" %}</div>
+        </div>
+    </div>
+
     <!-- МОДАЛКА: Выбор языка -->
     <div class="modal" id="languageModal">
         <div class="modal-content language-modal-content">
@@ -230,6 +252,11 @@
                     <span class="language-flag">🇺🇿</span>
                     <span class="language-name">{% trans "WEBAPP_UZBEK" %}</span>
                     <span class="language-check" id="checkUzLatin" style="display: none;">✓</span>
+                </div>
+                <div class="language-option" onclick="changeLanguage('uz_cyrillic')">
+                    <span class="language-flag">🇺🇿</span>
+                    <span class="language-name">{% trans "WEBAPP_UZBEK_CYRILLIC" %}</span>
+                    <span class="language-check" id="checkUzCyrillic" style="display: none;">✓</span>
                 </div>
                 <div class="language-option" onclick="changeLanguage('ru')">
                     <span class="language-flag">🇷🇺</span>
@@ -495,7 +522,12 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    showQRError(data.error || t('WEBAPP_QR_ERROR'));
+                    // Если это ошибка превышения лимита попыток, показываем специальное сообщение
+                    if (data.error_code === 'max_attempts') {
+                        showQRError(data.error || t('WEBAPP_QR_MAX_ATTEMPTS'));
+                    } else {
+                        showQRError(data.error || t('WEBAPP_QR_ERROR'));
+                    }
                     return;
                 }
                 
@@ -553,6 +585,13 @@
                 const screen = document.getElementById(`${screenName}Screen`);
                 if (screen) {
                     screen.style.display = 'block';
+                } else {
+                    // Если экран не найден, пытаемся найти по полному ID
+                    const fullId = screenName.includes('Screen') ? screenName : `${screenName}Screen`;
+                    const altScreen = document.getElementById(fullId);
+                    if (altScreen) {
+                        altScreen.style.display = 'block';
+                    }
                 }
             }
         }
@@ -775,16 +814,17 @@
                     
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
-                    if (redemption.status === 'approved') {
+                    if (redemption.status === 'approved' || redemption.status === 'completed') {
                         statusClass = 'approved';
-                        statusText = t('WEBAPP_STATUS_APPROVED');
+                        statusText = redemption.status === 'completed' ? t('WEBAPP_STATUS_COMPLETED') : t('WEBAPP_STATUS_APPROVED');
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
                     }
                     
+                    const giftImage = redemption.gift.image || '/static/images/gift-box.png';
                     card.innerHTML = `
-                        <img src="${redemption.gift.image || '/static/images/gift-box.png'}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
+                        <img src="${giftImage}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
                         <div class="profile-gift-info">
                             <div class="profile-gift-name">${redemption.gift.name}</div>
                             <div class="profile-gift-status ${statusClass}">${statusText}</div>
@@ -846,17 +886,49 @@
 
         function updateLanguageChecks() {
             document.getElementById('checkUzLatin').style.display = currentUser.language === 'uz_latin' ? 'block' : 'none';
+            document.getElementById('checkUzCyrillic').style.display = currentUser.language === 'uz_cyrillic' ? 'block' : 'none';
             document.getElementById('checkRu').style.display = currentUser.language === 'ru' ? 'block' : 'none';
         }
 
         async function changeLanguage(language) {
-            // TODO: Отправить запрос на сервер для изменения языка
-            currentUser.language = language;
-            await loadTranslations(language);
-            updateLanguageChecks();
-            closeLanguageModal();
-            // Обновляем текст в меню профиля
-            document.getElementById('currentLanguage').textContent = language === 'uz_latin' ? t('WEBAPP_UZBEK') : t('WEBAPP_RUSSIAN');
+            if (!currentUser || !currentUser.telegram_id) {
+                showError('User not loaded');
+                return;
+            }
+            
+            try {
+                // Отправляем запрос на сервер для изменения языка
+                const response = await fetch(`${API_BASE}/change-language/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        telegram_id: currentUser.telegram_id,
+                        language: language
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to change language');
+                }
+                
+                // Обновляем язык пользователя
+                currentUser.language = language;
+                await loadTranslations(language);
+                updateLanguageChecks();
+                closeLanguageModal();
+                updatePageTexts();
+                
+                // Обновляем текст в меню профиля
+                const languageNames = {
+                    'uz_latin': t('WEBAPP_UZBEK'),
+                    'uz_cyrillic': t('WEBAPP_UZBEK_CYRILLIC'),
+                    'ru': t('WEBAPP_RUSSIAN')
+                };
+                document.getElementById('currentLanguage').textContent = languageNames[language] || languageNames['uz_latin'];
+            } catch (error) {
+                console.error('Error changing language:', error);
+                showError('Failed to change language');
+            }
         }
 
         // Обновляем функции для работы с экранами
@@ -883,8 +955,68 @@
             }
         }
 
-        function showPrivacy() {
-            tg.showAlert('Политика конфиденциальности');
+        async function showPrivacy() {
+            showScreen('privacy');
+            const container = document.getElementById('privacyContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                const language = currentUser ? currentUser.language : 'uz_latin';
+                const response = await fetch(`${API_BASE}/privacy-policy/?lang=${language}`);
+                if (!response.ok) throw new Error();
+                
+                const data = await response.json();
+                container.innerHTML = `
+                    <div class="privacy-content">
+                        ${data.content.replace(/\n/g, '<br>')}
+                    </div>
+                `;
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+            }
+        }
+
+        function openPromotionDetail() {
+            if (promotions.length === 0 || !promotions[currentBannerIndex]) return;
+            const promotion = promotions[currentBannerIndex];
+            showPromotionDetail(promotion.id);
+        }
+
+        async function showPromotionDetail(promotionId) {
+            showScreen('promotionDetail');
+            const container = document.getElementById('promotionDetailContainer');
+            const title = document.getElementById('promotionDetailTitle');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/promotions/${promotionId}/`);
+                if (!response.ok) throw new Error();
+                
+                const promotion = await response.json();
+                title.textContent = promotion.title || '';
+                
+                container.innerHTML = `
+                    <div class="promotion-detail-image">
+                        <img src="${promotion.image || ''}" alt="${promotion.title || 'Promotion'}" onerror="this.style.display='none'">
+                    </div>
+                    <div class="promotion-detail-info">
+                        <div class="promotion-detail-date">
+                            <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="2.67" y="3.33" width="10.67" height="10.67" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/>
+                                <line x1="5.33" y1="1.67" x2="5.33" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="10.67" y1="1.67" x2="10.67" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="2.67" y1="7.33" x2="13.33" y2="7.33" stroke="currentColor" stroke-width="1.5"/>
+                                <line x1="5.33" y1="10" x2="5.33" y2="13.33" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="8" y1="10" x2="8" y2="13.33" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="10.67" y1="10" x2="10.67" y2="13.33" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                            <span>${promotion.date || ''}</span>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+            }
         }
 
         async function loadPromotions() {

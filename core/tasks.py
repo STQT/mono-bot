@@ -6,7 +6,7 @@ import zipfile
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
-from .models import QRCode, QRCodeGeneration, QRCodeScanAttempt
+from .models import QRCode, QRCodeGeneration
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
 
@@ -72,19 +72,4 @@ def generate_qr_codes_task(self, generation_id):
         except:
             pass
         raise
-
-
-@shared_task
-def reset_failed_qr_attempts_daily():
-    """
-    Периодическая задача для удаления неуспешных попыток сканирования QR-кодов.
-    Выполняется ежедневно ночью для обнуления счетчика попыток пользователей.
-    """
-    try:
-        # Удаляем все неуспешные попытки
-        deleted_count, _ = QRCodeScanAttempt.objects.filter(is_successful=False).delete()
-        
-        return f"Successfully deleted {deleted_count} failed QR code scan attempts"
-    except Exception as e:
-        return f"Error resetting failed QR attempts: {str(e)}"
 

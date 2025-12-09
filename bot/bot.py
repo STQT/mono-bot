@@ -262,7 +262,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             from django.utils import timezone
             from datetime import datetime, time as dt_time
             
-            # Проверяем количество неудачных попыток за сегодня
+            # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
+            # Это предотвращает создание новых попыток, если лимит уже превышен
             today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
             today_attempts = QRCodeScanAttempt.objects.filter(
                 user=user,
@@ -271,6 +272,7 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             ).count()
             
             if today_attempts >= settings.QR_CODE_MAX_ATTEMPTS:
+                # Лимит превышен - сразу возвращаем ошибку без создания новой попытки
                 return {'error': 'max_attempts'}
             
             # Ищем QR-код по коду или hash_code
@@ -282,10 +284,32 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 try:
                     qr_code = QRCode.objects.get(hash_code=qr_code_str)
                 except QRCode.DoesNotExist:
-                    return {'error': 'not_found'}
+                    # Создаем запись о неудачной попытке только если лимит еще не превышен
+                    # Но сначала проверяем, не превысили ли мы лимит после предыдущей проверки
+                    today_attempts_after = QRCodeScanAttempt.objects.filter(
+                        user=user,
+                        attempted_at__gte=today_start,
+                        is_successful=False
+                    ).count()
+                    if today_attempts_after < settings.QR_CODE_MAX_ATTEMPTS:
+                        # Создаем временный QR-код для записи попытки (если нужно)
+                        # Но так как QR-код не найден, просто возвращаем ошибку
+                        return {'error': 'not_found'}
+                    else:
+                        return {'error': 'max_attempts'}
             
             # Проверяем, не был ли уже отсканирован
             if qr_code.is_scanned:
+                # Проверяем лимит еще раз перед созданием попытки
+                today_attempts_before_scan = QRCodeScanAttempt.objects.filter(
+                    user=user,
+                    attempted_at__gte=today_start,
+                    is_successful=False
+                ).count()
+                
+                if today_attempts_before_scan >= settings.QR_CODE_MAX_ATTEMPTS:
+                    return {'error': 'max_attempts'}
+                
                 # Создаем запись о неудачной попытке
                 QRCodeScanAttempt.objects.create(
                     user=user,

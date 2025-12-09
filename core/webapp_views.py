@@ -8,7 +8,7 @@ from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
-from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion
+from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
 
@@ -298,7 +298,8 @@ def register_qr_code(request):
         )
     
     try:
-        # Проверяем количество неудачных попыток за сегодня
+        # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
+        # Это предотвращает создание новых попыток, если лимит уже превышен
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_attempts = QRCodeScanAttempt.objects.filter(
             user=user,
@@ -306,12 +307,12 @@ def register_qr_code(request):
             is_successful=False
         ).count()
         
-        max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 3)
+        max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 5)
         if today_attempts >= max_attempts:
             from bot.translations import get_text
             error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
             return Response(
-                {'error': error_message},
+                {'error': error_message, 'error_code': 'max_attempts'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -324,15 +325,45 @@ def register_qr_code(request):
             try:
                 qr_code = QRCode.objects.get(hash_code=qr_code_str)
             except QRCode.DoesNotExist:
+                # Проверяем лимит еще раз перед возвратом ошибки
+                today_attempts_after = QRCodeScanAttempt.objects.filter(
+                    user=user,
+                    attempted_at__gte=today_start,
+                    is_successful=False
+                ).count()
+                
+                if today_attempts_after >= max_attempts:
+                    from bot.translations import get_text
+                    error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+                    return Response(
+                        {'error': error_message, 'error_code': 'max_attempts'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
                 from bot.translations import get_text
                 error_message = get_text(user, 'QR_NOT_FOUND')
                 return Response(
-                    {'error': error_message},
+                    {'error': error_message, 'error_code': 'not_found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
         
         # Проверяем, не был ли уже отсканирован
         if qr_code.is_scanned:
+            # Проверяем лимит еще раз перед созданием попытки
+            today_attempts_before_scan = QRCodeScanAttempt.objects.filter(
+                user=user,
+                attempted_at__gte=today_start,
+                is_successful=False
+            ).count()
+            
+            if today_attempts_before_scan >= max_attempts:
+                from bot.translations import get_text
+                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+                return Response(
+                    {'error': error_message, 'error_code': 'max_attempts'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             # Создаем запись о неудачной попытке
             QRCodeScanAttempt.objects.create(
                 user=user,
@@ -342,7 +373,7 @@ def register_qr_code(request):
             from bot.translations import get_text
             error_message = get_text(user, 'QR_ALREADY_SCANNED')
             return Response(
-                {'error': error_message},
+                {'error': error_message, 'error_code': 'already_scanned'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -389,3 +420,93 @@ def register_qr_code(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def change_language(request):
+    """Изменяет язык пользователя."""
+    telegram_id = request.data.get('telegram_id')
+    language = request.data.get('language')
+    
+    if not telegram_id or not language:
+        return Response(
+            {'error': 'telegram_id and language are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Проверяем, что язык валидный
+    valid_languages = ['uz_latin', 'uz_cyrillic', 'ru']
+    if language not in valid_languages:
+        return Response(
+            {'error': f'Invalid language. Must be one of: {", ".join(valid_languages)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+        user.language = language
+        user.save(update_fields=['language'])
+        
+        return Response({
+            'success': True,
+            'language': language
+        })
+    except TelegramUser.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_privacy_policy(request):
+    """Получает политику конфиденциальности для указанного языка."""
+    language = request.GET.get('lang', 'uz_latin')
+    
+    try:
+        policy = PrivacyPolicy.objects.filter(is_active=True).order_by('-updated_at').first()
+        
+        if not policy:
+            return Response(
+                {'error': 'Privacy policy not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        content = policy.get_content(language)
+        
+        return Response({
+            'content': content,
+            'updated_at': policy.updated_at.strftime('%d.%m.%Y') if policy.updated_at else None
+        })
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_promotion_detail(request, promotion_id):
+    """Получает детальную информацию об акции."""
+    try:
+        promotion = Promotion.objects.get(id=promotion_id, is_active=True)
+        
+        return Response({
+            'id': promotion.id,
+            'title': promotion.title,
+            'image': request.build_absolute_uri(promotion.image.url) if promotion.image else None,
+            'date': promotion.date.strftime('%d.%m.%Y') if promotion.date else None,
+        })
+    except Promotion.DoesNotExist:
+        return Response(
+            {'error': 'Promotion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

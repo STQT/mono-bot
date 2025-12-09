@@ -22,7 +22,7 @@ TRANSLATIONS = {
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-kod muvaffaqiyatli faollashtirildi!\n\n💰 Sizga {points} ball qo'shildi.\n📊 Joriy balansingiz: {total_points} ball.",
-        'QR_MAX_ATTEMPTS': "❌ Maksimal urinishlar soni oshib ketdi ({max_attempts}).\nBu QR-kodni endi ishlatib bo'lmaydi.",
+        'QR_MAX_ATTEMPTS': "❌ Siz bugun {max_attempts} marta noto'g'ri QR-kod kiritdingiz.\n\n⏰ Keyingi urinishlar ertaga (00:00) qayta ochiladi.\n\nIltimos, keyinroq urinib ko'ring yoki administrator bilan bog'laning.",
         'QR_NOT_FOUND': "❌ QR-kod topilmadi. Kod to'g'riligini tekshiring.",
         'QR_ALREADY_SCANNED': "❌ Bu QR-kod allaqachon boshqa foydalanuvchi tomonidan ishlatilgan.",
         'QR_ERROR': "❌ QR-kodni qayta ishlashda xatolik yuz berdi. Keyinroq urinib ko'ring.",
@@ -96,9 +96,9 @@ TRANSLATIONS = {
         'WEBAPP_COMMENT_SENT': "Sizning izohingiz yuborildi. Siz bilan bog'lanamiz.",
         'WEBAPP_COMMENT_REQUIRED': "Iltimos, buyurtmani olmagan sababingizni ko'rsating",
         'WEBAPP_STATUS_PENDING': "Kutilmoqda",
-        'WEBAPP_STATUS_APPROVED': "Tasdiqlandi",
-        'WEBAPP_STATUS_REJECTED': "Rad etildi",
-        'WEBAPP_STATUS_COMPLETED': "Yakunlandi",
+        'WEBAPP_STATUS_APPROVED': "Qabul qilingan",
+        'WEBAPP_STATUS_REJECTED': "Bekor qilingan",
+        'WEBAPP_STATUS_COMPLETED': "Qabul qilingan",
         'WEBAPP_DELIVERY_PENDING': "Yuborish kutilmoqda",
         'WEBAPP_DELIVERY_SENT': "Yuborildi",
         'WEBAPP_DELIVERY_DELIVERED': "Yetkazildi",
@@ -128,11 +128,13 @@ TRANSLATIONS = {
         'WEBAPP_GIFTS': "Sovg'alar",
         'WEBAPP_QR_HISTORY': "QR kodlar tarixi",
         'WEBAPP_UZBEK': "O'zbekcha",
+        'WEBAPP_UZBEK_CYRILLIC': "Ўзбекча",
         'WEBAPP_RUSSIAN': "Ruscha",
         'WEBAPP_CLOSE': "Yopish",
         'WEBAPP_BALL': "Ball",
         'WEBAPP_LOADING_QR_HISTORY': "QR kodlar tarixi yuklanmoqda...",
         'WEBAPP_NO_QR_HISTORY': "QR kodlar tarixi yo'q",
+        'WEBAPP_QR_MAX_ATTEMPTS': "❌ Сиз бугун {max_attempts} марта нотўғри QR-код киритдингиз. Кейинги уринишлар эртага (00:00) қайта очилади.",
     },
     
     'uz_cyrillic': {
@@ -151,7 +153,7 @@ TRANSLATIONS = {
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код муваффақиятли фаоллаштирилди!\n\n💰 Сизга {points} балл қўшилди.\n📊 Жорий балансингиз: {total_points} балл.",
-        'QR_MAX_ATTEMPTS': "❌ Максимал уринишлар сони ошиб кетди ({max_attempts}).\nБу QR-кодни энди ишлатиб бўлмайди.",
+        'QR_MAX_ATTEMPTS': "❌ Сиз бугун {max_attempts} марта нотўғри QR-код киритдингиз.\n\n⏰ Кейинги уринишлар эртага (00:00) қайта очилади.\n\nИлтимос, кейинроқ уриниб кўринг ёки администратор билан боғланинг.",
         'QR_NOT_FOUND': "❌ QR-код топилмади. Код тўғрилигини текширинг.",
         'QR_ALREADY_SCANNED': "❌ Бу QR-код аллақачон бошқа фойдаланувчи томонидан ишлатилган.",
         'QR_ERROR': "❌ QR-кодни қайта ишлашда хатолик юз берди. Кейинроқ уриниб кўринг.",
@@ -224,9 +226,9 @@ TRANSLATIONS = {
         'WEBAPP_COMMENT_SENT': "Сизнинг изоҳингиз юборилди. Сиз билан боғланамиз.",
         'WEBAPP_COMMENT_REQUIRED': "Илтимос, буюртмани олмаган сабабингизни кўрсатинг",
         'WEBAPP_STATUS_PENDING': "Кутилмоқда",
-        'WEBAPP_STATUS_APPROVED': "Тасдиқланди",
-        'WEBAPP_STATUS_REJECTED': "Рад этилди",
-        'WEBAPP_STATUS_COMPLETED': "Якунланди",
+        'WEBAPP_STATUS_APPROVED': "Қабул қилинган",
+        'WEBAPP_STATUS_REJECTED': "Бекор қилинган",
+        'WEBAPP_STATUS_COMPLETED': "Қабул қилинган",
         'WEBAPP_DELIVERY_PENDING': "Юбориш кутилмоқда",
         'WEBAPP_DELIVERY_SENT': "Юборилди",
         'WEBAPP_DELIVERY_DELIVERED': "Етказилди",
@@ -256,11 +258,13 @@ TRANSLATIONS = {
         'WEBAPP_GIFTS': "Sovg'alar",
         'WEBAPP_QR_HISTORY': "QR kodlar tarixi",
         'WEBAPP_UZBEK': "O'zbekcha",
+        'WEBAPP_UZBEK_CYRILLIC': "Ўзбекча",
         'WEBAPP_RUSSIAN': "Ruscha",
         'WEBAPP_CLOSE': "Yopish",
         'WEBAPP_BALL': "Ball",
         'WEBAPP_LOADING_QR_HISTORY': "QR kodlar tarixi yuklanmoqda...",
         'WEBAPP_NO_QR_HISTORY': "QR kodlar tarixi yo'q",
+        'WEBAPP_QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код. Следующие попытки откроются завтра (00:00).",
     },
     
     'ru': {
@@ -279,7 +283,7 @@ TRANSLATIONS = {
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код успешно активирован!\n\n💰 Вам начислено {points} баллов.\n📊 Ваш текущий баланс: {total_points} баллов.",
-        'QR_MAX_ATTEMPTS': "❌ Превышено максимальное количество попыток ({max_attempts}).\nЭтот QR-код больше нельзя использовать.",
+        'QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код.\n\n⏰ Следующие попытки откроются завтра (00:00).\n\nПожалуйста, попробуйте позже или свяжитесь с администратором.",
         'QR_NOT_FOUND': "❌ QR-код не найден. Проверьте правильность кода.",
         'QR_ALREADY_SCANNED': "❌ Этот QR-код уже был использован другим пользователем.",
         'QR_ERROR': "❌ Произошла ошибка при обработке QR-кода. Попробуйте позже.",
@@ -353,9 +357,9 @@ TRANSLATIONS = {
         'WEBAPP_COMMENT_SENT': "Ваш комментарий отправлен. С вами свяжутся.",
         'WEBAPP_COMMENT_REQUIRED': "Пожалуйста, укажите причину, почему вы не получили заказ",
         'WEBAPP_STATUS_PENDING': "Ожидает",
-        'WEBAPP_STATUS_APPROVED': "Одобрено",
-        'WEBAPP_STATUS_REJECTED': "Отклонено",
-        'WEBAPP_STATUS_COMPLETED': "Выполнено",
+        'WEBAPP_STATUS_APPROVED': "Получено",
+        'WEBAPP_STATUS_REJECTED': "Отменено",
+        'WEBAPP_STATUS_COMPLETED': "Получено",
         'WEBAPP_DELIVERY_PENDING': "Ожидает отправки",
         'WEBAPP_DELIVERY_SENT': "Отправлено",
         'WEBAPP_DELIVERY_DELIVERED': "Доставлено",
@@ -385,11 +389,13 @@ TRANSLATIONS = {
         'WEBAPP_GIFTS': "Подарки",
         'WEBAPP_QR_HISTORY': "История QR-кодов",
         'WEBAPP_UZBEK': "Узбекский",
+        'WEBAPP_UZBEK_CYRILLIC': "Узбекский (Кириллица)",
         'WEBAPP_RUSSIAN': "Русский",
         'WEBAPP_CLOSE': "Закрыть",
         'WEBAPP_BALL': "Балл",
         'WEBAPP_LOADING_QR_HISTORY': "Загрузка истории QR-кодов...",
         'WEBAPP_NO_QR_HISTORY': "История QR-кодов отсутствует",
+        'WEBAPP_QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код. Следующие попытки откроются завтра (00:00).",
     },
 }
 

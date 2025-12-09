@@ -212,14 +212,21 @@ class QRCodeScanAttempt(models.Model):
         on_delete=models.CASCADE,
         related_name='scan_attempts'
     )
-    attempted_at = models.DateTimeField(auto_now_add=True)
-    is_successful = models.BooleanField(default=False)
+    attempted_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_successful = models.BooleanField(default=False, db_index=True)
     
     class Meta:
         verbose_name = 'Skanerlash urinishi'
         verbose_name_plural = 'Skanerlash urinishlari'
         ordering = ['-attempted_at']
         unique_together = [['user', 'qr_code']]
+        indexes = [
+            # Составной индекс для оптимизации запроса количества попыток за сегодня
+            # Используется в: filter(user=user, attempted_at__gte=today_start, is_successful=False)
+            models.Index(fields=['user', 'attempted_at', 'is_successful'], name='qrscan_user_date_success_idx'),
+            # Индекс для быстрого поиска по дате (для аналитики)
+            models.Index(fields=['-attempted_at'], name='qrscan_attempted_at_idx'),
+        ]
     
     def __str__(self):
         status = 'Muvaffaqiyatli' if self.is_successful else 'Muvaffaqiyatsiz'
@@ -425,4 +432,30 @@ class QRCodeGeneration(models.Model):
     
     def __str__(self):
         return f"{self.get_code_type_display()} - {self.quantity} ta ({self.get_status_display()})"
+
+
+class PrivacyPolicy(models.Model):
+    """Модель для политики конфиденциальности."""
+    content_uz_latin = models.TextField(verbose_name='Kontent (O\'zbek lotin)')
+    content_uz_cyrillic = models.TextField(verbose_name='Kontent (O\'zbek kirill)', blank=True)
+    content_ru = models.TextField(verbose_name='Kontent (Ruscha)', blank=True)
+    is_active = models.BooleanField(default=True, verbose_name='Faol')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    class Meta:
+        verbose_name = 'Maxfiylik siyosati'
+        verbose_name_plural = 'Maxfiylik siyosati'
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Maxfiylik siyosati ({self.updated_at.strftime('%d.%m.%Y') if self.updated_at else 'Yangi'})"
+    
+    def get_content(self, language='uz_latin'):
+        """Возвращает контент для указанного языка."""
+        if language == 'uz_cyrillic' and self.content_uz_cyrillic:
+            return self.content_uz_cyrillic
+        elif language == 'ru' and self.content_ru:
+            return self.content_ru
+        return self.content_uz_latin
 
