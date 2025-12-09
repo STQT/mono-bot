@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.conf import settings
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage
+    Gift, GiftRedemption, BroadcastMessage, Promotion
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -599,6 +599,60 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
                     level=messages.ERROR
                 )
     send_broadcast_action.short_description = 'Отправить выбранные рассылки'
+
+
+@admin.register(Promotion)
+class PromotionAdmin(admin.ModelAdmin):
+    """Админка для акций/баннеров."""
+    list_display = [
+        'image_preview', 'title', 'date_display', 'order', 'is_active', 'status_badge', 'created_at'
+    ]
+    list_filter = ['is_active', 'created_at', 'date']
+    search_fields = ['title']
+    list_editable = ['order', 'is_active']
+    ordering = ['order', '-created_at']
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('title', 'image', 'date', 'order', 'is_active')
+        }),
+        ('Системная информация', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ['created_at', 'updated_at']
+    
+    def image_preview(self, obj):
+        """Превью изображения акции."""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 8px;" />',
+                obj.image.url
+            )
+        return '-'
+    image_preview.short_description = 'Rasm'
+    
+    def date_display(self, obj):
+        """Отображает дату в формате DD.MM.YYYY."""
+        if obj.date:
+            return obj.date.strftime('%d.%m.%Y')
+        return '-'
+    date_display.short_description = 'Sana'
+    date_display.admin_order_field = 'date'
+    
+    def status_badge(self, obj):
+        """Отображает статус активности."""
+        if obj.is_active:
+            return format_html(
+                '<span style="background: #10B981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Faol</span>'
+            )
+        return format_html(
+            '<span style="background: #EF4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Nofaol</span>'
+        )
+    status_badge.short_description = 'Holat'
 
 
 # Кастомная админка для дашборда

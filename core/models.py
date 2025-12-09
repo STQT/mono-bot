@@ -339,3 +339,29 @@ class BroadcastMessage(models.Model):
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
 
+
+class Promotion(models.Model):
+    """Модель для акций/баннеров в слайдере Web App."""
+    title = models.CharField(max_length=255, verbose_name='Sarlavha')
+    image = models.ImageField(upload_to='promotions/', verbose_name='Rasm')
+    date = models.DateField(verbose_name='Sana')
+    is_active = models.BooleanField(default=True, verbose_name='Faol', db_index=True)
+    order = models.IntegerField(default=0, verbose_name='Tartib raqami', help_text='Kichikroq raqam yuqorida ko\'rsatiladi')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    class Meta:
+        verbose_name = 'Aksiya'
+        verbose_name_plural = 'Aksiyalar'
+        ordering = ['order', '-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'order']),
+        ]
+    
+    def __str__(self):
+        if self.date:
+            date_str = self.date.strftime('%d.%m.%Y')
+        else:
+            date_str = "Sana yo'q"
+        return f"{self.title} ({date_str})"
+

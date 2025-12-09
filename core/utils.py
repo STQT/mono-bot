@@ -23,14 +23,21 @@ def generate_qr_code_image(qr_code_instance):
     qr_dir = os.path.join(settings.MEDIA_ROOT, 'qrcodes')
     os.makedirs(qr_dir, exist_ok=True)
     
-    # Создаем QR-код
+    # Создаем QR-код с ссылкой на бота
+    bot_username = settings.TELEGRAM_BOT_USERNAME
+    if bot_username:
+        qr_data = f"https://t.me/{bot_username}?start=qr:{qr_code_instance.hash_code}"
+    else:
+        # Fallback на код, если username не установлен
+        qr_data = qr_code_instance.code
+    
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
         border=4,
     )
-    qr.add_data(qr_code_instance.code)
+    qr.add_data(qr_data)
     qr.make(fit=True)
     
     # Создаем изображение QR-кода

@@ -39,6 +39,7 @@ class RegistrationStates(StatesGroup):
     """Состояния для регистрации пользователя."""
     waiting_for_phone = State()
     waiting_for_location = State()
+    waiting_for_user_type = State()
 
 
 class GiftRedemptionStates(StatesGroup):
@@ -97,7 +98,19 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
-    args = message.text.split()[1:] if len(message.text.split()) > 1 else []
+    # Парсим аргументы команды /start
+    # Формат может быть: /start qr:ABC123 или /start E-ABC123
+    args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
+    qr_code_str = None
+    
+    # Проверяем формат ?start=qr:{qr_code} или ?start={qr_code}
+    if args_text:
+        arg = args_text[0]
+        if arg.startswith('qr:'):
+            qr_code_str = arg[3:]  # Убираем префикс 'qr:' - это hash_code
+        else:
+            # Если формат без префикса, пробуем использовать как есть (может быть полный код или hash_code)
+            qr_code_str = arg
     
     user = await get_or_create_user(
         telegram_id=message.from_user.id,
@@ -107,13 +120,18 @@ async def cmd_start(message: Message, state: FSMContext):
     )
     
     # Если передан QR-код в аргументе
-    if args:
-        qr_code_str = args[0]
+    if qr_code_str:
         await handle_qr_code_scan(message, user, qr_code_str, state)
         return
     
     # Проверяем, зарегистрирован ли пользователь
     if not user.phone_number or not user.latitude:
+        # Если пользователь не пришел через QR-код и у него нет типа, спрашиваем тип
+        if not user.user_type:
+            await message.answer(get_text(user, 'WELCOME'))
+            await ask_user_type(message, user, state)
+            return
+        
         await message.answer(get_text(user, 'WELCOME'))
         keyboard = types.ReplyKeyboardMarkup(
             keyboard=[
@@ -188,27 +206,83 @@ async def process_location(message: Message, state: FSMContext):
         await message.answer(get_text(user, 'USE_BUTTON_LOCATION'))
 
 
+async def ask_user_type(message: Message, user, state: FSMContext):
+    """Спрашивает у пользователя его тип (электрик или продавец)."""
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(
+            text=get_text(user, 'USER_TYPE_ELECTRICIAN'),
+            callback_data='user_type_electrician'
+        )],
+        [types.InlineKeyboardButton(
+            text=get_text(user, 'USER_TYPE_SELLER'),
+            callback_data='user_type_seller'
+        )],
+    ])
+    await message.answer(get_text(user, 'SELECT_USER_TYPE'), reply_markup=keyboard)
+    await state.set_state(RegistrationStates.waiting_for_user_type)
+
+
+@dp.callback_query(lambda c: c.data.startswith('user_type_'))
+async def process_user_type_selection(callback: CallbackQuery, state: FSMContext):
+    """Обрабатывает выбор типа пользователя."""
+    user_type = callback.data.split('_')[2]  # electrician или seller
+    
+    @sync_to_async
+    def update_user_type():
+        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user.user_type = user_type
+        user.save(update_fields=['user_type'])
+        return user
+    
+    user = await update_user_type()
+    
+    await callback.answer(get_text(user, 'USER_TYPE_SAVED'))
+    await callback.message.delete()
+    
+    # Продолжаем регистрацию
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text=get_text(user, 'SEND_PHONE').split(':')[0] + "...", request_contact=True)]
+        ],
+        resize_keyboard=True
+    )
+    await bot.send_message(
+        chat_id=callback.from_user.id,
+        text=get_text(user, 'SEND_PHONE'),
+        reply_markup=keyboard
+    )
+    await state.set_state(RegistrationStates.waiting_for_phone)
+
+
 async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: FSMContext):
     """Обрабатывает сканирование QR-кода."""
     try:
         @sync_to_async
         def process_qr_scan():
             from django.utils import timezone
+            from datetime import datetime, time as dt_time
             
-            # Проверяем количество попыток
-            attempts_count = QRCodeScanAttempt.objects.filter(
+            # Проверяем количество неудачных попыток за сегодня
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_attempts = QRCodeScanAttempt.objects.filter(
                 user=user,
-                qr_code__code=qr_code_str
+                attempted_at__gte=today_start,
+                is_successful=False
             ).count()
             
-            if attempts_count >= settings.QR_CODE_MAX_ATTEMPTS:
+            if today_attempts >= settings.QR_CODE_MAX_ATTEMPTS:
                 return {'error': 'max_attempts'}
             
-            # Ищем QR-код
+            # Ищем QR-код по коду или hash_code
             try:
+                # Сначала ищем по полному коду (E-ABC123 или D-ABC123)
                 qr_code = QRCode.objects.get(code=qr_code_str)
             except QRCode.DoesNotExist:
-                return {'error': 'not_found'}
+                # Если не нашли, пробуем найти по hash_code (без префикса)
+                try:
+                    qr_code = QRCode.objects.get(hash_code=qr_code_str)
+                except QRCode.DoesNotExist:
+                    return {'error': 'not_found'}
             
             # Проверяем, не был ли уже отсканирован
             if qr_code.is_scanned:
@@ -261,7 +335,18 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 points=result['points'],
                 total_points=result['total_points']
             ))
-            await show_main_menu(message, user)
+            # Если пользователь еще не зарегистрирован, продолжаем регистрацию
+            if not user.phone_number or not user.latitude:
+                keyboard = types.ReplyKeyboardMarkup(
+                    keyboard=[
+                        [types.KeyboardButton(text=get_text(user, 'SEND_PHONE').split(':')[0] + "...", request_contact=True)]
+                    ],
+                    resize_keyboard=True
+                )
+                await message.answer(get_text(user, 'SEND_PHONE'), reply_markup=keyboard)
+                await state.set_state(RegistrationStates.waiting_for_phone)
+            else:
+                await show_main_menu(message, user)
         
     except Exception as e:
         logger.error(f"Error processing QR code scan: {e}")
@@ -331,6 +416,13 @@ async def handle_message(message: Message, state: FSMContext = None):
     
     user = await get_user()
     
+    # Если пользователь в состоянии регистрации, не обрабатываем как QR-код
+    if state:
+        current_state = await state.get_state()
+        if current_state in [RegistrationStates.waiting_for_phone, RegistrationStates.waiting_for_location, RegistrationStates.waiting_for_user_type]:
+            # Пропускаем обработку, пусть обрабатывают соответствующие handlers
+            return
+    
     # Получаем все возможные варианты текстов кнопок
     all_balance_texts = [
         TRANSLATIONS['uz_latin']['MY_BALANCE'],
@@ -366,7 +458,15 @@ async def handle_message(message: Message, state: FSMContext = None):
     elif message.text in all_language_texts:
         await show_language_selection(message)
     else:
-        await handle_unknown_message(message)
+        # Если это не команда меню, пытаемся обработать как QR-код
+        # Пользователь может ввести QR-код вручную
+        # Не обрабатываем контакты и локации как QR-коды
+        if message.text and len(message.text.strip()) > 0 and not message.contact and not message.location:
+            # Убираем пробелы и пробуем обработать как QR-код
+            qr_code_str = message.text.strip()
+            await handle_qr_code_scan(message, user, qr_code_str, state)
+        else:
+            await handle_unknown_message(message)
 
 
 async def show_balance(message: Message, user: TelegramUser):

@@ -38,12 +38,20 @@
                 <div class="banner-content">
                     <div class="banner-text">
                         <div class="banner-title" id="bannerTitle"></div>
-                        <div class="banner-date-btn">
-                            <span>📅</span>
-                            <span id="bannerDate"></span>
-                        </div>
                     </div>
                     <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
+                </div>
+                <div class="banner-date-btn">
+                    <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2.67" y="3.33" width="10.67" height="10.67" stroke="white" stroke-width="1.5" fill="none" rx="1"/>
+                        <line x1="5.33" y1="1.67" x2="5.33" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="10.67" y1="1.67" x2="10.67" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="2.67" y1="7.33" x2="13.33" y2="7.33" stroke="white" stroke-width="1.5"/>
+                        <line x1="5.33" y1="10" x2="5.33" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="8" y1="10" x2="8" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="10.67" y1="10" x2="10.67" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span id="bannerDate"></span>
                 </div>
                 <div class="banner-nav banner-nav-right" onclick="nextBanner()">›</div>
             </div>
@@ -325,6 +333,8 @@
 
         let currentUser = null;
         let currentRedemptionId = null;
+        let promotions = [];
+        let currentBannerIndex = 0;
         const API_BASE = '/api/webapp';
 
         async function initApp() {
@@ -381,6 +391,7 @@
                     await loadTranslations(currentUser.language);
                 }
                 
+                await loadPromotions();
                 await loadGiftsCount();
                 await loadProductStatus();
             } catch (error) {
@@ -837,12 +848,84 @@
             tg.showAlert('Политика конфиденциальности');
         }
 
+        async function loadPromotions() {
+            try {
+                const response = await fetch(`${API_BASE}/promotions/`);
+                if (response.ok) {
+                    promotions = await response.json();
+                    if (promotions.length > 0) {
+                        currentBannerIndex = 0;
+                        updateBanner();
+                        updateCarouselDots();
+                    } else {
+                        // Если нет акций, скрываем баннер
+                        document.getElementById('bannerSection').style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading promotions:', error);
+                // Скрываем баннер при ошибке
+                document.getElementById('bannerSection').style.display = 'none';
+            }
+        }
+
+        function updateBanner() {
+            if (promotions.length === 0) return;
+            
+            const promotion = promotions[currentBannerIndex];
+            const bannerTitle = document.getElementById('bannerTitle');
+            const bannerDate = document.getElementById('bannerDate');
+            const bannerImage = document.getElementById('bannerImage');
+            
+            if (bannerTitle) {
+                bannerTitle.textContent = promotion.title || '';
+            }
+            
+            if (bannerDate) {
+                bannerDate.textContent = promotion.date || '';
+            }
+            
+            if (bannerImage && promotion.image) {
+                bannerImage.src = promotion.image;
+                bannerImage.style.display = 'block';
+                bannerImage.onerror = function() {
+                    this.style.display = 'none';
+                };
+            } else if (bannerImage) {
+                bannerImage.style.display = 'none';
+            }
+        }
+
+        function updateCarouselDots() {
+            const dotsContainer = document.getElementById('carouselDots');
+            if (!dotsContainer) return;
+            
+            dotsContainer.innerHTML = '';
+            
+            for (let i = 0; i < promotions.length; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot' + (i === currentBannerIndex ? ' active' : '');
+                dot.onclick = () => {
+                    currentBannerIndex = i;
+                    updateBanner();
+                    updateCarouselDots();
+                };
+                dotsContainer.appendChild(dot);
+            }
+        }
+
         function prevBanner() {
-            // TODO: Реализовать навигацию по баннерам
+            if (promotions.length === 0) return;
+            currentBannerIndex = (currentBannerIndex - 1 + promotions.length) % promotions.length;
+            updateBanner();
+            updateCarouselDots();
         }
 
         function nextBanner() {
-            // TODO: Реализовать навигацию по баннерам
+            if (promotions.length === 0) return;
+            currentBannerIndex = (currentBannerIndex + 1) % promotions.length;
+            updateBanner();
+            updateCarouselDots();
         }
 
         function updatePageTexts() {

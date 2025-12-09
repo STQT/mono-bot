@@ -169,7 +169,7 @@ ELECTRICIAN_POINTS = 50  # 50 dollars
 SELLER_POINTS = 20  # 20 dollars
 
 # QR Code Settings
-QR_CODE_MAX_ATTEMPTS = 3
+QR_CODE_MAX_ATTEMPTS = 5  # Максимальное количество неудачных попыток в день
 
 # REST Framework
 REST_FRAMEWORK = {

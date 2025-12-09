@@ -15,6 +15,10 @@ TRANSLATIONS = {
         'REGISTRATION_COMPLETE': "✅ Ro'yxatdan o'tish yakunlandi!",
         'USE_BUTTON_PHONE': "Iltimos, telefon raqamini yuborish uchun tugmani ishlating.",
         'USE_BUTTON_LOCATION': "Iltimos, joylashuvni yuborish uchun tugmani ishlating.",
+        'SELECT_USER_TYPE': "Sizning turingizni tanlang:",
+        'USER_TYPE_ELECTRICIAN': "⚡ Elektrik",
+        'USER_TYPE_SELLER': "🛒 Sotuvchi",
+        'USER_TYPE_SAVED': "✅ Tur saqlandi!",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-kod muvaffaqiyatli faollashtirildi!\n\n💰 Sizga {points} ball qo'shildi.\n📊 Joriy balansingiz: {total_points} ball.",
@@ -140,6 +144,10 @@ TRANSLATIONS = {
         'REGISTRATION_COMPLETE': "✅ Рўйхатдан ўтиш якунланди!",
         'USE_BUTTON_PHONE': "Илтимос, телефон рақамини юбориш учун tugmani ишлатинг.",
         'USE_BUTTON_LOCATION': "Илтимос, жойлашувни юбориш учун tugmani ишлатинг.",
+        'SELECT_USER_TYPE': "Сизнинг турингизни танланг:",
+        'USER_TYPE_ELECTRICIAN': "⚡ Электрик",
+        'USER_TYPE_SELLER': "🛒 Сотувчи",
+        'USER_TYPE_SAVED': "✅ Тур сақланди!",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код муваффақиятли фаоллаштирилди!\n\n💰 Сизга {points} балл қўшилди.\n📊 Жорий балансингиз: {total_points} балл.",
@@ -264,6 +272,10 @@ TRANSLATIONS = {
         'REGISTRATION_COMPLETE': "✅ Регистрация завершена!",
         'USE_BUTTON_PHONE': "Пожалуйста, используйте кнопку для отправки номера телефона.",
         'USE_BUTTON_LOCATION': "Пожалуйста, используйте кнопку для отправки локации.",
+        'SELECT_USER_TYPE': "Выберите ваш тип:",
+        'USER_TYPE_ELECTRICIAN': "⚡ Электрик",
+        'USER_TYPE_SELLER': "🛒 Продавец",
+        'USER_TYPE_SAVED': "✅ Тип сохранен!",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код успешно активирован!\n\n💰 Вам начислено {points} баллов.\n📊 Ваш текущий баланс: {total_points} баллов.",

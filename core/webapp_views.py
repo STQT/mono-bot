@@ -8,7 +8,7 @@ from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
-from .models import TelegramUser, Gift, GiftRedemption, QRCode
+from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
 
@@ -245,5 +245,29 @@ def get_qr_history(request):
         return Response(
             {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_promotions(request):
+    """Получает список активных акций для слайдера."""
+    try:
+        promotions = Promotion.objects.filter(is_active=True).order_by('order', '-created_at')
+        
+        promotions_data = []
+        for promotion in promotions:
+            promotions_data.append({
+                'id': promotion.id,
+                'title': promotion.title,
+                'image': request.build_absolute_uri(promotion.image.url) if promotion.image else None,
+                'date': promotion.date.strftime('%d.%m.%Y') if promotion.date else None,
+            })
+        
+        return Response(promotions_data)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
