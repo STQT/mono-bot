@@ -5,22 +5,23 @@
 
 {% block extrastyle %}
 {{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" type="text/css" href="{% static 'admin/css/custom_admin.css' %}">
 {% endblock %}
 
 {% block branding %}
-<div class="site-branding">
-    <h1 id="site-name">
-        <a href="{% url 'admin:index' %}">
-            <span class="brand-icon">⚡</span>
-            <span class="brand-text">{{ site_header|default:_('Django administration') }}</span>
-        </a>
-    </h1>
-</div>
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <span class="brand-icon">⚡</span>
+        <span class="brand-text">{{ site_header|default:_('Django administration') }}</span>
+    </a>
+</h1>
 {% endblock %}
 
 {% block nav-global %}
-<nav class="admin-nav">
+<nav class="admin-nav" id="admin-nav">
     <div class="nav-container">
         <a href="{% url 'admin:index' %}" class="nav-item {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
             <span class="nav-icon">🏠</span>
@@ -34,7 +35,7 @@
             <span class="nav-icon">👥</span>
             <span class="nav-text">Пользователи</span>
         </a>
-        <a href="{% url 'admin:core_qrcode_changelist' %}" class="nav-item {% if 'qrcode' in request.path %}active{% endif %}">
+        <a href="{% url 'admin:core_qrcode_changelist' %}" class="nav-item {% if 'qrcode' in request.path and 'generate' not in request.path %}active{% endif %}">
             <span class="nav-icon">📱</span>
             <span class="nav-text">QR-коды</span>
         </a>
@@ -68,4 +69,36 @@
         </p>
     </div>
 </div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+    // Мобильное меню
+    (function() {
+        if (window.innerWidth <= 768) {
+            const nav = document.getElementById('admin-nav');
+            const header = document.getElementById('header');
+            
+            // Создаем кнопку для открытия меню
+            const menuButton = document.createElement('button');
+            menuButton.innerHTML = '☰';
+            menuButton.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-size: 20px; margin-right: 20px;';
+            menuButton.addEventListener('click', function() {
+                nav.classList.toggle('mobile-open');
+            });
+            
+            if (header) {
+                header.insertBefore(menuButton, header.firstChild);
+            }
+            
+            // Закрываем меню при клике вне его
+            document.addEventListener('click', function(e) {
+                if (!nav.contains(e.target) && !menuButton.contains(e.target)) {
+                    nav.classList.remove('mobile-open');
+                }
+            });
+        }
+    })();
+</script>
 {% endblock %}
