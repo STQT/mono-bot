@@ -239,6 +239,14 @@ class QRCodeAdmin(admin.ModelAdmin):
         
         return False
     
+    def get_list_display_links(self, request, list_display):
+        """Скрывает ссылки на детальный просмотр для пользователей без permission."""
+        if not self.has_view_permission(request):
+            # Если нет доступа к просмотру, не показываем ссылки
+            return (None,)
+        # По умолчанию Django использует первый элемент list_display как ссылку
+        return super().get_list_display_links(request, list_display)
+    
     def change_view(self, request, object_id, form_url='', extra_context=None):
         """Переопределяем детальный просмотр для проверки прав доступа."""
         from django.template.response import TemplateResponse
@@ -322,9 +330,10 @@ class QRCodeAdmin(admin.ModelAdmin):
     status_badge.admin_order_field = 'is_scanned'
     
     def changelist_view(self, request, extra_context=None):
-        """Добавляет кнопку для генерации QR-кодов."""
+        """Добавляет кнопку для генерации QR-кодов и информацию о доступе."""
         extra_context = extra_context or {}
         extra_context['show_generate_button'] = True
+        extra_context['has_view_permission'] = self.has_view_permission(request)
         return super().changelist_view(request, extra_context=extra_context)
     
     def has_add_permission(self, request):
