@@ -143,15 +143,6 @@ USE_L10N = True
 # Celery Timezone (должно быть после определения TIME_ZONE)
 CELERY_TIMEZONE = TIME_ZONE
 
-# Celery Beat Schedule для периодических задач
-from celery.schedules import crontab
-CELERY_BEAT_SCHEDULE = {
-    'reset-failed-qr-attempts-daily': {
-        'task': 'core.tasks.reset_failed_qr_attempts_daily',
-        'schedule': crontab(hour=3, minute=0),  # Каждый день в 3:00 ночи
-    },
-}
-
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -213,4 +204,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://web.telegram.org",
     "https://telegram.org",
 ]
+
+# Admin redirect after login
+LOGIN_REDIRECT_URL = '/admin/'
+LOGIN_URL = '/admin/login/'
 
