@@ -42,6 +42,7 @@ class TelegramUser(models.Model):
         default='uz_latin',
         verbose_name='Til'
     )
+    privacy_accepted = models.BooleanField(default=False, verbose_name='Maxfiylik siyosatiga rozilik')
     last_message_sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Oxirgi xabar yuborilgan vaqt')
     blocked_bot_at = models.DateTimeField(null=True, blank=True, verbose_name='Botni bloklagan vaqt')
     created_at = models.DateTimeField(auto_now_add=True)

@@ -19,6 +19,15 @@ TRANSLATIONS = {
         'USER_TYPE_ELECTRICIAN': "⚡ Elektrik",
         'USER_TYPE_SELLER': "🛒 Sotuvchi",
         'USER_TYPE_SAVED': "✅ Tur saqlandi!",
+        'PRIVACY_POLICY_TEXT': "Maxfiylik siyosati: Biz sizning shaxsiy ma'lumotlaringizni himoya qilamiz.",
+        'ACCEPT_PRIVACY': "✅ Roziman",
+        'DECLINE_PRIVACY': "❌ Rad etish",
+        'ACCEPT_PRIVACY_QUESTION': "Maxfiylik siyosatiga rozimisiz?",
+        'PRIVACY_ACCEPTED': "✅ Maxfiylik siyosatiga rozilik berildi!",
+        'PRIVACY_DECLINED': "❌ Maxfiylik siyosatiga rozilik berilmadi",
+        'PRIVACY_REQUIRED': "❌ Ro'yxatdan o'tish uchun maxfiylik siyosatiga rozilik berishingiz kerak.",
+        'SEND_PHONE_BUTTON': "📱 Telefon raqamini yuborish",
+        'REGISTRATION_COMPLETE_MESSAGE': "✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi! Endi botdan foydalanishingiz mumkin.",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-kod muvaffaqiyatli faollashtirildi!\n\n💰 Sizga {points} ball qo'shildi.\n📊 Joriy balansingiz: {total_points} ball.",
@@ -151,6 +160,15 @@ TRANSLATIONS = {
         'USER_TYPE_ELECTRICIAN': "⚡ Электрик",
         'USER_TYPE_SELLER': "🛒 Сотувчи",
         'USER_TYPE_SAVED': "✅ Тур сақланди!",
+        'PRIVACY_POLICY_TEXT': "Махфийлик сиёсати: Биз сизнинг шахсий маълумотларингизни ҳимоя қиламиз.",
+        'ACCEPT_PRIVACY': "✅ Розиман",
+        'DECLINE_PRIVACY': "❌ Рад этиш",
+        'ACCEPT_PRIVACY_QUESTION': "Махфийлик сиёсатига розимисиз?",
+        'PRIVACY_ACCEPTED': "✅ Махфийлик сиёсатига розилик берилди!",
+        'PRIVACY_DECLINED': "❌ Махфийлик сиёсатига розилик берилмади",
+        'PRIVACY_REQUIRED': "❌ Рўйхатдан ўтиш учун махфийлик сиёсатига розилик беришингиз керак.",
+        'SEND_PHONE_BUTTON': "📱 Телефон рақамини юбориш",
+        'REGISTRATION_COMPLETE_MESSAGE': "✅ Рўйхатдан ўтиш муваффақиятли якунланди! Энди ботдан фойдаланишингиз мумкин.",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код муваффақиятли фаоллаштирилди!\n\n💰 Сизга {points} балл қўшилди.\n📊 Жорий балансингиз: {total_points} балл.",
@@ -282,6 +300,15 @@ TRANSLATIONS = {
         'USER_TYPE_ELECTRICIAN': "⚡ Электрик",
         'USER_TYPE_SELLER': "🛒 Продавец",
         'USER_TYPE_SAVED': "✅ Тип сохранен!",
+        'PRIVACY_POLICY_TEXT': "Политика конфиденциальности: Мы защищаем ваши личные данные.",
+        'ACCEPT_PRIVACY': "✅ Согласен",
+        'DECLINE_PRIVACY': "❌ Отклонить",
+        'ACCEPT_PRIVACY_QUESTION': "Согласны ли вы с политикой конфиденциальности?",
+        'PRIVACY_ACCEPTED': "✅ Согласие на политику конфиденциальности получено!",
+        'PRIVACY_DECLINED': "❌ Согласие на политику конфиденциальности не получено",
+        'PRIVACY_REQUIRED': "❌ Для регистрации необходимо согласие с политикой конфиденциальности.",
+        'SEND_PHONE_BUTTON': "📱 Отправить номер телефона",
+        'REGISTRATION_COMPLETE_MESSAGE': "✅ Регистрация успешно завершена! Теперь вы можете пользоваться ботом.",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ QR-код успешно активирован!\n\n💰 Вам начислено {points} баллов.\n📊 Ваш текущий баланс: {total_points} баллов.",

@@ -37,9 +37,11 @@ else:
 
 class RegistrationStates(StatesGroup):
     """Состояния для регистрации пользователя."""
+    waiting_for_language = State()
+    waiting_for_user_type = State()
+    waiting_for_privacy = State()
     waiting_for_phone = State()
     waiting_for_location = State()
-    waiting_for_user_type = State()
 
 
 class GiftRedemptionStates(StatesGroup):
@@ -95,6 +97,19 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
     return user
 
 
+@sync_to_async
+def is_registration_complete(user):
+    """Проверяет, завершена ли регистрация пользователя."""
+    return (
+        user.language and
+        user.user_type and
+        user.privacy_accepted and
+        user.phone_number and
+        user.latitude is not None and
+        user.longitude is not None
+    )
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
@@ -124,25 +139,42 @@ async def cmd_start(message: Message, state: FSMContext):
         await handle_qr_code_scan(message, user, qr_code_str, state)
         return
     
-    # Проверяем, зарегистрирован ли пользователь
-    if not user.phone_number or not user.latitude:
-        # Если пользователь не пришел через QR-код и у него нет типа, спрашиваем тип
-        if not user.user_type:
-            await message.answer(get_text(user, 'WELCOME'))
-            await ask_user_type(message, user, state)
-            return
-        
-        await message.answer(get_text(user, 'WELCOME'))
-        keyboard = types.ReplyKeyboardMarkup(
-            keyboard=[
-                [types.KeyboardButton(text=get_text(user, 'SEND_PHONE').split(':')[0] + "...", request_contact=True)]
-            ],
-            resize_keyboard=True
-        )
-        await message.answer(get_text(user, 'SEND_PHONE'), reply_markup=keyboard)
-        await state.set_state(RegistrationStates.waiting_for_phone)
-    else:
+    # Проверяем, завершена ли регистрация
+    registration_complete = await is_registration_complete(user)
+    
+    if registration_complete:
+        # Пользователь уже зарегистрирован - показываем меню
         await show_main_menu(message, user)
+        await state.clear()
+        return
+    
+    # Начинаем процесс регистрации с первого шага
+    await state.clear()
+    
+    # Шаг 1: Выбор языка
+    if not user.language:
+        await ask_language(message, user, state)
+        return
+    
+    # Шаг 2: Выбор типа пользователя
+    if not user.user_type:
+        await ask_user_type(message, user, state)
+        return
+    
+    # Шаг 3: Согласие на политику конфиденциальности
+    if not user.privacy_accepted:
+        await ask_privacy_acceptance(message, user, state)
+        return
+    
+    # Шаг 4: Телефонный номер
+    if not user.phone_number:
+        await ask_phone(message, user, state)
+        return
+    
+    # Шаг 5: Локация
+    if user.latitude is None or user.longitude is None:
+        await ask_location(message, user, state)
+        return
 
 
 @dp.message(RegistrationStates.waiting_for_phone)
@@ -160,16 +192,9 @@ async def process_phone(message: Message, state: FSMContext):
         
         user = await update_phone()
         await message.answer(get_text(user, 'PHONE_SAVED'))
-        send_location_text = get_text(user, 'SEND_LOCATION')
-        button_text = send_location_text.split(':')[0] if ':' in send_location_text else send_location_text.split('\n')[0]
-        keyboard = types.ReplyKeyboardMarkup(
-            keyboard=[
-                [types.KeyboardButton(text="📍 " + button_text, request_location=True)]
-            ],
-            resize_keyboard=True
-        )
-        await message.answer(get_text(user, 'SEND_LOCATION'), reply_markup=keyboard)
-        await state.set_state(RegistrationStates.waiting_for_location)
+        
+        # Переходим к следующему шагу - локация
+        await ask_location(message, user, state)
     else:
         @sync_to_async
         def get_user():
@@ -197,6 +222,12 @@ async def process_location(message: Message, state: FSMContext):
         
         await message.answer(get_text(user, 'REGISTRATION_COMPLETE'))
         await state.clear()
+        
+        # Убираем клавиатуру
+        remove_keyboard = types.ReplyKeyboardRemove()
+        await message.answer(get_text(user, 'REGISTRATION_COMPLETE_MESSAGE'), reply_markup=remove_keyboard)
+        
+        # Показываем главное меню
         await show_main_menu(message, user)
     else:
         @sync_to_async
@@ -204,6 +235,26 @@ async def process_location(message: Message, state: FSMContext):
             return TelegramUser.objects.get(telegram_id=message.from_user.id)
         user = await get_user_for_location()
         await message.answer(get_text(user, 'USE_BUTTON_LOCATION'))
+
+
+async def ask_language(message: Message, user, state: FSMContext):
+    """Спрашивает у пользователя язык интерфейса."""
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(
+            text="🇺🇿 O'zbek (Lotin)",
+            callback_data='lang_uz_latin'
+        )],
+        [types.InlineKeyboardButton(
+            text="🇺🇿 Ўзбек (Кирилл)",
+            callback_data='lang_uz_cyrillic'
+        )],
+        [types.InlineKeyboardButton(
+            text="🇷🇺 Русский",
+            callback_data='lang_ru'
+        )],
+    ])
+    await message.answer("🌐 Tilni tanlang / Выберите язык / Выберите язык:", reply_markup=keyboard)
+    await state.set_state(RegistrationStates.waiting_for_language)
 
 
 async def ask_user_type(message: Message, user, state: FSMContext):
@@ -220,6 +271,85 @@ async def ask_user_type(message: Message, user, state: FSMContext):
     ])
     await message.answer(get_text(user, 'SELECT_USER_TYPE'), reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_user_type)
+
+
+async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
+    """Спрашивает согласие на политику конфиденциальности."""
+    from core.models import PrivacyPolicy
+    
+    @sync_to_async
+    def get_privacy_text():
+        policy = PrivacyPolicy.objects.filter(is_active=True).first()
+        if policy:
+            if user.language == 'uz_latin':
+                return policy.content_uz_latin or ""
+            elif user.language == 'uz_cyrillic':
+                return policy.content_uz_cyrillic or policy.content_uz_latin or ""
+            elif user.language == 'ru':
+                return policy.content_ru or policy.content_uz_latin or ""
+        return get_text(user, 'PRIVACY_POLICY_TEXT')
+    
+    privacy_text = await get_privacy_text()
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(
+            text=get_text(user, 'ACCEPT_PRIVACY'),
+            callback_data='accept_privacy'
+        )],
+        [types.InlineKeyboardButton(
+            text=get_text(user, 'DECLINE_PRIVACY'),
+            callback_data='decline_privacy'
+        )],
+    ])
+    await message.answer(privacy_text + "\n\n" + get_text(user, 'ACCEPT_PRIVACY_QUESTION'), reply_markup=keyboard)
+    await state.set_state(RegistrationStates.waiting_for_privacy)
+
+
+async def ask_phone(message: Message, user, state: FSMContext):
+    """Спрашивает номер телефона."""
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text=get_text(user, 'SEND_PHONE_BUTTON'), request_contact=True)]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer(get_text(user, 'SEND_PHONE'), reply_markup=keyboard)
+    await state.set_state(RegistrationStates.waiting_for_phone)
+
+
+async def ask_location(message: Message, user, state: FSMContext):
+    """Спрашивает локацию."""
+    send_location_text = get_text(user, 'SEND_LOCATION')
+    button_text = send_location_text.split(':')[0] if ':' in send_location_text else send_location_text.split('\n')[0]
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text="📍 " + button_text, request_location=True)]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer(get_text(user, 'SEND_LOCATION'), reply_markup=keyboard)
+    await state.set_state(RegistrationStates.waiting_for_location)
+
+
+@dp.callback_query(lambda c: c.data.startswith('lang_'))
+async def process_language_selection(callback: CallbackQuery, state: FSMContext):
+    """Обрабатывает выбор языка."""
+    language = callback.data.split('_')[1]  # uz_latin, uz_cyrillic или ru
+    
+    @sync_to_async
+    def update_language():
+        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user.language = language
+        user.save(update_fields=['language'])
+        return user
+    
+    user = await update_language()
+    
+    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
+    await callback.message.delete()
+    
+    # Переходим к следующему шагу - выбор типа пользователя
+    await ask_user_type(callback.message, user, state)
 
 
 @dp.callback_query(lambda c: c.data.startswith('user_type_'))
@@ -239,19 +369,36 @@ async def process_user_type_selection(callback: CallbackQuery, state: FSMContext
     await callback.answer(get_text(user, 'USER_TYPE_SAVED'))
     await callback.message.delete()
     
-    # Продолжаем регистрацию
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text=get_text(user, 'SEND_PHONE').split(':')[0] + "...", request_contact=True)]
-        ],
-        resize_keyboard=True
-    )
-    await bot.send_message(
-        chat_id=callback.from_user.id,
-        text=get_text(user, 'SEND_PHONE'),
-        reply_markup=keyboard
-    )
-    await state.set_state(RegistrationStates.waiting_for_phone)
+    # Переходим к следующему шагу - согласие на политику конфиденциальности
+    await ask_privacy_acceptance(callback.message, user, state)
+
+
+@dp.callback_query(lambda c: c.data in ['accept_privacy', 'decline_privacy'])
+async def process_privacy_acceptance(callback: CallbackQuery, state: FSMContext):
+    """Обрабатывает согласие на политику конфиденциальности."""
+    if callback.data == 'decline_privacy':
+        @sync_to_async
+        def get_user():
+            return TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user = await get_user()
+        await callback.answer(get_text(user, 'PRIVACY_DECLINED'))
+        await callback.message.answer(get_text(user, 'PRIVACY_REQUIRED'))
+        return
+    
+    @sync_to_async
+    def update_privacy():
+        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+        user.privacy_accepted = True
+        user.save(update_fields=['privacy_accepted'])
+        return user
+    
+    user = await update_privacy()
+    
+    await callback.answer(get_text(user, 'PRIVACY_ACCEPTED'))
+    await callback.message.delete()
+    
+    # Переходим к следующему шагу - телефонный номер
+    await ask_phone(callback.message, user, state)
 
 
 async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: FSMContext):
