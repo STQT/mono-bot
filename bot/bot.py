@@ -114,15 +114,15 @@ def is_registration_complete(user):
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
     # Парсим аргументы команды /start
-    # Формат может быть: /start qr:ABC123 или /start E-ABC123
+    # Формат может быть: /start qr_ABC123 или /start E-ABC123
     args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
     qr_code_str = None
     
-    # Проверяем формат ?start=qr:{qr_code} или ?start={qr_code}
+    # Проверяем формат ?start=qr_{qr_code} или ?start={qr_code}
     if args_text:
         arg = args_text[0]
-        if arg.startswith('qr:'):
-            qr_code_str = arg[3:]  # Убираем префикс 'qr:' - это hash_code
+        if arg.startswith('qr_'):
+            qr_code_str = arg[3:]  # Убираем префикс 'qr_' - это hash_code
         else:
             # Если формат без префикса, пробуем использовать как есть (может быть полный код или hash_code)
             qr_code_str = arg

@@ -26,7 +26,7 @@ def generate_qr_code_image(qr_code_instance):
     # Создаем QR-код с ссылкой на бота
     bot_username = settings.TELEGRAM_BOT_USERNAME
     if bot_username:
-        qr_data = f"https://t.me/{bot_username}?start=qr:{qr_code_instance.hash_code}"
+        qr_data = f"https://t.me/{bot_username}?start=qr_{qr_code_instance.hash_code}"
     else:
         # Fallback на код, если username не установлен
         qr_data = qr_code_instance.code
