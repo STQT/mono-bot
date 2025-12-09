@@ -227,6 +227,47 @@ class QRCodeAdmin(admin.ModelAdmin):
     list_per_page = 50
     date_hierarchy = 'generated_at'
     
+    def has_view_permission(self, request, obj=None):
+        """Проверяет права доступа к просмотру QR-кода."""
+        # Superuser всегда имеет доступ
+        if request.user.is_superuser:
+            return True
+        
+        # Проверяем custom permission
+        if request.user.has_perm('core.view_qrcode_detail'):
+            return True
+        
+        return False
+    
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Переопределяем детальный просмотр для проверки прав доступа."""
+        from django.template.response import TemplateResponse
+        
+        obj = self.get_object(request, object_id)
+        
+        # Проверяем права доступа
+        if not self.has_view_permission(request, obj):
+            # Если нет доступа, показываем кастомный шаблон с сообщением
+            extra_context = extra_context or {}
+            extra_context['no_access'] = True
+            extra_context['is_superuser'] = request.user.is_superuser
+            extra_context['has_permission'] = request.user.has_perm('core.view_qrcode_detail')
+            extra_context['title'] = 'Доступ запрещен'
+            extra_context['opts'] = self.model._meta
+            extra_context['has_view_permission'] = False
+            extra_context['has_add_permission'] = False
+            extra_context['has_change_permission'] = False
+            extra_context['has_delete_permission'] = False
+            
+            return TemplateResponse(
+                request,
+                'admin/core/qrcode/no_access.html',
+                extra_context,
+                status=403
+            )
+        
+        return super().change_view(request, object_id, form_url, extra_context)
+    
     def qr_display(self, obj):
         """Отображает QR-код с серийным номером."""
         return format_html(

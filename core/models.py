@@ -89,6 +89,9 @@ class QRCode(models.Model):
             models.Index(fields=['hash_code']),
             models.Index(fields=['is_scanned']),
         ]
+        permissions = [
+            ('view_qrcode_detail', 'Can view QR code details'),
+        ]
     
     def __str__(self):
         """Маскирует код для отображения (E-ABC123 -> E-AB***3)."""

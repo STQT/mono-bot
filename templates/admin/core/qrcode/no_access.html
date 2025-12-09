@@ -1,0 +1,62 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='core' %}">Core</a>
+    &rsaquo; <a href="{% url 'admin:core_qrcode_changelist' %}">QR-kodlar</a>
+    &rsaquo; {% trans 'View' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module" style="padding: 20px; max-width: 800px; margin: 0 auto;">
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #856404; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 24px;">🔒</span>
+            <span>Доступ к просмотру QR-кода ограничен</span>
+        </h2>
+        <p style="color: #856404; font-size: 14px; line-height: 1.6; margin-bottom: 0;">
+            Текущая роль пользователя не дает возможности просмотра детальной информации QR-кода.
+        </p>
+    </div>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px;">
+        <h3 style="margin-top: 0; color: #333;">Требования для доступа:</h3>
+        <ul style="color: #666; line-height: 1.8;">
+            <li><strong>Суперпользователь (Superuser):</strong> Полный доступ ко всем QR-кодам</li>
+            <li><strong>Разрешение "Can view QR code details":</strong> Доступ к просмотру детальной информации QR-кодов</li>
+        </ul>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #666; margin-bottom: 10px;"><strong>Ваш текущий статус:</strong></p>
+            <ul style="color: #666; line-height: 1.8; margin: 0;">
+                {% if is_superuser %}
+                    <li style="color: #28a745;">✓ Вы являетесь суперпользователем</li>
+                {% else %}
+                    <li style="color: #dc3545;">✗ Вы не являетесь суперпользователем</li>
+                {% endif %}
+                
+                {% if has_permission %}
+                    <li style="color: #28a745;">✓ У вас есть разрешение "Can view QR code details"</li>
+                {% else %}
+                    <li style="color: #dc3545;">✗ У вас нет разрешения "Can view QR code details"</li>
+                {% endif %}
+            </ul>
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #666; margin-bottom: 10px;">
+                Для получения доступа обратитесь к администратору системы.
+            </p>
+            <a href="{% url 'admin:core_qrcode_changelist' %}" class="button" style="display: inline-block; padding: 10px 20px; background: #417690; color: white; text-decoration: none; border-radius: 4px;">
+                ← Вернуться к списку QR-кодов
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
