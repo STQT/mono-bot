@@ -34,6 +34,7 @@ TRANSLATIONS = {
         'QR_MAX_ATTEMPTS': "❌ Siz bugun {max_attempts} marta noto'g'ri QR-kod kiritdingiz.\n\n⏰ Keyingi urinishlar ertaga (00:00) qayta ochiladi.\n\nIltimos, keyinroq urinib ko'ring yoki administrator bilan bog'laning.",
         'QR_NOT_FOUND': "❌ QR-kod topilmadi. Kod to'g'riligini tekshiring.",
         'QR_ALREADY_SCANNED': "❌ Bu QR-kod allaqachon boshqa foydalanuvchi tomonidan ishlatilgan.",
+        'QR_WRONG_TYPE': "❌ Bu QR-kod sizning turingizga mos kelmaydi. Siz faqat o'z turingizga mos QR-kodlarni kiritishingiz mumkin.",
         'QR_ERROR': "❌ QR-kodni qayta ishlashda xatolik yuz berdi. Keyinroq urinib ko'ring.",
         
         # Главное меню
@@ -145,6 +146,7 @@ TRANSLATIONS = {
         'WEBAPP_LOADING_QR_HISTORY': "QR kodlar tarixi yuklanmoqda...",
         'WEBAPP_NO_QR_HISTORY': "QR kodlar tarixi yo'q",
         'WEBAPP_QR_MAX_ATTEMPTS': "❌ Сиз бугун {max_attempts} марта нотўғри QR-код киритдингиз. Кейинги уринишлар эртага (00:00) қайта очилади.",
+        'WEBAPP_QR_WRONG_TYPE': "❌ Bu QR-kod sizning turingizga mos kelmaydi. Siz faqat o'z turingizga mos QR-kodlarni kiritishingiz mumkin.",
     },
     
     'uz_cyrillic': {
@@ -175,6 +177,7 @@ TRANSLATIONS = {
         'QR_MAX_ATTEMPTS': "❌ Сиз бугун {max_attempts} марта нотўғри QR-код киритдингиз.\n\n⏰ Кейинги уринишлар эртага (00:00) қайта очилади.\n\nИлтимос, кейинроқ уриниб кўринг ёки администратор билан боғланинг.",
         'QR_NOT_FOUND': "❌ QR-код топилмади. Код тўғрилигини текширинг.",
         'QR_ALREADY_SCANNED': "❌ Бу QR-код аллақачон бошқа фойдаланувчи томонидан ишлатилган.",
+        'QR_WRONG_TYPE': "❌ Бу QR-код сизнинг турингизга мос келмайди. Сиз фақат ўз турингизга мос QR-кодларни киритишингиз мумкин.",
         'QR_ERROR': "❌ QR-кодни қайта ишлашда хатолик юз берди. Кейинроқ уриниб кўринг.",
         
         # Главное меню
@@ -286,6 +289,7 @@ TRANSLATIONS = {
         'WEBAPP_LOADING_QR_HISTORY': "QR kodlar tarixi yuklanmoqda...",
         'WEBAPP_NO_QR_HISTORY': "QR kodlar tarixi yo'q",
         'WEBAPP_QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код. Следующие попытки откроются завтра (00:00).",
+        'WEBAPP_QR_WRONG_TYPE': "❌ Бу QR-код сизнинг турингизга мос келмайди. Сиз фақат ўз турингизга мос QR-кодларни киритишингиз мумкин.",
     },
     
     'ru': {
@@ -316,6 +320,7 @@ TRANSLATIONS = {
         'QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код.\n\n⏰ Следующие попытки откроются завтра (00:00).\n\nПожалуйста, попробуйте позже или свяжитесь с администратором.",
         'QR_NOT_FOUND': "❌ QR-код не найден. Проверьте правильность кода.",
         'QR_ALREADY_SCANNED': "❌ Этот QR-код уже был использован другим пользователем.",
+        'QR_WRONG_TYPE': "❌ Этот QR-код не соответствует вашему типу. Вы можете вводить только QR-коды, соответствующие вашему типу.",
         'QR_ERROR': "❌ Произошла ошибка при обработке QR-кода. Попробуйте позже.",
         
         # Главное меню
@@ -427,6 +432,7 @@ TRANSLATIONS = {
         'WEBAPP_LOADING_QR_HISTORY': "Загрузка истории QR-кодов...",
         'WEBAPP_NO_QR_HISTORY': "История QR-кодов отсутствует",
         'WEBAPP_QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код. Следующие попытки откроются завтра (00:00).",
+        'WEBAPP_QR_WRONG_TYPE': "❌ Этот QR-код не соответствует вашему типу. Вы можете вводить только QR-коды, соответствующие вашему типу.",
     },
 }
 

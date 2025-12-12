@@ -464,6 +464,26 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 )
                 return {'error': 'already_scanned'}
             
+            # Валидация типа кода - проверяем соответствие типу пользователя
+            if user.user_type and user.user_type != qr_code.code_type:
+                # Проверяем лимит перед созданием попытки
+                today_attempts_before_type_check = QRCodeScanAttempt.objects.filter(
+                    user=user,
+                    attempted_at__gte=today_start,
+                    is_successful=False
+                ).count()
+                
+                if today_attempts_before_type_check >= settings.QR_CODE_MAX_ATTEMPTS:
+                    return {'error': 'max_attempts'}
+                
+                # Создаем запись о неудачной попытке (несоответствие типа)
+                QRCodeScanAttempt.objects.create(
+                    user=user,
+                    qr_code=qr_code,
+                    is_successful=False
+                )
+                return {'error': 'wrong_type'}
+            
             # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
             if not user.user_type:
                 user.user_type = qr_code.code_type
@@ -500,6 +520,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             await message.answer(get_text(user, 'QR_NOT_FOUND'))
         elif result.get('error') == 'already_scanned':
             await message.answer(get_text(user, 'QR_ALREADY_SCANNED'))
+        elif result.get('error') == 'wrong_type':
+            await message.answer(get_text(user, 'QR_WRONG_TYPE'))
         elif result.get('success'):
             await message.answer(get_text(user, 'QR_ACTIVATED',
                 points=result['points'],

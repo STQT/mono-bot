@@ -92,15 +92,21 @@
                     </div>
                 </div>
                 <div class="banner-date-btn">
-                    <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="2.67" y="3.33" width="10.67" height="10.67" stroke="white" stroke-width="1.5" fill="none" rx="1"/>
-                        <line x1="5.33" y1="1.67" x2="5.33" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="10.67" y1="1.67" x2="10.67" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="2.67" y1="7.33" x2="13.33" y2="7.33" stroke="white" stroke-width="1.5"/>
-                        <line x1="5.33" y1="10" x2="5.33" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="8" y1="10" x2="8" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="10.67" y1="10" x2="10.67" y2="13.33" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g clip-path="url(#clip0_11_3740)">
+                        <path d="M12 3.33334H3.99996C3.26358 3.33334 2.66663 3.9303 2.66663 4.66668V12.6667C2.66663 13.4031 3.26358 14 3.99996 14H12C12.7363 14 13.3333 13.4031 13.3333 12.6667V4.66668C13.3333 3.9303 12.7363 3.33334 12 3.33334Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.6666 2V4.66667" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M5.33337 2V4.66667" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2.66663 7.33334H13.3333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6.66671 10H5.33337V11.3333H6.66671V10Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                        <defs>
+                        <clipPath id="clip0_11_3740">
+                        <rect width="16" height="16" fill="white"/>
+                        </clipPath>
+                        </defs>
+                        </svg>
+                        
                     <span id="bannerDate"></span>
                 </div>
             </div>
@@ -673,6 +679,17 @@
                 return;
             }
             
+            // Валидация типа кода - проверяем соответствие типу пользователя
+            if (currentUser && currentUser.user_type) {
+                const codePrefix = qrCode.substring(0, 2);
+                const expectedPrefix = currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                
+                if (codePrefix !== expectedPrefix) {
+                    showQRError(t('WEBAPP_QR_WRONG_TYPE'));
+                    return;
+                }
+            }
+            
             if (!currentUser || !currentUser.telegram_id) {
                 showQRError(t('WEBAPP_ERROR_LOADING_USER'));
                 return;
@@ -695,6 +712,8 @@
                     // Если это ошибка превышения лимита попыток, показываем специальное сообщение
                     if (data.error_code === 'max_attempts') {
                         showQRError(data.error || t('WEBAPP_QR_MAX_ATTEMPTS'));
+                    } else if (data.error_code === 'wrong_type') {
+                        showQRError(data.error || t('WEBAPP_QR_WRONG_TYPE'));
                     } else {
                         showQRError(data.error || t('WEBAPP_QR_ERROR'));
                     }
@@ -1621,11 +1640,87 @@
                 }
             }
             
+            function getExpectedPrefix() {
+                if (currentUser && currentUser.user_type) {
+                    return currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                }
+                return 'E-'; // По умолчанию E-
+            }
+            
             if (qrInput) {
                 // Проверяем начальное состояние
                 updateRegisterButton();
                 
-                qrInput.addEventListener('input', function() {
+                // Обработка первого символа - сразу добавляем префикс
+                qrInput.addEventListener('keydown', function(e) {
+                    // Если поле пустое и пользователь начинает вводить символ
+                    if (qrInput.value.length === 0) {
+                        const key = e.key;
+                        // Если это буква или цифра (не служебные клавиши)
+                        if (key.length === 1 && /[A-Za-z0-9]/.test(key)) {
+                            const expectedPrefix = getExpectedPrefix();
+                            // Устанавливаем префикс + первый символ в верхнем регистре
+                            qrInput.value = expectedPrefix + key.toUpperCase();
+                            e.preventDefault();
+                            // Устанавливаем курсор в конец
+                            setTimeout(() => {
+                                qrInput.setSelectionRange(qrInput.value.length, qrInput.value.length);
+                                updateRegisterButton();
+                            }, 0);
+                        }
+                    }
+                });
+                
+                qrInput.addEventListener('input', function(e) {
+                    let value = qrInput.value;
+                    const cursorPosition = qrInput.selectionStart;
+                    
+                    // Преобразуем все буквы в верхний регистр
+                    value = value.toUpperCase();
+                    
+                    // Определяем ожидаемый префикс на основе типа пользователя
+                    const expectedPrefix = getExpectedPrefix();
+                    
+                    // Если поле пустое, просто очищаем ошибки
+                    if (value.length === 0) {
+                        updateRegisterButton();
+                        return;
+                    }
+                    
+                    // Если пользователь начинает вводить без префикса, добавляем его автоматически
+                    if (!value.startsWith('E-') && !value.startsWith('D-')) {
+                        // Если первый символ - буква или цифра, добавляем префикс типа пользователя
+                        if (/^[A-Z0-9]/.test(value)) {
+                            value = expectedPrefix + value;
+                        }
+                    } else if (value.length === 1 && (value === 'E' || value === 'D')) {
+                        // Если пользователь ввел только E или D, добавляем дефис
+                        value = value + '-';
+                    }
+                    
+                    // Сохраняем старую длину для корректного восстановления позиции курсора
+                    const oldLength = qrInput.value.length;
+                    
+                    // Обновляем значение
+                    qrInput.value = value;
+                    
+                    // Восстанавливаем позицию курсора с учетом изменений
+                    let newCursorPosition = cursorPosition;
+                    if (value.length !== oldLength) {
+                        const lengthDiff = value.length - oldLength;
+                        // Если добавили префикс в начале, курсор должен быть после добавленного текста
+                        if (lengthDiff > 0 && cursorPosition === 0 && oldLength === 0) {
+                            newCursorPosition = value.length;
+                        } else if (lengthDiff > 0) {
+                            // Если добавили символы, сдвигаем курсор
+                            newCursorPosition = Math.min(cursorPosition + lengthDiff, value.length);
+                        } else {
+                            // Если удалили символы
+                            newCursorPosition = Math.min(cursorPosition, value.length);
+                        }
+                    }
+                    qrInput.setSelectionRange(newCursorPosition, newCursorPosition);
+                    
                     const errorDiv = document.getElementById('qrError');
                     const inputWrapper = document.getElementById('qrInputWrapper');
                     if (errorDiv && errorDiv.style.display !== 'none') {
@@ -1638,8 +1733,20 @@
                 
                 // Также отслеживаем изменения через другие события
                 qrInput.addEventListener('change', updateRegisterButton);
-                qrInput.addEventListener('paste', function() {
-                    setTimeout(updateRegisterButton, 10);
+                qrInput.addEventListener('paste', function(e) {
+                    setTimeout(function() {
+                        // После вставки также применяем преобразование
+                        let value = qrInput.value.toUpperCase();
+                        const expectedPrefix = getExpectedPrefix();
+                        
+                        if (value.length > 0 && !value.startsWith('E-') && !value.startsWith('D-')) {
+                            if (/^[A-Z0-9]/.test(value)) {
+                                value = expectedPrefix + value;
+                            }
+                        }
+                        qrInput.value = value;
+                        updateRegisterButton();
+                    }, 10);
                 });
             }
         });

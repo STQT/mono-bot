@@ -475,6 +475,36 @@ def register_qr_code(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Валидация типа кода - проверяем соответствие типу пользователя
+        if user.user_type and user.user_type != qr_code.code_type:
+            # Проверяем лимит перед созданием попытки
+            today_attempts_before_type_check = QRCodeScanAttempt.objects.filter(
+                user=user,
+                attempted_at__gte=today_start,
+                is_successful=False
+            ).count()
+            
+            if today_attempts_before_type_check >= max_attempts:
+                from bot.translations import get_text
+                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+                return Response(
+                    {'error': error_message, 'error_code': 'max_attempts'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Создаем запись о неудачной попытке (несоответствие типа)
+            QRCodeScanAttempt.objects.create(
+                user=user,
+                qr_code=qr_code,
+                is_successful=False
+            )
+            from bot.translations import get_text
+            error_message = get_text(user, 'QR_WRONG_TYPE')
+            return Response(
+                {'error': error_message, 'error_code': 'wrong_type'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
         if not user.user_type:
             user.user_type = qr_code.code_type
