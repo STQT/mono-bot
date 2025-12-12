@@ -58,7 +58,17 @@
                     <div class="user-details">
                         <div class="user-name">
                             <span id="userName">{% trans "USER" %}</span>
-                            <span class="verification-badge">✓</span>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_110_61)">
+                                <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                <clipPath id="clip0_110_61">
+                                <rect width="16" height="16" fill="white"/>
+                                </clipPath>
+                                </defs>
+                                </svg>                                
                         </div>
                         <div class="user-id" id="userId">ID: -</div>
                     </div>
@@ -76,7 +86,6 @@
         <div class="banner-section" id="bannerSection">
             <div class="banner-card" id="bannerCard" onclick="handleBannerClick()" style="cursor: pointer;">
                 <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
-                <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner()">‹</div>
                 <div class="banner-content">
                     <div class="banner-text">
                         <div class="banner-title" id="bannerTitle"></div>
@@ -94,7 +103,16 @@
                     </svg>
                     <span id="bannerDate"></span>
                 </div>
-                <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner()">›</div>
+            </div>
+            <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.5 15L7.5 10L12.5 5" stroke="#2064AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7.5 15L12.5 10L7.5 5" stroke="#2064AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </div>
             <div class="carousel-dots" id="carouselDots"></div>
         </div>
@@ -102,19 +120,25 @@
         <!-- Поле ввода QR кода -->
         <div class="qr-input-section">
             <div class="qr-input-wrapper" id="qrInputWrapper">
-                <input type="text" class="qr-input" id="qrInput" placeholder="AB0000" maxlength="10">
+                <input type="text" class="qr-input" id="qrInput" placeholder="E-XXXXXX" maxlength="10">
                 <button class="register-btn" onclick="registerQRCode()">
-                    <svg class="register-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Barcode icon -->
-                        <rect x="2.67" y="2.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
-                        <rect x="2.67" y="10.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
-                        <rect x="10.67" y="2.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
-                        <rect x="10.67" y="10.67" width="2.67" height="2.67" stroke="white" stroke-width="1.5" fill="none"/>
-                        <line x1="3.33" y1="7.33" x2="3.33" y2="8.67" stroke="white" stroke-width="1.5"/>
-                        <line x1="6.67" y1="7.33" x2="6.67" y2="8.67" stroke="white" stroke-width="1.5"/>
-                        <line x1="9.33" y1="7.33" x2="9.33" y2="8.67" stroke="white" stroke-width="1.5"/>
-                        <line x1="12.67" y1="7.33" x2="12.67" y2="8.67" stroke="white" stroke-width="1.5"/>
-                    </svg>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g clip-path="url(#clip0_110_763)">
+                        <path d="M2.66666 4.66669V4.00002C2.66666 3.6464 2.80713 3.30726 3.05718 3.05721C3.30723 2.80716 3.64637 2.66669 3.99999 2.66669H5.33332" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2.66666 11.3333V12C2.66666 12.3536 2.80713 12.6927 3.05718 12.9428C3.30723 13.1928 3.64637 13.3333 3.99999 13.3333H5.33332" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.6667 2.66669H12C12.3536 2.66669 12.6928 2.80716 12.9428 3.05721C13.1929 3.30726 13.3334 3.6464 13.3334 4.00002V4.66669" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.6667 13.3333H12C12.3536 13.3333 12.6928 13.1928 12.9428 12.9428C13.1929 12.6927 13.3334 12.3536 13.3334 12V11.3333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M4.00001 7.33331H3.33334V8.66665H4.00001V7.33331Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6.66666 7.33331V8.66665" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 7.33331H9.33334V8.66665H10V7.33331Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12.6667 7.33331V8.66665" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                        <defs>
+                        <clipPath id="clip0_110_763">
+                        <rect width="16" height="16" fill="white"/>
+                        </clipPath>
+                        </defs>
+                        </svg>                        
                     <span class="register-text">{% trans "WEBAPP_REGISTER" %}</span>
                 </button>
             </div>
@@ -192,7 +216,9 @@
     <!-- ЭКРАН: Успешное получение подарка -->
     <div class="screen" id="successScreen" style="display: none;">
         <div class="success-container">
-            <div class="success-icon">✓</div>
+            <div class="success-icon">
+                <img src="{% static 'images/success.png' %}" alt="Success" />
+            </div>
             <h2 class="success-title">{% trans "WEBAPP_SUCCESS_TITLE" %}</h2>
             <p class="success-message">{% trans "WEBAPP_SUCCESS_MESSAGE" %}</p>
             <button class="btn btn-primary" onclick="showScreen('home')">{% trans "WEBAPP_TO_HOME" %}</button>
@@ -598,7 +624,14 @@
                     document.getElementById('points').textContent = data.total_points.toLocaleString();
                     
                     // Очищаем поле ввода
-                    document.getElementById('qrInput').value = '';
+                    const qrInput = document.getElementById('qrInput');
+                    qrInput.value = '';
+                    
+                    // Обновляем стиль кнопки
+                    const registerBtn = document.querySelector('.register-btn');
+                    if (registerBtn) {
+                        registerBtn.classList.remove('active');
+                    }
                     
                     // Показываем сообщение об успехе
                     tg.showAlert(data.message || t('WEBAPP_SUCCESS_MESSAGE'));
@@ -1094,30 +1127,62 @@
                 const response = await fetch(`${API_BASE}/promotions/`);
                 if (response.ok) {
                     promotions = await response.json();
-                    if (promotions.length > 0) {
+                    const bannerSection = document.getElementById('bannerSection');
+                    if (promotions && promotions.length > 0) {
                         currentBannerIndex = 0;
+                        if (bannerSection) {
+                            bannerSection.style.display = 'block';
+                        }
                         updateBanner();
                         updateCarouselDots();
                     } else {
                         // Если нет акций, скрываем баннер
-                        document.getElementById('bannerSection').style.display = 'none';
+                        if (bannerSection) {
+                            bannerSection.style.display = 'none';
+                        }
+                    }
+                } else {
+                    // Если запрос не успешен, проверяем есть ли уже загруженные акции
+                    const bannerSection = document.getElementById('bannerSection');
+                    if (bannerSection && promotions && promotions.length > 0) {
+                        bannerSection.style.display = 'block';
+                    } else if (bannerSection) {
+                        bannerSection.style.display = 'none';
                     }
                 }
             } catch (error) {
                 console.error('Error loading promotions:', error);
-                // Скрываем баннер при ошибке
-                document.getElementById('bannerSection').style.display = 'none';
+                // Не скрываем баннер при ошибке, если уже есть загруженные акции
+                const bannerSection = document.getElementById('bannerSection');
+                if (bannerSection && promotions && promotions.length > 0) {
+                    bannerSection.style.display = 'block';
+                } else if (bannerSection) {
+                    bannerSection.style.display = 'none';
+                }
             }
         }
 
         function updateBanner() {
-            if (promotions.length === 0) return;
+            if (!promotions || promotions.length === 0) return;
+            
+            // Проверяем валидность индекса
+            if (currentBannerIndex < 0 || currentBannerIndex >= promotions.length) {
+                currentBannerIndex = 0;
+            }
             
             const promotion = promotions[currentBannerIndex];
+            if (!promotion) return;
+            
             const bannerTitle = document.getElementById('bannerTitle');
             const bannerDate = document.getElementById('bannerDate');
             const bannerImage = document.getElementById('bannerImage');
             const bannerCard = document.querySelector('.banner-card');
+            const bannerSection = document.getElementById('bannerSection');
+            
+            // Показываем баннер если он скрыт
+            if (bannerSection) {
+                bannerSection.style.display = 'block';
+            }
             
             if (bannerTitle) {
                 bannerTitle.textContent = promotion.title || '';
@@ -1157,30 +1222,86 @@
             const dotsContainer = document.getElementById('carouselDots');
             if (!dotsContainer) return;
             
+            // Проверяем валидность индекса
+            if (currentBannerIndex < 0 || currentBannerIndex >= promotions.length) {
+                currentBannerIndex = 0;
+            }
+            
             dotsContainer.innerHTML = '';
             
-            for (let i = 0; i < promotions.length; i++) {
-                const dot = document.createElement('div');
-                dot.className = 'dot' + (i === currentBannerIndex ? ' active' : '');
-                dot.onclick = () => {
-                    currentBannerIndex = i;
-                    updateBanner();
-                    updateCarouselDots();
-                };
-                dotsContainer.appendChild(dot);
+            if (!promotions || promotions.length === 0) {
+                dotsContainer.style.display = 'none';
+                return;
             }
+            
+            dotsContainer.style.display = 'flex';
+            
+            // Если только один слайд, не показываем точки
+            if (promotions.length === 1) {
+                dotsContainer.style.display = 'none';
+                return;
+            }
+            
+            // Создаем активный индикатор (Rectangle 59) - всегда первый
+            const activeDot = document.createElement('div');
+            activeDot.className = 'dot active';
+            dotsContainer.appendChild(activeDot);
+            
+            // Создаем группу неактивных индикаторов (Frame 1948755408)
+            const dotsGroup = document.createElement('div');
+            dotsGroup.className = 'dots-group';
+            
+            // Добавляем неактивные индикаторы для всех слайдов кроме текущего
+            for (let i = 0; i < promotions.length; i++) {
+                if (i !== currentBannerIndex) {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot';
+                    // Сохраняем индекс в data-атрибут для надежности
+                    dot.setAttribute('data-index', i);
+                    dot.onclick = (e) => {
+                        e.stopPropagation();
+                        const targetIndex = parseInt(e.currentTarget.getAttribute('data-index'));
+                        if (targetIndex >= 0 && targetIndex < promotions.length && targetIndex !== currentBannerIndex) {
+                            currentBannerIndex = targetIndex;
+                            updateBanner();
+                            updateCarouselDots();
+                        }
+                    };
+                    dotsGroup.appendChild(dot);
+                }
+            }
+            
+            // Добавляем группу только если есть неактивные индикаторы
+            if (dotsGroup.children.length > 0) {
+                dotsContainer.appendChild(dotsGroup);
+            }
+            
+            // Динамически вычисляем ширину контейнера
+            const padding = 4 * 2; // padding: 4px с обеих сторон
+            const gap = 7; // gap между активным и группой
+            const activeWidth = 20; // ширина активного индикатора
+            const inactiveCount = promotions.length - 1;
+            const inactiveWidth = inactiveCount > 0 ? (inactiveCount * 6 + (inactiveCount - 1) * 4) : 0; // ширина группы неактивных
+            const calculatedWidth = padding + gap + activeWidth + inactiveWidth;
+            dotsContainer.style.width = Math.max(58, calculatedWidth) + 'px';
+            dotsContainer.style.marginLeft = 'auto';
+            dotsContainer.style.marginRight = 'auto';
         }
 
         function prevBanner() {
-            if (promotions.length === 0) return;
+            if (!promotions || promotions.length === 0) return;
             currentBannerIndex = (currentBannerIndex - 1 + promotions.length) % promotions.length;
+            if (currentBannerIndex < 0) currentBannerIndex = promotions.length - 1;
+            if (currentBannerIndex >= promotions.length) currentBannerIndex = 0;
             updateBanner();
             updateCarouselDots();
         }
 
         function nextBanner() {
-            if (promotions.length === 0) return;
+            if (!promotions || promotions.length === 0) return;
             currentBannerIndex = (currentBannerIndex + 1) % promotions.length;
+            if (currentBannerIndex < 0) currentBannerIndex = promotions.length - 1;
+            if (currentBannerIndex >= promotions.length) currentBannerIndex = 0;
             updateBanner();
             updateCarouselDots();
         }
@@ -1395,10 +1516,26 @@
             }, 5000);
         }
 
-        // Очистка ошибки при вводе
+        // Очистка ошибки при вводе и изменение стиля кнопки
         document.addEventListener('DOMContentLoaded', function() {
             const qrInput = document.getElementById('qrInput');
+            const registerBtn = document.querySelector('.register-btn');
+            
+            function updateRegisterButton() {
+                if (qrInput && registerBtn) {
+                    const value = qrInput.value.trim();
+                    if (value.length > 0) {
+                        registerBtn.classList.add('active');
+                    } else {
+                        registerBtn.classList.remove('active');
+                    }
+                }
+            }
+            
             if (qrInput) {
+                // Проверяем начальное состояние
+                updateRegisterButton();
+                
                 qrInput.addEventListener('input', function() {
                     const errorDiv = document.getElementById('qrError');
                     const inputWrapper = document.getElementById('qrInputWrapper');
@@ -1406,6 +1543,14 @@
                         errorDiv.style.display = 'none';
                         if (inputWrapper) inputWrapper.classList.remove('error');
                     }
+                    // Обновляем стиль кнопки
+                    updateRegisterButton();
+                });
+                
+                // Также отслеживаем изменения через другие события
+                qrInput.addEventListener('change', updateRegisterButton);
+                qrInput.addEventListener('paste', function() {
+                    setTimeout(updateRegisterButton, 10);
                 });
             }
         });
