@@ -149,7 +149,7 @@
         <div class="gifts-card">
             <div class="gifts-content">
                 <div class="gifts-image-wrapper">
-                    <img src="/static/images/gift-box.png" alt="Gift" class="gifts-main-image" id="giftsMainImage" onerror="this.style.display='none'">
+                    <img src="{% static 'images/gift-box.png' %}" alt="Gift" class="gifts-main-image" id="giftsMainImage" onerror="this.style.display='none'">
                 </div>
                 <div class="gifts-text">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
             </div>
@@ -446,7 +446,95 @@
         let currentRedemptionId = null;
         let promotions = [];
         let currentBannerIndex = 0;
+        let currentDotColor = '#2064AE'; // Цвет по умолчанию для активной точки
         const API_BASE = '/api/webapp';
+
+        // Функция для получения доминирующего цвета изображения
+        function getDominantColor(imageUrl, callback) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    // Упрощенный алгоритм: берем средний цвет из центральной области изображения
+                    const centerX = Math.floor(canvas.width / 2);
+                    const centerY = Math.floor(canvas.height / 2);
+                    const sampleSize = 50; // Размер области для анализа
+                    const startX = Math.max(0, centerX - sampleSize);
+                    const startY = Math.max(0, centerY - sampleSize);
+                    const endX = Math.min(canvas.width, centerX + sampleSize);
+                    const endY = Math.min(canvas.height, centerY + sampleSize);
+                    
+                    let r = 0, g = 0, b = 0, count = 0;
+                    
+                    for (let y = startY; y < endY; y += 5) {
+                        for (let x = startX; x < endX; x += 5) {
+                            const index = (y * canvas.width + x) * 4;
+                            r += data[index];
+                            g += data[index + 1];
+                            b += data[index + 2];
+                            count++;
+                        }
+                    }
+                    
+                    if (count > 0) {
+                        r = Math.floor(r / count);
+                        g = Math.floor(g / count);
+                        b = Math.floor(b / count);
+                        
+                        // Преобразуем в hex
+                        const hexColor = '#' + [r, g, b].map(x => {
+                            const hex = x.toString(16);
+                            return hex.length === 1 ? '0' + hex : hex;
+                        }).join('');
+                        
+                        callback(hexColor);
+                    } else {
+                        callback('#2064AE'); // Цвет по умолчанию
+                    }
+                } catch (error) {
+                    console.error('Error extracting color:', error);
+                    callback('#2064AE'); // Цвет по умолчанию при ошибке
+                }
+            };
+            
+            img.onerror = function() {
+                callback('#2064AE'); // Цвет по умолчанию при ошибке загрузки
+            };
+            
+            img.src = imageUrl;
+        }
+
+        // Функция для обновления placeholder QR кода в зависимости от типа пользователя
+        function updateQRPlaceholder() {
+            const qrInput = document.getElementById('qrInput');
+            if (!qrInput) return;
+            
+            if (currentUser && currentUser.user_type) {
+                // Если Продавец (seller) -> D-XXXXXX
+                // Если Покупатель/Электрик (electrician) -> E-XXXXXX
+                if (currentUser.user_type === 'seller') {
+                    qrInput.placeholder = 'D-XXXXXX';
+                } else if (currentUser.user_type === 'electrician') {
+                    qrInput.placeholder = 'E-XXXXXX';
+                } else {
+                    // По умолчанию E-XXXXXX
+                    qrInput.placeholder = 'E-XXXXXX';
+                }
+            } else {
+                // Если тип пользователя не определен, используем E-XXXXXX по умолчанию
+                qrInput.placeholder = 'E-XXXXXX';
+            }
+        }
 
         async function initApp() {
             try {
@@ -500,6 +588,9 @@
                     avatar.style.color = 'transparent';
                 }
                 
+                // Устанавливаем placeholder для QR в зависимости от типа пользователя
+                updateQRPlaceholder();
+                
                 if (currentUser.language) {
                     await loadTranslations(currentUser.language);
                 }
@@ -523,17 +614,10 @@
                         countElement.textContent = gifts.length;
                     }
                     
-                    // Показываем первый подарок на главной странице
-                    if (gifts.length > 0) {
-                        const firstGift = gifts[0];
-                        const giftImage = document.getElementById('giftsMainImage');
-                        if (giftImage && firstGift.image) {
-                            giftImage.src = firstGift.image;
-                            giftImage.style.display = 'block';
-                            giftImage.onerror = function() {
-                                this.src = '/static/images/gift-box.png';
-                            };
-                        }
+                    // Всегда используем статичное изображение gift-box.png
+                    const giftImage = document.getElementById('giftsMainImage');
+                    if (giftImage) {
+                        giftImage.style.display = 'block';
                     }
                 }
             } catch (error) {
@@ -1200,6 +1284,13 @@
                     bannerCard.style.background = 'transparent';
                     bannerCard.style.padding = '0';
                 }
+                
+                // Получаем доминирующий цвет изображения и применяем к активной точке
+                getDominantColor(promotion.image, function(color) {
+                    currentDotColor = color;
+                    updateCarouselDots();
+                });
+                
                 bannerImage.onerror = function() {
                     this.style.display = 'none';
                     // Возвращаем градиентный фон, если изображение не загрузилось
@@ -1207,6 +1298,9 @@
                         bannerCard.style.background = '';
                         bannerCard.style.padding = '';
                     }
+                    // Используем цвет по умолчанию при ошибке
+                    currentDotColor = '#2064AE';
+                    updateCarouselDots();
                 };
             } else if (bannerImage) {
                 bannerImage.style.display = 'none';
@@ -1215,6 +1309,13 @@
                     bannerCard.style.background = '';
                     bannerCard.style.padding = '';
                 }
+                // Используем цвет по умолчанию если нет изображения
+                currentDotColor = '#2064AE';
+                updateCarouselDots();
+            } else {
+                // Используем цвет по умолчанию
+                currentDotColor = '#2064AE';
+                updateCarouselDots();
             }
         }
 
@@ -1242,50 +1343,41 @@
                 return;
             }
             
-            // Создаем активный индикатор (Rectangle 59) - всегда первый
-            const activeDot = document.createElement('div');
-            activeDot.className = 'dot active';
-            dotsContainer.appendChild(activeDot);
-            
-            // Создаем группу неактивных индикаторов (Frame 1948755408)
-            const dotsGroup = document.createElement('div');
-            dotsGroup.className = 'dots-group';
-            
-            // Добавляем неактивные индикаторы для всех слайдов кроме текущего
+            // Создаем точки в порядке слайдов
             for (let i = 0; i < promotions.length; i++) {
-                if (i !== currentBannerIndex) {
-                    const dot = document.createElement('div');
+                const dot = document.createElement('div');
+                
+                if (i === currentBannerIndex) {
+                    // Активная точка - используем цвет из текущего изображения
+                    dot.className = 'dot active';
+                    dot.style.background = currentDotColor;
+                    dot.style.boxShadow = `0 0 0.375rem ${currentDotColor}66`; // Добавляем прозрачность для тени
+                } else {
+                    // Неактивная точка - серый цвет
                     dot.className = 'dot';
-                    // Сохраняем индекс в data-атрибут для надежности
-                    dot.setAttribute('data-index', i);
-                    dot.onclick = (e) => {
-                        e.stopPropagation();
-                        const targetIndex = parseInt(e.currentTarget.getAttribute('data-index'));
-                        if (targetIndex >= 0 && targetIndex < promotions.length && targetIndex !== currentBannerIndex) {
-                            currentBannerIndex = targetIndex;
-                            updateBanner();
-                            updateCarouselDots();
-                        }
-                    };
-                    dotsGroup.appendChild(dot);
                 }
+                
+                // Сохраняем индекс в data-атрибут
+                dot.setAttribute('data-index', i);
+                dot.onclick = (e) => {
+                    e.stopPropagation();
+                    const targetIndex = parseInt(e.currentTarget.getAttribute('data-index'));
+                    if (targetIndex >= 0 && targetIndex < promotions.length && targetIndex !== currentBannerIndex) {
+                        currentBannerIndex = targetIndex;
+                        updateBanner();
+                        updateCarouselDots();
+                    }
+                };
+                
+                dotsContainer.appendChild(dot);
             }
             
-            // Добавляем группу только если есть неактивные индикаторы
-            if (dotsGroup.children.length > 0) {
-                dotsContainer.appendChild(dotsGroup);
-            }
-            
-            // Динамически вычисляем ширину контейнера
-            const padding = 4 * 2; // padding: 4px с обеих сторон
-            const gap = 7; // gap между активным и группой
-            const activeWidth = 20; // ширина активного индикатора
-            const inactiveCount = promotions.length - 1;
-            const inactiveWidth = inactiveCount > 0 ? (inactiveCount * 6 + (inactiveCount - 1) * 4) : 0; // ширина группы неактивных
-            const calculatedWidth = padding + gap + activeWidth + inactiveWidth;
-            dotsContainer.style.width = Math.max(58, calculatedWidth) + 'px';
+            // Убеждаемся, что точки центрированы и wrapper не растягивается
             dotsContainer.style.marginLeft = 'auto';
             dotsContainer.style.marginRight = 'auto';
+            dotsContainer.style.width = 'fit-content';
+            dotsContainer.style.maxWidth = 'fit-content';
+            dotsContainer.style.display = 'inline-flex';
         }
 
         function prevBanner() {
@@ -1333,11 +1425,8 @@
                 registerText.textContent = t('WEBAPP_REGISTER');
             }
             
-            // Обновляем placeholder для QR ввода
-            const qrInput = document.getElementById('qrInput');
-            if (qrInput) {
-                qrInput.placeholder = t('WEBAPP_QR_PLACEHOLDER');
-            }
+            // Обновляем placeholder для QR ввода в зависимости от типа пользователя
+            updateQRPlaceholder();
             
             // Обновляем текст партнера
             const partnerText = document.querySelector('.gifts-text');

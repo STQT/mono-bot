@@ -220,7 +220,6 @@ async def process_location(message: Message, state: FSMContext):
         
         user = await update_location()
         
-        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'))
         await state.clear()
         
         # Убираем клавиатуру
