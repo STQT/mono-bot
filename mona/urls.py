@@ -74,8 +74,12 @@ urlpatterns = [
 ]
 
 # WhiteNoise обрабатывает статические файлы автоматически через middleware
-# Для media файлов используем стандартный способ (в production лучше через nginx)
+# Но в режиме DEBUG также добавляем явную обработку для надежности
 if settings.DEBUG:
     from django.conf.urls.static import static
+    from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+    # Добавляем обработку статических файлов через Django (для разработки)
+    urlpatterns += staticfiles_urlpatterns()
+    # Для media файлов используем стандартный способ
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

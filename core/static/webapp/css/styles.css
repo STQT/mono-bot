@@ -30,69 +30,168 @@ body {
 .user-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     width: 100%;
     margin-bottom: 8px;
+}
+
+.user-header-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 16px;
+    gap: 12px;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .user-info {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
+}
+
+.user-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
 }
 
 .user-avatar {
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: #E0E0E0;
+    background: linear-gradient(135deg, rgba(135, 206, 250, 0.3) 0%, rgba(173, 216, 230, 0.3) 100%);
+    background-size: cover;
+    background-position: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    flex-shrink: 0;
+    font-size: 28px;
+    position: relative;
+    z-index: 1;
+    border: 2px solid rgba(135, 206, 250, 0.2);
+    overflow: hidden;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.user-avatar[style*="background-image"] {
+    color: transparent;
+    font-size: 0;
+}
+
+.user-avatar[style*="background-image"]::before {
+    display: none;
+}
+
+.user-avatar-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(135, 206, 250, 0.4) 0%, rgba(173, 216, 230, 0.2) 50%, transparent 70%);
+    z-index: 0;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.user-avatar-wrapper::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(135, 206, 250, 0.3) 40%, transparent 70%);
+    z-index: -1;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
 }
 
 .user-details {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
+    min-width: 0;
 }
 
 .user-name {
     font-size: 16px;
     font-weight: 600;
-    color: #000000;
+    color: #333333;
     display: flex;
     align-items: center;
     gap: 6px;
+    line-height: 1.3;
+}
+
+.verification-badge {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4ECDC4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: bold;
+    flex-shrink: 0;
+    line-height: 1;
 }
 
 .user-id {
-    font-size: 12px;
-    color: #999999;
+    font-size: 13px;
+    color: #2064AE;
+    font-weight: 500;
 }
 
 .points-badge {
-    background: #FFD700;
-    border-radius: 12px;
-    padding: 12px 16px;
+    background: #FFC107;
+    border-radius: 14px;
+    padding: 14px 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 80px;
+    justify-content: center;
+    min-width: 90px;
+    box-shadow: 0px 2px 4px rgba(255, 193, 7, 0.3);
 }
 
 .points-value {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 700;
-    color: #000000;
+    color: #333333;
+    line-height: 1.2;
 }
 
 .points-label {
     font-size: 12px;
-    color: #000000;
-    margin-top: 4px;
+    color: #333333;
+    margin-top: 2px;
+    font-weight: 500;
+    text-align: center;
 }
 
 /* Баннер с каруселью */

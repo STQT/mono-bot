@@ -20,6 +20,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-this-in-productio
 
 # Application definition
 INSTALLED_APPS = [
+    'jazzmin',  # Jazzmin должен быть перед django.contrib.admin
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -208,4 +209,137 @@ CSRF_TRUSTED_ORIGINS = [
 # Admin redirect after login
 LOGIN_REDIRECT_URL = '/admin/'
 LOGIN_URL = '/admin/login/'
+
+# Jazzmin Configuration
+JAZZMIN_SETTINGS = {
+    # Заголовок сайта
+    "site_title": "Mona Admin",
+    "site_header": "Mona Admin Panel",
+    "site_brand": "Mona Admin",
+    "site_logo": None,  # Можно добавить путь к логотипу
+    "login_logo": None,
+    "login_logo_dark": None,
+    "site_logo_classes": "img-circle",
+    "site_icon": None,
+    
+    # Цветовая схема
+    "theme": "default",  # Можно использовать "dark" для темной темы
+    "dark_mode_theme": None,
+    
+    # Настройки боковой панели
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    
+    # Иконки
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "core.TelegramUser": "fas fa-user-tie",
+        "core.QRCode": "fas fa-qrcode",
+        "core.Gift": "fas fa-gift",
+        "core.GiftRedemption": "fas fa-shopping-cart",
+        "core.BroadcastMessage": "fas fa-bullhorn",
+    },
+    
+    # Настройки меню
+    "order_with_respect_to": [
+        "core",
+        "auth",
+    ],
+    
+    # Кастомные ссылки в меню
+    "custom_links": {
+        "core": [{
+            "name": "Дашборд",
+            "url": "/admin/dashboard/",
+            "icon": "fas fa-chart-line",
+            "permissions": ["auth.view_user"]
+        }]
+    },
+    
+    # Настройки прав доступа
+    "permissions": {
+        "custom_links": ["auth.view_user"],
+    },
+    
+    # Настройки UI
+    "custom_css": None,
+    "custom_js": None,
+    "use_google_fonts_cdn": True,
+    "show_ui_builder": False,
+    
+    # Настройки футера
+    "copyright": "Mona Admin Panel",
+    
+    # Настройки поиска
+    "search_model": ["auth.User", "core.TelegramUser"],
+    
+    # Настройки пользовательского интерфейса
+    "user_avatar": None,
+    "topmenu_links": [
+        {"name": "Главная", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Дашборд", "url": "dashboard", "permissions": ["auth.view_user"]},
+    ],
+    
+    # Настройки языков
+    "language_chooser": False,
+    
+    # Настройки изменений
+    "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {
+        "auth.user": "collapsible",
+        "auth.group": "vertical_tabs",
+    },
+    
+    # Настройки списков
+    "list_per_page": 25,
+    "list_max_show_all": 100,
+    
+    # Настройки действий
+    "actions_on_top": True,
+    "actions_on_bottom": True,
+    "actions_selection_counter": True,
+    
+    # Настройки фильтров
+    "related_modal_active": False,
+    
+    # Настройки форм
+    "show_related": True,
+}
+
+# Настройки UI для Jazzmin (опционально)
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": False,
+    "accent": "accent-primary",
+    "navbar": "navbar-dark",
+    "no_navbar_border": False,
+    "navbar_fixed": False,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": False,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": False,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "default",
+    "dark_mode_theme": None,
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    }
+}
 

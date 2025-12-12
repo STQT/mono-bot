@@ -8,24 +8,65 @@
     <title>{% trans "WEBAPP_MY_GIFTS" %}</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}">
+    <script>
+        // Автоматический обход страницы предупреждения ngrok
+        (function() {
+            // Проверяем, находимся ли мы на странице предупреждения ngrok
+            if (document.body && document.body.id === 'ngrok') {
+                // Пытаемся найти кнопку "Visit Site" и кликнуть на неё
+                setTimeout(function() {
+                    var visitButton = document.querySelector('button[data-testid="visit-site-button"]') ||
+                                     document.querySelector('a[href*="ngrok-skip-browser-warning"]') ||
+                                     document.querySelector('button:contains("Visit Site")') ||
+                                     document.querySelector('a:contains("Visit Site")');
+                    if (visitButton) {
+                        visitButton.click();
+                    } else {
+                        // Если кнопка не найдена, пытаемся добавить заголовок и перезагрузить
+                        var currentUrl = window.location.href;
+                        if (currentUrl.indexOf('ngrok-skip-browser-warning') === -1) {
+                            var separator = currentUrl.indexOf('?') === -1 ? '?' : '&';
+                            window.location.href = currentUrl + separator + 'ngrok-skip-browser-warning=true';
+                        }
+                    }
+                }, 100);
+            }
+            
+            // Добавляем заголовок для всех последующих запросов
+            if (typeof fetch !== 'undefined') {
+                const originalFetch = window.fetch;
+                window.fetch = function(...args) {
+                    if (args[1]) {
+                        args[1].headers = args[1].headers || {};
+                        args[1].headers['ngrok-skip-browser-warning'] = 'true';
+                    }
+                    return originalFetch.apply(this, args);
+                };
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="main-container">
         <!-- Профиль пользователя -->
         <div class="user-header">
-            <div class="user-info" onclick="showProfile()" style="cursor: pointer;">
-                <div class="user-avatar" id="userAvatar">👤</div>
-                <div class="user-details">
-                    <div class="user-name">
-                        <span id="userName">{% trans "USER" %}</span>
-                        <span>✅</span>
+            <div class="user-header-card">
+                <div class="user-info" onclick="showProfile()" style="cursor: pointer;">
+                    <div class="user-avatar-wrapper">
+                        <div class="user-avatar" id="userAvatar">👤</div>
                     </div>
-                    <div class="user-id" id="userId">ID: -</div>
+                    <div class="user-details">
+                        <div class="user-name">
+                            <span id="userName">{% trans "USER" %}</span>
+                            <span class="verification-badge">✓</span>
+                        </div>
+                        <div class="user-id" id="userId">ID: -</div>
+                    </div>
                 </div>
-            </div>
-            <div class="points-badge">
-                <div class="points-value" id="points">0</div>
-                <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
+                <div class="points-badge">
+                    <div class="points-value" id="points">0</div>
+                    <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
+                </div>
             </div>
         </div>
 
@@ -428,7 +469,9 @@
                     const avatar = document.getElementById('userAvatar');
                     avatar.style.backgroundImage = `url(${user.photo_url})`;
                     avatar.style.backgroundSize = 'cover';
+                    avatar.style.backgroundPosition = 'center';
                     avatar.textContent = '';
+                    avatar.style.color = 'transparent';
                 }
                 
                 if (currentUser.language) {
