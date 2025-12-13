@@ -119,7 +119,7 @@ TRANSLATIONS = {
         'WEBAPP_BACK': "Orqaga",
         'WEBAPP_PARTNER_TEXT': "Mono Electric bilan hamkorlik qilib va sovg'alarga erishing",
         'WEBAPP_CONTACT_ADMIN': "Admin bilan bog'lanish",
-        'WEBAPP_INFO_TEXT': "Ballar QR-kodni skanerdan oʻtkazganingizdan soʻng darhol hisobingizga tushadi.<br><br><br><br>Agar ballar tushmagan boʻlsa, iltimos, administratorga murojaat qiling.",
+        'WEBAPP_INFO_TEXT': "Ballar QR-kodni skanerdan oʻtkazganingizdan soʻng darhol hisobingizga tushadi. Agar ballar tushmagan boʻlsa, iltimos, administratorga murojaat qiling.",
         'WEBAPP_REGISTER': "Ro'yxatdan o'tkazish",
         'WEBAPP_VIEW_GIFTS': "Sovg'alarni ko'rish",
         'WEBAPP_PRIVACY_POLICY': "Maxfiylik siyosati",
