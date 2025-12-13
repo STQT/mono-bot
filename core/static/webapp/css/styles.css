@@ -423,7 +423,7 @@ body {
 }
 
 .carousel-dots {
-    display: inline-flex;
+    display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
@@ -1723,15 +1723,15 @@ body {
 
 /* Skeleton для баннера */
 .skeleton-banner {
-    background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%) !important;
+    background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
     position: relative;
     overflow: hidden;
     min-height: 12.5rem;
     width: 100%;
     border-radius: 1rem;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    display: block;
+    visibility: visible;
+    opacity: 1;
 }
 
 .skeleton-banner::before {

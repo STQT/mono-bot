@@ -95,7 +95,7 @@
         <!-- Баннер с каруселью -->
         <div class="banner-section" id="bannerSection" style="display: block;">
             <!-- Skeleton loader для баннера -->
-            <div class="banner-card skeleton-banner" id="skeletonBanner" style="display: block !important;">
+            <div class="banner-card skeleton-banner" id="skeletonBanner" style="display: block;">
                 <div class="skeleton-banner-content">
                     <div class="skeleton-text skeleton-banner-title"></div>
                 </div>
@@ -1297,8 +1297,14 @@
                             bannerSection.style.display = 'block';
                         }
                         // Скрываем skeleton и показываем реальный баннер
-                        if (skeletonBanner) skeletonBanner.style.display = 'none';
-                        if (bannerCard) bannerCard.style.display = 'block';
+                        if (skeletonBanner) {
+                            skeletonBanner.style.display = 'none';
+                            skeletonBanner.style.visibility = 'hidden';
+                            skeletonBanner.style.opacity = '0';
+                        }
+                        if (bannerCard) {
+                            bannerCard.style.display = 'block';
+                        }
                         
                         updateBanner();
                         updateCarouselDots();
@@ -1307,7 +1313,11 @@
                         if (bannerSection) {
                             bannerSection.style.display = 'none';
                         }
-                        if (skeletonBanner) skeletonBanner.style.display = 'none';
+                        if (skeletonBanner) {
+                            skeletonBanner.style.display = 'none';
+                            skeletonBanner.style.visibility = 'hidden';
+                            skeletonBanner.style.opacity = '0';
+                        }
                     }
                 } else {
                     // Если запрос не успешен, проверяем есть ли уже загруженные акции
@@ -1319,12 +1329,22 @@
                     
                     if (bannerSection && promotions && promotions.length > 0) {
                         bannerSection.style.display = 'block';
-                        if (skeletonBanner) skeletonBanner.style.display = 'none';
-                        if (bannerCard) bannerCard.style.display = 'block';
+                        if (skeletonBanner) {
+                            skeletonBanner.style.display = 'none';
+                            skeletonBanner.style.visibility = 'hidden';
+                            skeletonBanner.style.opacity = '0';
+                        }
+                        if (bannerCard) {
+                            bannerCard.style.display = 'block';
+                        }
                         updateBanner();
                     } else if (bannerSection) {
                         bannerSection.style.display = 'none';
-                        if (skeletonBanner) skeletonBanner.style.display = 'none';
+                        if (skeletonBanner) {
+                            skeletonBanner.style.display = 'none';
+                            skeletonBanner.style.visibility = 'hidden';
+                            skeletonBanner.style.opacity = '0';
+                        }
                     }
                 }
             } catch (error) {
@@ -1336,12 +1356,22 @@
                 
                 if (bannerSection && promotions && promotions.length > 0) {
                     bannerSection.style.display = 'block';
-                    if (skeletonBanner) skeletonBanner.style.display = 'none';
-                    if (bannerCard) bannerCard.style.display = 'block';
+                    if (skeletonBanner) {
+                        skeletonBanner.style.display = 'none';
+                        skeletonBanner.style.visibility = 'hidden';
+                        skeletonBanner.style.opacity = '0';
+                    }
+                    if (bannerCard) {
+                        bannerCard.style.display = 'block';
+                    }
                     updateBanner();
                 } else if (bannerSection) {
                     bannerSection.style.display = 'none';
-                    if (skeletonBanner) skeletonBanner.style.display = 'none';
+                    if (skeletonBanner) {
+                        skeletonBanner.style.display = 'none';
+                        skeletonBanner.style.visibility = 'hidden';
+                        skeletonBanner.style.opacity = '0';
+                    }
                 }
             }
         }
@@ -1364,6 +1394,19 @@
             const bannerSection = document.getElementById('bannerSection');
             const bannerNavLeft = document.getElementById('bannerNavLeft');
             const bannerNavRight = document.getElementById('bannerNavRight');
+            const skeletonBanner = document.getElementById('skeletonBanner');
+            
+            // Скрываем skeleton loader и показываем реальный баннер
+            if (skeletonBanner) {
+                skeletonBanner.style.display = 'none';
+                skeletonBanner.style.visibility = 'hidden';
+                skeletonBanner.style.opacity = '0';
+            }
+            if (bannerCard) {
+                bannerCard.style.display = 'block';
+                bannerCard.style.visibility = 'visible';
+                bannerCard.style.opacity = '1';
+            }
             
             // Показываем баннер если он скрыт
             if (bannerSection) {
@@ -1488,7 +1531,9 @@
             dotsContainer.style.marginRight = 'auto';
             dotsContainer.style.width = 'fit-content';
             dotsContainer.style.maxWidth = 'fit-content';
-            dotsContainer.style.display = 'inline-flex';
+            dotsContainer.style.display = 'flex';
+            dotsContainer.style.justifyContent = 'center';
+            dotsContainer.style.alignItems = 'center';
         }
 
         function prevBanner() {
