@@ -250,7 +250,7 @@ body {
 .banner-card {
     background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
     border-radius: 1rem; /* 16px */
-    padding: 1.25rem; /* 20px */
+    /* padding: 1.25rem;  */
     color: white;
     position: relative;
     overflow: hidden;
@@ -1650,5 +1650,210 @@ body {
     width: 16px;
     height: 16px;
     color: #666666;
+}
+
+/* Skeleton Loaders */
+@keyframes skeleton-loading {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton-loader {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* Skeleton для профиля пользователя */
+.skeleton-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.skeleton-avatar {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.skeleton-text-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.skeleton-text {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    height: 1rem;
+}
+
+.skeleton-text-name {
+    width: 60%;
+    height: 1.125rem;
+}
+
+.skeleton-text-id {
+    width: 40%;
+    height: 0.875rem;
+}
+
+.skeleton-points {
+    width: 5.625rem;
+    height: 3.5rem;
+    border-radius: 18px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Skeleton для баннера */
+.skeleton-banner {
+    background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%) !important;
+    position: relative;
+    overflow: hidden;
+    min-height: 12.5rem;
+    width: 100%;
+    border-radius: 1rem;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.skeleton-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: skeleton-shimmer 1.5s infinite;
+    z-index: 1;
+}
+
+@keyframes skeleton-shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+.skeleton-banner-content {
+    position: absolute;
+    top: 1.25rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    z-index: 2;
+    display: block;
+}
+
+.skeleton-banner-title {
+    width: 70%;
+    height: 1.5rem;
+    background: rgba(255, 255, 255, 0.4) !important;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.skeleton-banner-title::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-banner-date {
+    position: absolute;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    width: 6.0625rem;
+    height: 1.5rem;
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 1.5rem;
+    z-index: 2;
+    overflow: hidden;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.skeleton-banner-date::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* Skeleton для подарков */
+.skeleton-gifts {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.625rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.5rem;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.skeleton-gifts-image {
+    width: 11.375rem;
+    height: 13.125rem;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 1rem;
+    margin-bottom: auto;
+}
+
+.skeleton-gifts-text {
+    width: 14.125rem;
+    height: 1rem;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.skeleton-gifts-btn {
+    width: calc(100% - 1rem);
+    height: 3.5rem;
+    background: linear-gradient(90deg, #e0e0e0 25%, #d0d0d0 50%, #e0e0e0 75%);
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 1rem;
+    margin-top: auto;
 }
 

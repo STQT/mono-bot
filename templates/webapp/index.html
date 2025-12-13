@@ -51,7 +51,15 @@
         <!-- Профиль пользователя -->
         <div class="user-header">
             <div class="user-header-card">
-                <div class="user-info" onclick="showProfile()" style="cursor: pointer;">
+                <!-- Skeleton loader для профиля -->
+                <div class="skeleton-loader skeleton-user" id="skeletonUser" style="display: flex !important; align-items: center; gap: 0.75rem; flex: 1; visibility: visible !important; opacity: 1 !important;">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-text-group" style="flex: 1;">
+                        <div class="skeleton-text skeleton-text-name"></div>
+                        <div class="skeleton-text skeleton-text-id"></div>
+                    </div>
+                </div>
+                <div class="user-info" id="userInfo" onclick="showProfile()" style="cursor: pointer; display: none;">
                     <div class="user-avatar-wrapper">
                         <div class="user-avatar" id="userAvatar">👤</div>
                     </div>
@@ -73,7 +81,9 @@
                         <div class="user-id" id="userId">ID: -</div>
                     </div>
                 </div>
-                <div class="points-badge">
+                <!-- Skeleton loader для баллов -->
+                <div class="skeleton-loader skeleton-points" id="skeletonPoints" style="display: block !important; visibility: visible !important; opacity: 1 !important;"></div>
+                <div class="points-badge" id="pointsBadge" style="display: none;">
                     <div class="points-value" id="points">0</div>
                     <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
                 </div>
@@ -83,8 +93,15 @@
         <div id="errorContainer"></div>
 
         <!-- Баннер с каруселью -->
-        <div class="banner-section" id="bannerSection">
-            <div class="banner-card" id="bannerCard" onclick="handleBannerClick()" style="cursor: pointer;">
+        <div class="banner-section" id="bannerSection" style="display: block;">
+            <!-- Skeleton loader для баннера -->
+            <div class="banner-card skeleton-banner" id="skeletonBanner" style="display: block !important;">
+                <div class="skeleton-banner-content">
+                    <div class="skeleton-text skeleton-banner-title"></div>
+                </div>
+                <div class="skeleton-banner-date"></div>
+            </div>
+            <div class="banner-card" id="bannerCard" onclick="handleBannerClick()" style="cursor: pointer; display: none;">
                 <img src="" alt="" class="banner-image" id="bannerImage" style="display: none;" onerror="this.style.display='none'">
                 <div class="banner-content">
                     <div class="banner-text">
@@ -110,12 +127,12 @@
                     <span id="bannerDate"></span>
                 </div>
             </div>
-            <div class="banner-nav banner-nav-left" onclick="event.stopPropagation(); prevBanner()">
+            <div class="banner-nav banner-nav-left" id="bannerNavLeft" onclick="event.stopPropagation(); prevBanner()" style="display: none;">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12.5 15L7.5 10L12.5 5" stroke="#2064AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </div>
-            <div class="banner-nav banner-nav-right" onclick="event.stopPropagation(); nextBanner()">
+            <div class="banner-nav banner-nav-right" id="bannerNavRight" onclick="event.stopPropagation(); nextBanner()" style="display: none;">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M7.5 15L12.5 10L7.5 5" stroke="#2064AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -152,14 +169,20 @@
         </div>
 
         <!-- Карточка подарков -->
-        <div class="gifts-card">
-            <div class="gifts-content">
+        <div class="gifts-card" style="position: relative;">
+            <!-- Skeleton loader для подарков -->
+            <div class="skeleton-gifts" id="skeletonGifts" style="display: block !important; visibility: visible !important; opacity: 1 !important;">
+                <div class="skeleton-gifts-image"></div>
+                <div class="skeleton-text skeleton-gifts-text"></div>
+                <div class="skeleton-text skeleton-gifts-btn"></div>
+            </div>
+            <div class="gifts-content" id="giftsContent" style="display: none;">
                 <div class="gifts-image-wrapper">
                     <img src="{% static 'images/gift-box.png' %}" alt="Gift" class="gifts-main-image" id="giftsMainImage" onerror="this.style.display='none'">
                 </div>
                 <div class="gifts-text">{% trans "WEBAPP_PARTNER_TEXT" %}</div>
             </div>
-            <button class="view-gifts-btn" onclick="showGifts()">
+            <button class="view-gifts-btn" id="viewGiftsBtn" onclick="showGifts()" style="display: none;">
                 <span class="view-gifts-text">{% trans "WEBAPP_VIEW_GIFTS" %}</span>
                 <span class="gifts-count-badge">
                     <span class="gifts-count" id="giftsCount">0</span>
@@ -576,6 +599,17 @@
                 }
                 currentUser = await userResponse.json();
                 
+                // Скрываем skeleton loader для пользователя и показываем реальные данные
+                const skeletonUser = document.getElementById('skeletonUser');
+                const skeletonPoints = document.getElementById('skeletonPoints');
+                const userInfo = document.getElementById('userInfo');
+                const pointsBadge = document.getElementById('pointsBadge');
+                
+                if (skeletonUser) skeletonUser.style.display = 'none';
+                if (skeletonPoints) skeletonPoints.style.display = 'none';
+                if (userInfo) userInfo.style.display = 'flex';
+                if (pointsBadge) pointsBadge.style.display = 'flex';
+                
                 document.getElementById('points').textContent = currentUser.points.toLocaleString();
                 
                 // Показываем информацию о пользователе
@@ -620,6 +654,15 @@
                         countElement.textContent = gifts.length;
                     }
                     
+                    // Скрываем skeleton loader для подарков и показываем реальные данные
+                    const skeletonGifts = document.getElementById('skeletonGifts');
+                    const giftsContent = document.getElementById('giftsContent');
+                    const viewGiftsBtn = document.getElementById('viewGiftsBtn');
+                    
+                    if (skeletonGifts) skeletonGifts.style.display = 'none';
+                    if (giftsContent) giftsContent.style.display = 'flex';
+                    if (viewGiftsBtn) viewGiftsBtn.style.display = 'flex';
+                    
                     // Всегда используем статичное изображение gift-box.png
                     const giftImage = document.getElementById('giftsMainImage');
                     if (giftImage) {
@@ -628,6 +671,14 @@
                 }
             } catch (error) {
                 console.error('Error loading gifts count:', error);
+                // В случае ошибки тоже скрываем skeleton
+                const skeletonGifts = document.getElementById('skeletonGifts');
+                const giftsContent = document.getElementById('giftsContent');
+                const viewGiftsBtn = document.getElementById('viewGiftsBtn');
+                
+                if (skeletonGifts) skeletonGifts.style.display = 'none';
+                if (giftsContent) giftsContent.style.display = 'flex';
+                if (viewGiftsBtn) viewGiftsBtn.style.display = 'flex';
             }
         }
 
@@ -1227,40 +1278,70 @@
 
         async function loadPromotions() {
             try {
+                // Показываем skeleton loader сразу
+                const bannerSection = document.getElementById('bannerSection');
+                const skeletonBanner = document.getElementById('skeletonBanner');
+                if (bannerSection) bannerSection.style.display = 'block';
+                if (skeletonBanner) skeletonBanner.style.display = 'block';
+                
                 const response = await fetch(`${API_BASE}/promotions/`);
                 if (response.ok) {
                     promotions = await response.json();
-                    const bannerSection = document.getElementById('bannerSection');
+                    const bannerCard = document.getElementById('bannerCard');
+                    const bannerNavLeft = document.getElementById('bannerNavLeft');
+                    const bannerNavRight = document.getElementById('bannerNavRight');
+                    
                     if (promotions && promotions.length > 0) {
                         currentBannerIndex = 0;
                         if (bannerSection) {
                             bannerSection.style.display = 'block';
                         }
+                        // Скрываем skeleton и показываем реальный баннер
+                        if (skeletonBanner) skeletonBanner.style.display = 'none';
+                        if (bannerCard) bannerCard.style.display = 'block';
+                        
                         updateBanner();
                         updateCarouselDots();
                     } else {
-                        // Если нет акций, скрываем баннер
+                        // Если нет акций, скрываем баннер и skeleton
                         if (bannerSection) {
                             bannerSection.style.display = 'none';
                         }
+                        if (skeletonBanner) skeletonBanner.style.display = 'none';
                     }
                 } else {
                     // Если запрос не успешен, проверяем есть ли уже загруженные акции
                     const bannerSection = document.getElementById('bannerSection');
+                    const skeletonBanner = document.getElementById('skeletonBanner');
+                    const bannerCard = document.getElementById('bannerCard');
+                    const bannerNavLeft = document.getElementById('bannerNavLeft');
+                    const bannerNavRight = document.getElementById('bannerNavRight');
+                    
                     if (bannerSection && promotions && promotions.length > 0) {
                         bannerSection.style.display = 'block';
+                        if (skeletonBanner) skeletonBanner.style.display = 'none';
+                        if (bannerCard) bannerCard.style.display = 'block';
+                        updateBanner();
                     } else if (bannerSection) {
                         bannerSection.style.display = 'none';
+                        if (skeletonBanner) skeletonBanner.style.display = 'none';
                     }
                 }
             } catch (error) {
                 console.error('Error loading promotions:', error);
                 // Не скрываем баннер при ошибке, если уже есть загруженные акции
                 const bannerSection = document.getElementById('bannerSection');
+                const skeletonBanner = document.getElementById('skeletonBanner');
+                const bannerCard = document.getElementById('bannerCard');
+                
                 if (bannerSection && promotions && promotions.length > 0) {
                     bannerSection.style.display = 'block';
+                    if (skeletonBanner) skeletonBanner.style.display = 'none';
+                    if (bannerCard) bannerCard.style.display = 'block';
+                    updateBanner();
                 } else if (bannerSection) {
                     bannerSection.style.display = 'none';
+                    if (skeletonBanner) skeletonBanner.style.display = 'none';
                 }
             }
         }
@@ -1279,12 +1360,23 @@
             const bannerTitle = document.getElementById('bannerTitle');
             const bannerDate = document.getElementById('bannerDate');
             const bannerImage = document.getElementById('bannerImage');
-            const bannerCard = document.querySelector('.banner-card');
+            const bannerCard = document.getElementById('bannerCard');
             const bannerSection = document.getElementById('bannerSection');
+            const bannerNavLeft = document.getElementById('bannerNavLeft');
+            const bannerNavRight = document.getElementById('bannerNavRight');
             
             // Показываем баннер если он скрыт
             if (bannerSection) {
                 bannerSection.style.display = 'block';
+            }
+            
+            // Показываем навигационные кнопки только если есть больше одной акции
+            if (promotions.length > 1) {
+                if (bannerNavLeft) bannerNavLeft.style.display = 'flex';
+                if (bannerNavRight) bannerNavRight.style.display = 'flex';
+            } else {
+                if (bannerNavLeft) bannerNavLeft.style.display = 'none';
+                if (bannerNavRight) bannerNavRight.style.display = 'none';
             }
             
             if (bannerTitle) {
