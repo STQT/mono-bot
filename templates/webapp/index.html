@@ -191,15 +191,16 @@
         </div>
 
         <!-- Карточка статуса продукта -->
-        <div class="product-status-card" id="productStatusCard" style="display: none;" onclick="showProfileGifts()">
-            <div class="product-image">
+        <div class="product-status-card" id="productStatusCard" style="display: none;">
+            <div class="product-image" onclick="showProfileGifts()">
                 <img src="" alt="" id="productImage" onerror="this.style.display='none'">
             </div>
-            <div class="product-info">
+            <div class="product-info" onclick="showProfileGifts()">
                 <div class="product-name" id="productName"></div>
                 <div class="product-status" id="productStatus"></div>
+                <div id="productStatusButton" style="margin-top: 0.5rem;"></div>
             </div>
-            <div class="product-arrow">›</div>
+            <div class="product-arrow" onclick="showProfileGifts()">›</div>
         </div>
 
         <!-- Информационный текст -->
@@ -689,18 +690,46 @@
                 const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (response.ok) {
                     const redemptions = await response.json();
-                    const pendingRedemption = redemptions.find(r => r.status === 'pending' || r.delivery_status === 'pending');
+                    // Ищем первый redemption со статусом pending, approved или completed, который еще не подтвержден пользователем
+                    const activeRedemption = redemptions.find(r => 
+                        (r.status === 'pending' || r.status === 'approved' || r.status === 'completed') && 
+                        !r.user_confirmed
+                    );
                     
-                    if (pendingRedemption) {
+                    if (activeRedemption) {
                         const productCard = document.getElementById('productStatusCard');
+                        const productStatusButton = document.getElementById('productStatusButton');
                         productCard.style.display = 'flex';
-                        document.getElementById('productName').textContent = pendingRedemption.gift.name;
-                        document.getElementById('productStatus').textContent = t('WEBAPP_STATUS_PENDING');
+                        document.getElementById('productName').textContent = activeRedemption.gift.name;
                         
-                        if (pendingRedemption.gift.image) {
-                            document.getElementById('productImage').src = pendingRedemption.gift.image;
+                        // Определяем текст статуса
+                        let statusText = t('WEBAPP_STATUS_PENDING');
+                        if (activeRedemption.status === 'approved') {
+                            statusText = t('WEBAPP_STATUS_APPROVED');
+                        } else if (activeRedemption.status === 'completed') {
+                            statusText = t('WEBAPP_STATUS_COMPLETED');
+                        }
+                        document.getElementById('productStatus').textContent = statusText;
+                        
+                        // Добавляем кнопку "Получил подарок" если еще не подтверждено
+                        if (!activeRedemption.user_confirmed) {
+                            productStatusButton.innerHTML = `
+                                <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${activeRedemption.id});">
+                                    ${t('WEBAPP_YES_RECEIVED')}
+                                </button>
+                            `;
+                        } else {
+                            productStatusButton.innerHTML = '';
+                        }
+                        
+                        if (activeRedemption.gift.image) {
+                            document.getElementById('productImage').src = activeRedemption.gift.image;
                             document.getElementById('productImage').style.display = 'block';
                         }
+                    } else {
+                        // Скрываем карточку, если нет активных redemption
+                        const productCard = document.getElementById('productStatusCard');
+                        productCard.style.display = 'none';
                     }
                 }
             } catch (error) {
@@ -1074,7 +1103,8 @@
                     const imageUrl = redemption.gift.image || '/static/images/gift-box.png';
 
                     let confirmButtonHtml = '';
-                    if (!redemption.user_confirmed && (redemption.status === 'approved' || redemption.status === 'completed')) {
+                    // Показываем кнопку для всех статусов, если пользователь еще не подтвердил получение
+                    if (!redemption.user_confirmed && (redemption.status === 'pending' || redemption.status === 'approved' || redemption.status === 'completed')) {
                         confirmButtonHtml = `
                             <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
                                 ${t('WEBAPP_YES_RECEIVED')}
