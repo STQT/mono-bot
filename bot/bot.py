@@ -42,6 +42,7 @@ class RegistrationStates(StatesGroup):
     waiting_for_privacy = State()
     waiting_for_phone = State()
     waiting_for_location = State()
+    waiting_for_promo_code = State()
 
 
 class GiftRedemptionStates(StatesGroup):
@@ -134,13 +135,18 @@ async def cmd_start(message: Message, state: FSMContext):
         last_name=message.from_user.last_name
     )
     
-    # Если передан QR-код в аргументе
-    if qr_code_str:
-        await handle_qr_code_scan(message, user, qr_code_str, state)
-        return
-    
     # Проверяем, завершена ли регистрация
     registration_complete = await is_registration_complete(user)
+    
+    # Если передан QR-код в аргументе
+    if qr_code_str:
+        if registration_complete:
+            # Пользователь зарегистрирован - обрабатываем QR-код сразу
+            await handle_qr_code_scan(message, user, qr_code_str, state)
+            return
+        else:
+            # Пользователь не зарегистрирован - сохраняем QR-код в state для обработки после регистрации
+            await state.update(pending_qr_code=qr_code_str)
     
     if registration_complete:
         # Пользователь уже зарегистрирован - показываем меню
@@ -149,12 +155,8 @@ async def cmd_start(message: Message, state: FSMContext):
         return
     
     # Начинаем процесс регистрации с первого шага
-    await state.clear()
-    
-    # Шаг 1: Выбор языка
-    if not user.language:
-        await ask_language(message, user, state)
-        return
+    # Шаг 1: Выбор языка (всегда показываем приветствие)
+    await ask_language(message, user, state)
     
     # Шаг 2: Выбор типа пользователя
     if not user.user_type:
@@ -219,15 +221,10 @@ async def process_location(message: Message, state: FSMContext):
             return user
         
         user = await update_location()
+        await message.answer(get_text(user, 'PHONE_SAVED'))
         
-        await state.clear()
-        
-        # Убираем клавиатуру
-        remove_keyboard = types.ReplyKeyboardRemove()
-        await message.answer(get_text(user, 'REGISTRATION_COMPLETE_MESSAGE'), reply_markup=remove_keyboard)
-        
-        # Показываем главное меню
-        await show_main_menu(message, user)
+        # Переходим к следующему шагу - промокод
+        await ask_promo_code(message, user, state)
     else:
         @sync_to_async
         def get_user_for_location():
@@ -238,21 +235,24 @@ async def process_location(message: Message, state: FSMContext):
 
 async def ask_language(message: Message, user, state: FSMContext):
     """Спрашивает у пользователя язык интерфейса."""
+    # Показываем приветствие на всех языках
+    welcome_text = "👋 Salom! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n👋 Салом! «Mono Electric» бонус дастурига хуш келибсиз!\nИлтимос, тилни танланг:\n\n👋 Салом! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n🌐 O'zbekcha (Lat)\n🌐 Ўзбекча (Kir)\n🌐 Русча"
+    
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
-            text="🇺🇿 O'zbek (Lotin)",
+            text="🌐 O'zbekcha (Lat)",
             callback_data='lang_uz_latin'
         )],
         [types.InlineKeyboardButton(
-            text="🇺🇿 Ўзбек (Кирилл)",
+            text="🌐 Ўзбекча (Kir)",
             callback_data='lang_uz_cyrillic'
         )],
         [types.InlineKeyboardButton(
-            text="🇷🇺 Русский",
+            text="🌐 Русча",
             callback_data='lang_ru'
         )],
     ])
-    await message.answer("🌐 Tilni tanlang / Выберите язык / Выберите язык:", reply_markup=keyboard)
+    await message.answer(welcome_text, reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_language)
 
 
@@ -300,7 +300,8 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
             callback_data='decline_privacy'
         )],
     ])
-    await message.answer(privacy_text + "\n\n" + get_text(user, 'ACCEPT_PRIVACY_QUESTION'), reply_markup=keyboard)
+    # Убираем лишний текст, так как он уже включен в PRIVACY_POLICY_TEXT
+    await message.answer(privacy_text, reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_privacy)
 
 
@@ -318,16 +319,53 @@ async def ask_phone(message: Message, user, state: FSMContext):
 
 async def ask_location(message: Message, user, state: FSMContext):
     """Спрашивает локацию."""
-    send_location_text = get_text(user, 'SEND_LOCATION')
-    button_text = send_location_text.split(':')[0] if ':' in send_location_text else send_location_text.split('\n')[0]
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
-            [types.KeyboardButton(text="📍 " + button_text, request_location=True)]
+            [types.KeyboardButton(text="📍 " + get_text(user, 'SEND_LOCATION').replace('📍 ', ''), request_location=True)]
         ],
         resize_keyboard=True
     )
     await message.answer(get_text(user, 'SEND_LOCATION'), reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_location)
+
+
+async def ask_promo_code(message: Message, user, state: FSMContext):
+    """Спрашивает промокод."""
+    await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+    await state.set_state(RegistrationStates.waiting_for_promo_code)
+
+
+@dp.message(RegistrationStates.waiting_for_promo_code)
+async def process_promo_code(message: Message, state: FSMContext):
+    """Обработчик получения промокода."""
+    promo_code = message.text.strip() if message.text else ""
+    
+    @sync_to_async
+    def update_promo_code():
+        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
+        # Сохраняем промокод (если есть поле в модели, иначе можно пропустить)
+        # user.promo_code = promo_code
+        # user.save(update_fields=['promo_code'])
+        return user
+    
+    user = await update_promo_code()
+    
+    # Проверяем, есть ли ожидающий QR-код
+    state_data = await state.get_data()
+    pending_qr_code = state_data.get('pending_qr_code')
+    
+    await state.clear()
+    
+    # Убираем клавиатуру
+    remove_keyboard = types.ReplyKeyboardRemove()
+    await message.answer(get_text(user, 'REGISTRATION_COMPLETE_MESSAGE'), reply_markup=remove_keyboard)
+    
+    # Если был передан QR-код при старте, обрабатываем его после регистрации
+    if pending_qr_code:
+        await handle_qr_code_scan(message, user, pending_qr_code, state)
+    else:
+        # Показываем главное меню
+        await show_main_menu(message, user)
 
 
 @dp.callback_query(lambda c: c.data.startswith('lang_'))

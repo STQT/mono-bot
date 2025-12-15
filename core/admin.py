@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import path
 from django.shortcuts import render, redirect
+from django.template.response import TemplateResponse
 from django.contrib import messages
 from django.conf import settings
 from .models import (
@@ -248,33 +249,65 @@ class QRCodeAdmin(admin.ModelAdmin):
         return super().get_list_display_links(request, list_display)
     
     def get_fields(self, request, obj=None):
-        """Возвращает список полей для отображения, заменяя code на masked_code_display для пользователей без прав."""
+        """Возвращает список полей для отображения, скрывая code и hash_code для неиспользованных QR-кодов."""
         fields = list(super().get_fields(request, obj))
         
-        # Если пользователь не имеет прав на просмотр деталей, заменяем code на masked_code_display
-        if obj and not self.has_view_permission(request, obj):
+        # Скрываем code и hash_code для неиспользованных QR-кодов (безопасность)
+        if obj and not obj.is_scanned:
             if 'code' in fields:
                 fields.remove('code')
+            if 'hash_code' in fields:
+                fields.remove('hash_code')
+            # Добавляем информационное поле вместо code
+            if 'security_notice' not in fields:
+                # Вставляем после code_type или в начало
+                try:
+                    code_type_index = fields.index('code_type')
+                    fields.insert(code_type_index + 1, 'security_notice')
+                except ValueError:
+                    fields.insert(0, 'security_notice')
+        
+        # Если пользователь не имеет прав на просмотр деталей, заменяем code на masked_code_display
+        elif obj and not self.has_view_permission(request, obj):
+            # Сохраняем индекс code перед удалением
+            code_index = None
+            if 'code' in fields:
+                code_index = fields.index('code')
+                fields.remove('code')
+            if 'hash_code' in fields:
+                fields.remove('hash_code')
             if 'masked_code_display' not in fields:
                 # Вставляем masked_code_display на место code
-                try:
-                    code_index = fields.index('code')
+                if code_index is not None:
                     fields.insert(code_index, 'masked_code_display')
-                except ValueError:
+                else:
                     # Если code не найден, просто добавляем в начало
                     fields.insert(0, 'masked_code_display')
         
         return fields
     
     def get_readonly_fields(self, request, obj=None):
-        """Возвращает список readonly полей, добавляя маскированное поле code для пользователей без прав."""
+        """Возвращает список readonly полей, добавляя информационное поле для неиспользованных QR-кодов."""
         readonly = list(super().get_readonly_fields(request, obj))
         
+        # Для неиспользованных QR-кодов добавляем информационное поле
+        if obj and not obj.is_scanned:
+            # Убираем code и hash_code из readonly, так как мы их скрываем
+            if 'code' in readonly:
+                readonly.remove('code')
+            if 'hash_code' in readonly:
+                readonly.remove('hash_code')
+            # Добавляем security_notice
+            if 'security_notice' not in readonly:
+                readonly.append('security_notice')
+        
         # Если пользователь не имеет прав на просмотр деталей, маскируем код
-        if obj and not self.has_view_permission(request, obj):
+        elif obj and not self.has_view_permission(request, obj):
             # Убираем code из readonly, так как мы заменим его на masked_code
             if 'code' in readonly:
                 readonly.remove('code')
+            if 'hash_code' in readonly:
+                readonly.remove('hash_code')
             # Добавляем masked_code вместо code
             if 'masked_code_display' not in readonly:
                 readonly.append('masked_code_display')
@@ -292,6 +325,28 @@ class QRCodeAdmin(admin.ModelAdmin):
             )
         return '-'
     masked_code_display.short_description = 'Code'
+    
+    def security_notice(self, obj):
+        """Информационное сообщение о безопасности для неиспользованных QR-кодов."""
+        if obj and not obj.is_scanned:
+            return format_html(
+                '<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; '
+                'padding: 15px; margin: 10px 0;">'
+                '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">'
+                '<span style="font-size: 20px;">🔒</span>'
+                '<strong style="color: #856404; font-size: 14px;">Информация о безопасности</strong>'
+                '</div>'
+                '<p style="margin: 0; color: #856404; font-size: 13px; line-height: 1.5;">'
+                'Код QR-кода скрыт для безопасности, так как QR-код еще не использован. '
+                'После сканирования QR-кода пользователем код будет доступен для просмотра.'
+                '</p>'
+                '<p style="margin: 10px 0 0 0; color: #856404; font-size: 12px;">'
+                '<strong>Серийный номер:</strong> {}</p>'
+                '</div>',
+                obj.serial_number if obj else '-'
+            )
+        return '-'
+    security_notice.short_description = 'Информация'
     
     def change_view(self, request, object_id, form_url='', extra_context=None):
         """Переопределяем детальный просмотр для проверки прав доступа и маскирования кода."""
@@ -422,6 +477,11 @@ class QRCodeAdmin(admin.ModelAdmin):
     
     def generate_qr_codes_view(self, request):
         """Представление для генерации QR-кодов."""
+        # Проверяем права доступа: только суперадмины или пользователи с правом generate_qrcodes
+        if not request.user.is_superuser and not request.user.has_perm('core.generate_qrcodes'):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("У вас нет прав для генерации QR-кодов.")
+        
         if request.method == 'POST':
             code_type = request.POST.get('code_type')
             quantity = int(request.POST.get('quantity', 0))
@@ -456,9 +516,14 @@ class QRCodeAdmin(admin.ModelAdmin):
             else:
                 messages.error(request, 'Заполните все поля корректно!')
         
-        return render(request, 'admin/core/qrcode/generate.html', {
+        # Получаем полный контекст админки (как в dashboard)
+        context = {
+            **self.admin_site.each_context(request),
             'title': 'Генерация QR-кодов',
-        })
+            'has_permission': request.user.is_superuser or request.user.has_perm('core.generate_qrcodes'),
+        }
+        
+        return TemplateResponse(request, 'admin/core/qrcode/generate.html', context)
 
 
 @admin.register(Gift)

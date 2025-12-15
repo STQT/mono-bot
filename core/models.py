@@ -92,6 +92,7 @@ class QRCode(models.Model):
         ]
         permissions = [
             ('view_qrcode_detail', 'Can view QR code details'),
+            ('generate_qrcodes', 'Can generate QR codes'),
         ]
     
     def __str__(self):

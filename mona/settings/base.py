@@ -231,6 +231,10 @@ JAZZMIN_SETTINGS = {
     "navigation_expanded": True,
     "hide_apps": [],
     "hide_models": [],
+    # Показывать приложения по пермишну
+    "show_ui_builder": False,
+    # Настройки для отображения моделей по правам доступа
+    "default_model_icon": "fas fa-circle",
     
     # Иконки
     "icons": {
@@ -252,17 +256,25 @@ JAZZMIN_SETTINGS = {
     
     # Кастомные ссылки в меню
     "custom_links": {
-        "core": [{
-            "name": "Дашборд",
-            "url": "/admin/dashboard/",
-            "icon": "fas fa-chart-line",
-            "permissions": ["auth.view_user"]
-        }]
+        "core": [
+            {
+                "name": "Дашборд",
+                "url": "/admin/dashboard/",
+                "icon": "fas fa-chart-line",
+                "permissions": ["auth.view_user"]
+            },
+            {
+                "name": "Генерировать QR-код",
+                "url": "/admin/core/qrcode/generate/",
+                "icon": "fas fa-qrcode",
+                "permissions": ["core.generate_qrcodes"]
+            }
+        ]
     },
     
     # Настройки прав доступа
     "permissions": {
-        "custom_links": ["auth.view_user"],
+        "custom_links": ["auth.view_user", "core.generate_qrcodes"],
     },
     
     # Настройки UI
