@@ -155,8 +155,10 @@ async def cmd_start(message: Message, state: FSMContext):
         return
     
     # Начинаем процесс регистрации с первого шага
-    # Шаг 1: Выбор языка (всегда показываем приветствие)
-    await ask_language(message, user, state)
+    # Шаг 1: Выбор языка
+    if not user.language:
+        await ask_language(message, user, state)
+        return
     
     # Шаг 2: Выбор типа пользователя
     if not user.user_type:
@@ -177,6 +179,11 @@ async def cmd_start(message: Message, state: FSMContext):
     if user.latitude is None or user.longitude is None:
         await ask_location(message, user, state)
         return
+    
+    # Шаг 6: Промокод (если еще не введен)
+    # Промокод не обязателен, поэтому просто завершаем регистрацию
+    await state.clear()
+    await show_main_menu(message, user)
 
 
 @dp.message(RegistrationStates.waiting_for_phone)
@@ -236,7 +243,7 @@ async def process_location(message: Message, state: FSMContext):
 async def ask_language(message: Message, user, state: FSMContext):
     """Спрашивает у пользователя язык интерфейса."""
     # Показываем приветствие на всех языках
-    welcome_text = "👋 Salom! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n👋 Салом! «Mono Electric» бонус дастурига хуш келибсиз!\nИлтимос, тилни танланг:\n\n👋 Салом! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n🌐 O'zbekcha (Lat)\n🌐 Ўзбекча (Kir)\n🌐 Русча"
+    welcome_text = "👋 Salom! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n👋 Салом! «Mono Electric» бонус дастурига хуш келибсиз!\nИлтимос, тилни танланг:\n\n👋 Салом! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:"
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
