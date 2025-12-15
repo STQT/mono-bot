@@ -1071,11 +1071,23 @@
                         statusText = t('WEBAPP_STATUS_PENDING');
                     }
                     
+                    const imageUrl = redemption.gift.image || '/static/images/gift-box.png';
+
+                    let confirmButtonHtml = '';
+                    if (!redemption.user_confirmed && (redemption.status === 'approved' || redemption.status === 'completed')) {
+                        confirmButtonHtml = `
+                            <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
+                                ${t('WEBAPP_YES_RECEIVED')}
+                            </button>
+                        `;
+                    }
+
                     card.innerHTML = `
-                        <img src="${redemption.gift.image || '/static/images/gift-box.png'}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
+                        <img src="${imageUrl}" alt="${redemption.gift.name}" class="profile-gift-image" onerror="this.src='/static/images/gift-box.png'">
                         <div class="profile-gift-info">
                             <div class="profile-gift-name">${redemption.gift.name}</div>
                             <div class="profile-gift-status ${statusClass}">${statusText}</div>
+                            ${confirmButtonHtml}
                         </div>
                         <span class="profile-gift-arrow">›</span>
                     `;
@@ -1083,6 +1095,65 @@
                 });
             } catch (error) {
                 container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+            }
+        }
+
+        function openConfirmModal(redemptionId) {
+            currentRedemptionId = redemptionId;
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.classList.add('active');
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+            const commentInput = document.getElementById('commentInput');
+            if (commentInput) {
+                commentInput.value = '';
+            }
+        }
+
+        async function confirmDelivery(confirmed) {
+            if (!currentRedemptionId) {
+                tg.showAlert(t('WEBAPP_ERROR_CONFIRMING'));
+                return;
+            }
+
+            try {
+                const comment = document.getElementById('commentInput') ? document.getElementById('commentInput').value.trim() : '';
+
+                const response = await fetch(`${API_BASE}/confirm-delivery/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        redemption_id: currentRedemptionId,
+                        confirmed: confirmed,
+                        comment: comment
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.error || t('WEBAPP_ERROR_CONFIRMING'));
+                }
+
+                await response.json();
+
+                closeModal();
+                tg.showAlert(t('WEBAPP_THANKS_CONFIRMATION'));
+
+                // Обновляем список заказов и статус продукта
+                if (document.getElementById('profileGiftsScreen').style.display !== 'none') {
+                    await loadProfileGifts();
+                }
+                await loadProductStatus();
+            } catch (error) {
+                console.error('Error confirming delivery:', error);
+                tg.showAlert(error.message || t('WEBAPP_ERROR_CONFIRMING'));
             }
         }
 

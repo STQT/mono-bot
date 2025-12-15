@@ -196,9 +196,21 @@ def confirm_delivery(request):
         
         redemption.user_confirmed = confirmed
         redemption.user_comment = comment
+        update_fields = ['user_confirmed', 'user_comment']
+
         if confirmed:
+            # Пользователь подтвердил получение подарка
             redemption.confirmed_at = timezone.now()
-        redemption.save(update_fields=['user_confirmed', 'user_comment', 'confirmed_at'])
+            redemption.status = 'completed'
+            redemption.delivery_status = 'delivered'
+            update_fields.extend(['confirmed_at', 'status', 'delivery_status'])
+        else:
+            # Пользователь указал, что подарок не получил
+            redemption.confirmed_at = None
+            # Статусы оставляем как есть, но сохраняем изменение комментария
+            update_fields.append('confirmed_at')
+
+        redemption.save(update_fields=update_fields)
         
         serializer = GiftRedemptionSerializer(redemption, context={'request': request})
         return Response(serializer.data)
