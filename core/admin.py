@@ -944,11 +944,20 @@ class QRCodeGenerationAdmin(admin.ModelAdmin):
 @admin.register(PrivacyPolicy)
 class PrivacyPolicyAdmin(admin.ModelAdmin):
     """Админка для политики конфиденциальности."""
-    list_display = ['is_active', 'updated_at', 'created_at']
+    list_display = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
     list_filter = ['is_active', 'created_at', 'updated_at']
     fieldsets = (
-        ('Контент', {
-            'fields': ('content_uz_latin', 'content_uz_cyrillic', 'content_ru', 'is_active')
+        ('Узбекский язык (Латиница)', {
+            'fields': ('content_uz_latin', 'pdf_uz_latin'),
+        }),
+        ('Узбекский язык (Кириллица)', {
+            'fields': ('content_uz_cyrillic', 'pdf_uz_cyrillic'),
+        }),
+        ('Русский язык', {
+            'fields': ('content_ru', 'pdf_ru'),
+        }),
+        ('Настройки', {
+            'fields': ('is_active',),
         }),
         ('Системная информация', {
             'fields': ('created_at', 'updated_at'),
@@ -956,6 +965,20 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
         }),
     )
     readonly_fields = ['created_at', 'updated_at']
+    
+    def has_pdf_files(self, obj):
+        """Показывает, загружены ли PDF файлы."""
+        if obj.pk:
+            pdfs = []
+            if obj.pdf_uz_latin:
+                pdfs.append('UZ-Lat')
+            if obj.pdf_uz_cyrillic:
+                pdfs.append('UZ-Kir')
+            if obj.pdf_ru:
+                pdfs.append('RU')
+            return ', '.join(pdfs) if pdfs else 'Нет PDF'
+        return '-'
+    has_pdf_files.short_description = 'Загруженные PDF'
     
     def has_add_permission(self, request):
         """Разрешаем создание только для superuser."""

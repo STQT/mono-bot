@@ -95,7 +95,7 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
             'last_name': last_name,
         }
     )
-    return user
+    return user, created
 
 
 @sync_to_async
@@ -122,13 +122,14 @@ async def cmd_start(message: Message, state: FSMContext):
     # Проверяем формат ?start=qr_{qr_code} или ?start={qr_code}
     if args_text:
         arg = args_text[0]
-        if arg.startswith('qr_'):
-            qr_code_str = arg[3:]  # Убираем префикс 'qr_' - это hash_code
+        if arg.startswith('qr_') or arg.startswith('QR_'):
+            # Нормализуем: убираем префикс 'qr_' или 'QR_' и приводим к верхнему регистру
+            qr_code_str = arg[3:].upper().strip()  # Убираем префикс 'qr_' - это hash_code
         else:
-            # Если формат без префикса, пробуем использовать как есть (может быть полный код или hash_code)
-            qr_code_str = arg
+            # Если формат без префикса, нормализуем регистр
+            qr_code_str = arg.upper().strip()
     
-    user = await get_or_create_user(
+    user, is_new_user = await get_or_create_user(
         telegram_id=message.from_user.id,
         username=message.from_user.username,
         first_name=message.from_user.first_name,
@@ -146,7 +147,7 @@ async def cmd_start(message: Message, state: FSMContext):
             return
         else:
             # Пользователь не зарегистрирован - сохраняем QR-код в state для обработки после регистрации
-            await state.update(pending_qr_code=qr_code_str)
+            await state.update_data(pending_qr_code=qr_code_str)
     
     if registration_complete:
         # Пользователь уже зарегистрирован - показываем меню
@@ -154,12 +155,23 @@ async def cmd_start(message: Message, state: FSMContext):
         await state.clear()
         return
     
+    # Очищаем state для новой сессии регистрации
+    await state.clear()
+    
     # Начинаем процесс регистрации с первого шага
-    # Шаг 1: Выбор языка
-    if not user.language:
+    # Шаг 1: Выбор языка - всегда показываем приветствие если:
+    # - это новый пользователь (только что создан) - даже если язык установлен по умолчанию
+    # - или язык не выбран или пустой
+    if is_new_user:
+        # Новый пользователь - всегда показываем выбор языка
         await ask_language(message, user, state)
         return
     
+    if not user.language or user.language == '':
+        await ask_language(message, user, state)
+        return
+    
+    # Если язык уже выбран, но регистрация не завершена - продолжаем с текущего шага
     # Шаг 2: Выбор типа пользователя
     if not user.user_type:
         await ask_user_type(message, user, state)
@@ -228,7 +240,10 @@ async def process_location(message: Message, state: FSMContext):
             return user
         
         user = await update_location()
-        await message.answer(get_text(user, 'PHONE_SAVED'))
+        
+        # Убираем клавиатуру с кнопкой геолокации
+        remove_keyboard = types.ReplyKeyboardRemove()
+        await message.answer(get_text(user, 'LOCATION_SAVED'), reply_markup=remove_keyboard)
         
         # Переходим к следующему шагу - промокод
         await ask_promo_code(message, user, state)
@@ -281,21 +296,33 @@ async def ask_user_type(message: Message, user, state: FSMContext):
 
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     """Спрашивает согласие на политику конфиденциальности."""
+    from pathlib import Path
+    from aiogram.types import FSInputFile, InputMediaPhoto
+    from django.contrib.staticfiles import finders
+    import tempfile
     from core.models import PrivacyPolicy
     
+    # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
-    def get_privacy_text():
-        policy = PrivacyPolicy.objects.filter(is_active=True).first()
-        if policy:
-            if user.language == 'uz_latin':
-                return policy.content_uz_latin or ""
-            elif user.language == 'uz_cyrillic':
-                return policy.content_uz_cyrillic or policy.content_uz_latin or ""
-            elif user.language == 'ru':
-                return policy.content_ru or policy.content_uz_latin or ""
-        return get_text(user, 'PRIVACY_POLICY_TEXT')
+    def get_privacy_policy():
+        return PrivacyPolicy.objects.filter(is_active=True).first()
     
-    privacy_text = await get_privacy_text()
+    policy = await get_privacy_policy()
+    
+    # Определяем какой PDF файл использовать в зависимости от языка пользователя
+    pdf_file = None
+    privacy_text = get_text(user, 'PRIVACY_POLICY_TEXT')
+    
+    if policy:
+        if user.language == 'uz_latin' and policy.pdf_uz_latin:
+            pdf_file = policy.pdf_uz_latin
+            privacy_text = policy.content_uz_latin or privacy_text
+        elif user.language == 'uz_cyrillic' and policy.pdf_uz_cyrillic:
+            pdf_file = policy.pdf_uz_cyrillic
+            privacy_text = policy.content_uz_cyrillic or policy.content_uz_latin or privacy_text
+        elif user.language == 'ru' and policy.pdf_ru:
+            pdf_file = policy.pdf_ru
+            privacy_text = policy.content_ru or privacy_text
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
@@ -307,8 +334,41 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
             callback_data='decline_privacy'
         )],
     ])
-    # Убираем лишний текст, так как он уже включен в PRIVACY_POLICY_TEXT
-    await message.answer(privacy_text, reply_markup=keyboard)
+    
+    # Если PDF файл не найден в модели, пробуем статический файл как fallback
+    pdf_path = None
+    if pdf_file and pdf_file.path:
+        pdf_path = pdf_file.path
+    else:
+        # Fallback: пытаемся найти статический файл
+        pdf_path = finders.find('confidencial.pdf')
+        if not pdf_path:
+            static_dirs = getattr(settings, 'STATICFILES_DIRS', [])
+            for static_dir in static_dirs:
+                potential_path = Path(static_dir) / 'confidencial.pdf'
+                if potential_path.exists():
+                    pdf_path = str(potential_path)
+                    break
+        if not pdf_path:
+            static_root = getattr(settings, 'STATIC_ROOT', None)
+            if static_root:
+                potential_path = Path(static_root) / 'confidencial.pdf'
+                if potential_path.exists():
+                    pdf_path = str(potential_path)
+    
+    # Если файл не найден, отправляем только текст
+    if not pdf_path or not Path(pdf_path).exists():
+        logger.warning("PDF файл политики конфиденциальности не найден. Используется текстовая версия.")
+        await message.answer(privacy_text, reply_markup=keyboard)
+    else:
+        # ВРЕМЕННО: отправляем только PDF как документ, с одной клавиатурой для принятия
+        document = FSInputFile(pdf_path)
+        await message.answer_document(
+            document,
+            caption=privacy_text,
+            reply_markup=keyboard
+        )
+    
     await state.set_state(RegistrationStates.waiting_for_privacy)
 
 
@@ -348,31 +408,87 @@ async def process_promo_code(message: Message, state: FSMContext):
     promo_code = message.text.strip() if message.text else ""
     
     @sync_to_async
-    def update_promo_code():
-        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        # Сохраняем промокод (если есть поле в модели, иначе можно пропустить)
-        # user.promo_code = promo_code
-        # user.save(update_fields=['promo_code'])
-        return user
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=message.from_user.id)
     
-    user = await update_promo_code()
+    user = await get_user()
     
-    # Проверяем, есть ли ожидающий QR-код
+    # Проверяем, есть ли ожидающий QR-код из state (передан при /start)
     state_data = await state.get_data()
     pending_qr_code = state_data.get('pending_qr_code')
     
+    # Если промокод введен, проверяем его как QR-код
+    # Нормализуем регистр для поиска (case-insensitive)
+    qr_code_to_check = (promo_code.upper().strip() if promo_code else None) or (pending_qr_code.upper().strip() if pending_qr_code else None)
+    
+    if qr_code_to_check:
+        # Проверяем QR-код напрямую, чтобы определить результат до завершения регистрации
+        @sync_to_async
+        def check_qr_code():
+            """Проверяет существование QR-кода в базе."""
+            # Нормализуем ввод: приводим к верхнему регистру для поиска
+            qr_code_normalized = qr_code_to_check.upper().strip()
+            
+            try:
+                # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
+                qr_code = QRCode.objects.get(code__iexact=qr_code_normalized)
+                return {'found': True, 'qr_code': qr_code}
+            except QRCode.DoesNotExist:
+                # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
+                try:
+                    qr_code = QRCode.objects.get(hash_code__iexact=qr_code_normalized)
+                    return {'found': True, 'qr_code': qr_code}
+                except QRCode.DoesNotExist:
+                    return {'found': False}
+        
+        qr_check_result = await check_qr_code()
+        
+        if not qr_check_result.get('found'):
+            # QR-код не найден - показываем ошибку и продолжаем ожидать промокод
+            await message.answer(get_text(user, 'QR_NOT_FOUND'))
+            await ask_promo_code(message, user, state)
+            return
+        
+        # QR-код найден - обрабатываем его через handle_qr_code_scan
+        # Временно сохраняем состояние
+        await state.update_data(pending_qr_code=qr_code_to_check)
+        
+        # Обрабатываем QR-код
+        await handle_qr_code_scan(message, user, qr_code_to_check, state)
+        
+        # Проверяем, завершена ли регистрация после обработки QR-кода
+        @sync_to_async
+        def check_registration_complete():
+            user_obj = TelegramUser.objects.get(telegram_id=message.from_user.id)
+            return (
+                user_obj.language and
+                user_obj.user_type and
+                user_obj.privacy_accepted and
+                user_obj.phone_number and
+                user_obj.latitude is not None and
+                user_obj.longitude is not None
+            )
+        
+        registration_complete = await check_registration_complete()
+        
+        if registration_complete:
+            # Регистрация завершена, handle_qr_code_scan уже обработал QR-код и показал меню
+            await state.clear()
+            return
+        else:
+            # QR-код был обработан, но регистрация еще не завершена
+            await state.clear()
+            return
+    
+    # Если промокод не введен и нет ожидающего QR-кода, завершаем регистрацию
     await state.clear()
     
     # Убираем клавиатуру
     remove_keyboard = types.ReplyKeyboardRemove()
     await message.answer(get_text(user, 'REGISTRATION_COMPLETE_MESSAGE'), reply_markup=remove_keyboard)
     
-    # Если был передан QR-код при старте, обрабатываем его после регистрации
-    if pending_qr_code:
-        await handle_qr_code_scan(message, user, pending_qr_code, state)
-    else:
-        # Показываем главное меню
-        await show_main_menu(message, user)
+    # Показываем главное меню
+    await show_main_menu(message, user)
 
 
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
@@ -466,14 +582,17 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 # Лимит превышен - сразу возвращаем ошибку без создания новой попытки
                 return {'error': 'max_attempts'}
             
-            # Ищем QR-код по коду или hash_code
+            # Нормализуем ввод: приводим к верхнему регистру для поиска
+            qr_code_str_normalized = qr_code_str.upper().strip()
+            
+            # Ищем QR-код по коду или hash_code (case-insensitive)
             try:
-                # Сначала ищем по полному коду (E-ABC123 или D-ABC123)
-                qr_code = QRCode.objects.get(code=qr_code_str)
+                # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
+                qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
             except QRCode.DoesNotExist:
-                # Если не нашли, пробуем найти по hash_code (без префикса)
+                # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
                 try:
-                    qr_code = QRCode.objects.get(hash_code=qr_code_str)
+                    qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
                 except QRCode.DoesNotExist:
                     # Создаем запись о неудачной попытке только если лимит еще не превышен
                     # Но сначала проверяем, не превысили ли мы лимит после предыдущей проверки
@@ -559,14 +678,49 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         
         result = await process_qr_scan()
         
+        # Проверяем, завершена ли регистрация (для определения, нужно ли показывать меню или продолжать регистрацию)
+        @sync_to_async
+        def is_reg_complete():
+            user_obj = TelegramUser.objects.get(telegram_id=message.from_user.id)
+            return (
+                user_obj.language and
+                user_obj.user_type and
+                user_obj.privacy_accepted and
+                user_obj.phone_number and
+                user_obj.latitude is not None and
+                user_obj.longitude is not None
+            )
+        
+        registration_complete = await is_reg_complete()
+        
         if result.get('error') == 'max_attempts':
             await message.answer(get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=settings.QR_CODE_MAX_ATTEMPTS))
+            if registration_complete:
+                await show_main_menu(message, user)
+            else:
+                # Если регистрация не завершена, продолжаем ожидать промокод
+                await ask_promo_code(message, user, state)
         elif result.get('error') == 'not_found':
             await message.answer(get_text(user, 'QR_NOT_FOUND'))
+            if registration_complete:
+                await show_main_menu(message, user)
+            else:
+                # Если регистрация не завершена, продолжаем ожидать промокод
+                await ask_promo_code(message, user, state)
         elif result.get('error') == 'already_scanned':
             await message.answer(get_text(user, 'QR_ALREADY_SCANNED'))
+            if registration_complete:
+                await show_main_menu(message, user)
+            else:
+                # Если регистрация не завершена, продолжаем ожидать промокод
+                await ask_promo_code(message, user, state)
         elif result.get('error') == 'wrong_type':
             await message.answer(get_text(user, 'QR_WRONG_TYPE'))
+            if registration_complete:
+                await show_main_menu(message, user)
+            else:
+                # Если регистрация не завершена, продолжаем ожидать промокод
+                await ask_promo_code(message, user, state)
         elif result.get('success'):
             await message.answer(get_text(user, 'QR_ACTIVATED',
                 points=result['points'],
@@ -699,8 +853,8 @@ async def handle_message(message: Message, state: FSMContext = None):
         # Пользователь может ввести QR-код вручную
         # Не обрабатываем контакты и локации как QR-коды
         if message.text and len(message.text.strip()) > 0 and not message.contact and not message.location:
-            # Убираем пробелы и пробуем обработать как QR-код
-            qr_code_str = message.text.strip()
+            # Убираем пробелы и нормализуем регистр для поиска (case-insensitive)
+            qr_code_str = message.text.strip().upper()
             await handle_qr_code_scan(message, user, qr_code_str, state)
         else:
             await handle_unknown_message(message)

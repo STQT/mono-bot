@@ -373,9 +373,33 @@ class Promotion(models.Model):
 
 class PrivacyPolicy(models.Model):
     """Модель для политики конфиденциальности."""
-    content_uz_latin = models.TextField(verbose_name='Kontent (O\'zbek lotin)')
-    content_uz_cyrillic = models.TextField(verbose_name='Kontent (O\'zbek kirill)', blank=True)
-    content_ru = models.TextField(verbose_name='Kontent (Ruscha)', blank=True)
+    content_uz_latin = models.TextField(verbose_name='Kontent (O\'zbek lotin)', blank=True, help_text='Текстовый контент для узбекского языка (латиница). Если загружен PDF, текст будет использован как подпись.')
+    content_uz_cyrillic = models.TextField(verbose_name='Kontent (O\'zbek kirill)', blank=True, help_text='Текстовый контент для узбекского языка (кириллица). Если загружен PDF, текст будет использован как подпись.')
+    content_ru = models.TextField(verbose_name='Kontent (Ruscha)', blank=True, help_text='Текстовый контент для русского языка. Если загружен PDF, текст будет использован как подпись.')
+    
+    # PDF файлы для каждого языка
+    pdf_uz_latin = models.FileField(
+        upload_to='privacy_policy/',
+        null=True,
+        blank=True,
+        verbose_name='PDF файл (O\'zbek lotin)',
+        help_text='PDF файл политики конфиденциальности для узбекского языка (латиница)'
+    )
+    pdf_uz_cyrillic = models.FileField(
+        upload_to='privacy_policy/',
+        null=True,
+        blank=True,
+        verbose_name='PDF файл (O\'zbek kirill)',
+        help_text='PDF файл политики конфиденциальности для узбекского языка (кириллица)'
+    )
+    pdf_ru = models.FileField(
+        upload_to='privacy_policy/',
+        null=True,
+        blank=True,
+        verbose_name='PDF файл (Ruscha)',
+        help_text='PDF файл политики конфиденциальности для русского языка'
+    )
+    
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
