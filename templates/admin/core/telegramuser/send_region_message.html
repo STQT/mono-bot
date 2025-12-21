@@ -1,0 +1,290 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Отправить сообщение по области{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .region-message-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .region-message-header h1 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .region-message-header p {
+        margin: 10px 0 0 0;
+        opacity: 0.9;
+        font-size: 16px;
+    }
+    
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 25px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 14px;
+    }
+    
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        font-family: inherit;
+    }
+    
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group textarea {
+        min-height: 150px;
+        resize: vertical;
+    }
+    
+    .form-group .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0 0;
+        color: #e53e3e;
+        font-size: 13px;
+    }
+    
+    .form-group .errorlist li {
+        padding: 4px 0;
+    }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px;
+        background: #f7fafc;
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #667eea;
+    }
+    
+    .checkbox-group label {
+        margin: 0;
+        cursor: pointer;
+        font-weight: 500;
+        color: #2d3748;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 30px;
+        padding-top: 25px;
+        border-top: 2px solid #e2e8f0;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: #718096;
+        color: white;
+        box-shadow: 0 2px 4px rgba(113, 128, 150, 0.3);
+    }
+    
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(113, 128, 150, 0.4);
+        color: white;
+    }
+    
+    .info-card {
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        border-radius: 12px;
+        padding: 25px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .info-card h3 {
+        margin: 0 0 15px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #2d3748;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .info-card ul {
+        margin: 0;
+        padding-left: 20px;
+        line-height: 1.8;
+        color: #4a5568;
+    }
+    
+    .info-card li {
+        margin-bottom: 8px;
+    }
+    
+    .help-text {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        color: #718096;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="region-message-header">
+    <h1>
+        <span>📍</span>
+        <span>Отправить сообщение по области</span>
+    </h1>
+    <p>Выберите область Узбекистана и отправьте сообщение всем пользователям этой области.</p>
+</div>
+
+<div class="form-card">
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="id_region">
+                <span>🗺️</span> Область:
+            </label>
+            {{ form.region }}
+            {% if form.region.errors %}
+                <ul class="errorlist">{{ form.region.errors }}</ul>
+            {% endif %}
+            <span class="help-text">Выберите область Узбекистана для отправки сообщения</span>
+        </div>
+        
+        <div class="form-group">
+            <label for="id_message">
+                <span>💬</span> Текст сообщения:
+            </label>
+            {{ form.message }}
+            {% if form.message.errors %}
+                <ul class="errorlist">{{ form.message.errors }}</ul>
+            {% endif %}
+            <span class="help-text">Введите текст сообщения, которое будет отправлено пользователям</span>
+        </div>
+        
+        <div class="form-group">
+            <label for="id_parse_mode">
+                <span>📝</span> Режим парсинга:
+            </label>
+            {{ form.parse_mode }}
+            {% if form.parse_mode.errors %}
+                <ul class="errorlist">{{ form.parse_mode.errors }}</ul>
+            {% endif %}
+            <span class="help-text">HTML - поддерживает форматирование текста (жирный, курсив и т.д.)</span>
+        </div>
+        
+        <div class="form-group">
+            <label for="id_user_type_filter">
+                <span>👥</span> Тип пользователя:
+            </label>
+            {{ form.user_type_filter }}
+            {% if form.user_type_filter.errors %}
+                <ul class="errorlist">{{ form.user_type_filter.errors }}</ul>
+            {% endif %}
+            <span class="help-text">Фильтр по типу пользователя (электрики или продавцы). Оставьте "Все" для отправки всем.</span>
+        </div>
+        
+        <div class="form-group">
+            <div class="checkbox-group">
+                {{ form.only_active }}
+                <label for="id_only_active">Только активные пользователи</label>
+            </div>
+            {% if form.only_active.errors %}
+                <ul class="errorlist">{{ form.only_active.errors }}</ul>
+            {% endif %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span>📤</span>
+                <span>Отправить сообщение</span>
+            </button>
+            <a href="{% url 'admin:core_telegramuser_changelist' %}" class="btn btn-secondary">
+                <span>❌</span>
+                <span>Отмена</span>
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="info-card">
+    <h3>
+        <span>ℹ️</span>
+        <span>Информация</span>
+    </h3>
+    <ul>
+        <li>Сообщение будет отправлено всем пользователям выбранной области, у которых указаны координаты</li>
+        <li>Вы можете фильтровать пользователей по типу (электрики/продавцы)</li>
+        <li>Можно выбрать отправку только активным пользователям</li>
+        <li>Область определяется автоматически по координатам, указанным пользователем при регистрации</li>
+    </ul>
+</div>
+{% endblock %}
+

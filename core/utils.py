@@ -2,7 +2,6 @@
 Utility functions for core app.
 """
 import os
-import qrcode
 from PIL import Image, ImageDraw, ImageFont
 from django.conf import settings
 from django.utils import timezone
@@ -11,7 +10,8 @@ from .models import QRCode
 
 def generate_qr_code_image(qr_code_instance):
     """
-    Генерирует изображение QR-кода с серийным номером, штрих-кодом и инструкцией.
+    Генерирует изображение с кодом (только текст, без QR-кода).
+    Высокое качество изображения для печати.
     
     Args:
         qr_code_instance: Экземпляр модели QRCode
@@ -23,53 +23,30 @@ def generate_qr_code_image(qr_code_instance):
     qr_dir = os.path.join(settings.MEDIA_ROOT, 'qrcodes')
     os.makedirs(qr_dir, exist_ok=True)
     
-    # Создаем QR-код с ссылкой на бота
-    bot_username = settings.TELEGRAM_BOT_USERNAME
-    if bot_username:
-        qr_data = f"https://t.me/{bot_username}?start=qr_{qr_code_instance.hash_code}"
-    else:
-        # Fallback на код, если username не установлен
-        qr_data = qr_code_instance.code
+    # Параметры для высокого качества (DPI для печати)
+    dpi = 300  # Высокое разрешение для печати
+    scale_factor = dpi / 72  # Масштаб для перевода из точек в пиксели
     
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(qr_data)
-    qr.make(fit=True)
+    # Параметры для текста (в точках, затем умножим на scale_factor)
+    padding_pt = 40
+    code_font_size_pt = 72  # Крупный шрифт для кода
+    serial_font_size_pt = 24  # Шрифт для серийного номера
+    instruction_font_size_pt = 14  # Шрифт для инструкции
     
-    # Создаем изображение QR-кода
-    qr_img = qr.make_image(fill_color="black", back_color="white")
+    # Конвертируем в пиксели с учетом DPI
+    padding = int(padding_pt * scale_factor)
+    code_font_size = int(code_font_size_pt * scale_factor)
+    serial_font_size = int(serial_font_size_pt * scale_factor)
+    instruction_font_size = int(instruction_font_size_pt * scale_factor)
     
-    # Размеры QR-кода
-    qr_size = qr_img.size[0]
+    # Создаем объект для рисования (временно для измерения текста)
+    temp_img = Image.new('RGB', (100, 100), 'white')
+    temp_draw = ImageDraw.Draw(temp_img)
     
-    # Параметры для текста
-    padding = 40
-    text_height = 30
-    instruction_height = 60
-    
-    # Размеры итогового изображения
-    total_width = qr_size + (padding * 2)
-    total_height = qr_size + (padding * 3) + (text_height * 2) + instruction_height
-    
-    # Создаем новое изображение с белым фоном
-    img = Image.new('RGB', (total_width, total_height), 'white')
-    
-    # Вставляем QR-код в центр
-    qr_x = padding
-    qr_y = padding + text_height
-    img.paste(qr_img, (qr_x, qr_y))
-    
-    # Создаем объект для рисования
-    draw = ImageDraw.Draw(img)
-    
-    # Пытаемся загрузить шрифт с поддержкой кириллицы
-    font_large = None
-    font_medium = None
-    font_small = None
+    # Пытаемся загрузить шрифт с поддержкой кириллицы и латиницы
+    font_code = None
+    font_serial = None
+    font_instruction = None
     
     # Список путей к шрифтам с поддержкой кириллицы
     font_paths = [
@@ -77,6 +54,7 @@ def generate_qr_code_image(qr_code_instance):
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
         "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
         # Linux
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -91,76 +69,73 @@ def generate_qr_code_image(qr_code_instance):
     for font_path in font_paths:
         try:
             if os.path.exists(font_path):
-                font_large = ImageFont.truetype(font_path, 24)
-                font_medium = ImageFont.truetype(font_path, 18)
-                font_small = ImageFont.truetype(font_path, 14)
+                font_code = ImageFont.truetype(font_path, code_font_size)
+                font_serial = ImageFont.truetype(font_path, serial_font_size)
+                font_instruction = ImageFont.truetype(font_path, instruction_font_size)
                 break
         except:
             continue
     
     # Если не нашли подходящий шрифт, используем стандартный
-    if font_large is None:
-        font_large = ImageFont.load_default()
-        font_medium = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+    if font_code is None:
+        font_code = ImageFont.load_default()
+        font_serial = ImageFont.load_default()
+        font_instruction = ImageFont.load_default()
     
-    # Рисуем серийный номер вверху (только серийный номер, без лишнего текста)
+    # Тексты для отображения
+    code_text = qr_code_instance.code
     serial_text = f"Seriya raqami: {qr_code_instance.serial_number}"
-    # Используем textlength для более точного расчета ширины
+    
+    # Измеряем размеры текстов
     try:
-        text_bbox = draw.textbbox((0, 0), serial_text, font=font_large)
-        text_width = text_bbox[2] - text_bbox[0]
+        code_bbox = temp_draw.textbbox((0, 0), code_text, font=font_code)
+        code_width = code_bbox[2] - code_bbox[0]
+        code_height = code_bbox[3] - code_bbox[1]
     except:
-        # Fallback для старых версий PIL
-        text_width = draw.textlength(serial_text, font=font_large)
-    text_x = (total_width - text_width) // 2
-    text_y = 15  # Отступ сверху
-    draw.text((text_x, text_y), serial_text, fill='black', font=font_large)
+        code_width = temp_draw.textlength(code_text, font=font_code)
+        code_height = code_font_size
     
-    # Рисуем штрих-код (текст кода) под QR-кодом
-    barcode_text = qr_code_instance.code
     try:
-        text_bbox = draw.textbbox((0, 0), barcode_text, font=font_medium)
-        text_width = text_bbox[2] - text_bbox[0]
+        serial_bbox = temp_draw.textbbox((0, 0), serial_text, font=font_serial)
+        serial_width = serial_bbox[2] - serial_bbox[0]
+        serial_height = serial_bbox[3] - serial_bbox[1]
     except:
-        text_width = draw.textlength(barcode_text, font=font_medium)
-    text_x = (total_width - text_width) // 2
-    text_y = qr_y + qr_size + 15
-    draw.text((text_x, text_y), barcode_text, fill='black', font=font_medium)
+        serial_width = temp_draw.textlength(serial_text, font=font_serial)
+        serial_height = serial_font_size
     
-    # Рисуем инструкцию внизу (на узбекском латиница)
-    bot_username = settings.TELEGRAM_BOT_USERNAME
-    if bot_username:
-        instruction_text = f"QR-kodni skanerlang yoki botni oching @{bot_username}"
-    else:
-        instruction_text = "QR-kodni skanerlang yoki botni oching"
+    # Вычисляем размеры изображения
+    max_text_width = max(code_width, serial_width)
+    total_width = int(max_text_width + (padding * 2))
+    total_height = int(padding + serial_height + padding + code_height + padding)
     
-    instruction_text2 = f"va shtrix-kodni kiriting: {barcode_text}"
+    # Создаем новое изображение с белым фоном и высоким разрешением
+    img = Image.new('RGB', (total_width, total_height), 'white')
+    draw = ImageDraw.Draw(img)
     
-    # Первая строка инструкции
-    try:
-        text_bbox = draw.textbbox((0, 0), instruction_text, font=font_small)
-        text_width = text_bbox[2] - text_bbox[0]
-    except:
-        text_width = draw.textlength(instruction_text, font=font_small)
-    text_x = (total_width - text_width) // 2
-    text_y = text_y + 25  # Отступ от штрих-кода
-    draw.text((text_x, text_y), instruction_text, fill='black', font=font_small)
+    # Рисуем рамку вокруг изображения (опционально, для красоты)
+    border_width = int(2 * scale_factor)
+    draw.rectangle(
+        [(border_width, border_width), (total_width - border_width, total_height - border_width)],
+        outline='black',
+        width=border_width
+    )
     
-    # Вторая строка инструкции
-    try:
-        text_bbox = draw.textbbox((0, 0), instruction_text2, font=font_small)
-        text_width = text_bbox[2] - text_bbox[0]
-    except:
-        text_width = draw.textlength(instruction_text2, font=font_small)
-    text_x = (total_width - text_width) // 2
-    text_y = text_y + 20  # Отступ между строками
-    draw.text((text_x, text_y), instruction_text2, fill='black', font=font_small)
+    # Рисуем серийный номер вверху
+    serial_x = (total_width - serial_width) // 2
+    serial_y = padding
+    draw.text((serial_x, serial_y), serial_text, fill='black', font=font_serial)
     
-    # Сохраняем изображение
+    # Рисуем код по центру (крупным шрифтом)
+    code_x = (total_width - code_width) // 2
+    code_y = serial_y + serial_height + padding
+    draw.text((code_x, code_y), code_text, fill='black', font=font_code)
+    
+    # Сохраняем изображение с высоким качеством
     filename = f"{qr_code_instance.code.replace('-', '_')}.png"
     filepath = os.path.join(qr_dir, filename)
-    img.save(filepath)
+    
+    # Сохраняем с высоким DPI для качества печати
+    img.save(filepath, 'PNG', dpi=(dpi, dpi), quality=95)
     
     # Обновляем путь в модели
     qr_code_instance.image_path = filepath

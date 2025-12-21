@@ -329,8 +329,6 @@ def get_privacy_policy(request):
         # Выбираем контент в зависимости от языка
         if language == 'uz_latin':
             content = policy.content_uz_latin
-        elif language == 'uz_cyrillic':
-            content = policy.content_uz_cyrillic or policy.content_uz_latin
         elif language == 'ru':
             content = policy.content_ru or policy.content_uz_latin
         else:
@@ -360,7 +358,7 @@ def update_user_language(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if language not in ['uz_latin', 'uz_cyrillic', 'ru']:
+    if language not in ['uz_latin', 'ru']:
         return Response(
             {'error': 'Invalid language'},
             status=status.HTTP_400_BAD_REQUEST
@@ -428,7 +426,7 @@ def register_qr_code(request):
         
         # Ищем QR-код по коду или hash_code
         try:
-            # Сначала ищем по полному коду (E-ABC123 или D-ABC123)
+            # Сначала ищем по полному коду (EABC123 или DABC123)
             qr_code = QRCode.objects.get(code=qr_code_str)
         except QRCode.DoesNotExist:
             # Если не нашли, пробуем найти по hash_code (без префикса)

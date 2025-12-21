@@ -127,7 +127,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # Django использует стандартные ISO 639 коды, но мы храним кастомные коды в БД
-# Маппинг: uz_latin -> uz, uz_cyrillic -> uz, ru -> ru
+# Маппинг: uz_latin -> uz, ru -> ru
 LANGUAGE_CODE = 'uz'  # Стандартный код для узбекского (Django требует стандартные коды)
 LANGUAGES = [
     ('uz', 'O\'zbek (Lotin)'),  # Маппится на uz_latin в БД
@@ -268,6 +268,12 @@ JAZZMIN_SETTINGS = {
                 "url": "/admin/core/qrcode/generate/",
                 "icon": "fas fa-qrcode",
                 "permissions": ["core.generate_qrcodes"]
+            },
+            {
+                "name": "Отправка по областям",
+                "url": "/admin/send-region-message/",
+                "icon": "fas fa-map-marked-alt",
+                "permissions": ["core.send_region_messages"]
             }
         ]
     },

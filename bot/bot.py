@@ -38,6 +38,7 @@ else:
 class RegistrationStates(StatesGroup):
     """Состояния для регистрации пользователя."""
     waiting_for_language = State()
+    waiting_for_name = State()
     waiting_for_user_type = State()
     waiting_for_privacy = State()
     waiting_for_phone = State()
@@ -84,18 +85,34 @@ def get_web_app_url():
     return None
 
 
+def format_number(number):
+    """
+    Форматирует число с разделителями тысяч (пробелами).
+    Пример: 1000000 -> "1 000 000"
+    """
+    try:
+        num = int(float(number))
+        return f"{num:,}".replace(",", " ")
+    except (ValueError, TypeError):
+        return str(number)
+
+
 @sync_to_async
 def get_or_create_user(telegram_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получает или создает пользователя Telegram."""
+    # Не сохраняем имя автоматически - пользователь должен ввести его сам
     user, created = TelegramUser.objects.get_or_create(
         telegram_id=telegram_id,
         defaults={
             'username': username,
-            'first_name': first_name,
-            'last_name': last_name,
+            # first_name и last_name не сохраняем автоматически
         }
     )
-    return user, created
+    # Обновляем username если он изменился
+    if username and user.username != username:
+        user.username = username
+        user.save(update_fields=['username'])
+    return user
 
 
 @sync_to_async
@@ -103,6 +120,7 @@ def is_registration_complete(user):
     """Проверяет, завершена ли регистрация пользователя."""
     return (
         user.language and
+        user.first_name and  # Добавляем проверку имени
         user.user_type and
         user.privacy_accepted and
         user.phone_number and
@@ -115,7 +133,7 @@ def is_registration_complete(user):
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
     # Парсим аргументы команды /start
-    # Формат может быть: /start qr_ABC123 или /start E-ABC123
+    # Формат может быть: /start qr_ABC123 или /start EABC123
     args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
     qr_code_str = None
     
@@ -166,13 +184,12 @@ async def cmd_start(message: Message, state: FSMContext):
         # Новый пользователь - всегда показываем выбор языка
         await ask_language(message, user, state)
         return
-    
-    if not user.language or user.language == '':
-        await ask_language(message, user, state)
+    # Шаг 2: Ввод имени
+    if not user.first_name:
+        await ask_name(message, user, state)
         return
     
-    # Если язык уже выбран, но регистрация не завершена - продолжаем с текущего шага
-    # Шаг 2: Выбор типа пользователя
+    # Шаг 3: Выбор типа пользователя
     if not user.user_type:
         await ask_user_type(message, user, state)
         return
@@ -266,16 +283,49 @@ async def ask_language(message: Message, user, state: FSMContext):
             callback_data='lang_uz_latin'
         )],
         [types.InlineKeyboardButton(
-            text="🌐 Ўзбекча (Kir)",
-            callback_data='lang_uz_cyrillic'
-        )],
-        [types.InlineKeyboardButton(
-            text="🌐 Русча",
+            text="🇷🇺 Русский",
             callback_data='lang_ru'
         )],
     ])
     await message.answer(welcome_text, reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_language)
+
+
+async def ask_name(message: Message, user, state: FSMContext):
+    """Спрашивает у пользователя его имя."""
+    await message.answer(get_text(user, 'ASK_NAME'))
+    await state.set_state(RegistrationStates.waiting_for_name)
+
+
+@dp.message(RegistrationStates.waiting_for_name)
+async def process_name(message: Message, state: FSMContext):
+    """Обработчик получения имени пользователя."""
+    name = message.text.strip()
+    
+    # Проверяем, что имя не пустое и не слишком длинное
+    if not name or len(name) < 2:
+        @sync_to_async
+        def get_user():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user = await get_user()
+        await message.answer(get_text(user, 'NAME_TOO_SHORT'))
+        return
+    
+    if len(name) > 255:
+        name = name[:255]
+    
+    @sync_to_async
+    def update_name():
+        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user.first_name = name
+        user.save(update_fields=['first_name'])
+        return user
+    
+    user = await update_name()
+    await message.answer(get_text(user, 'NAME_SAVED'))
+    
+    # Переходим к следующему шагу - выбор типа пользователя
+    await ask_user_type(message, user, state)
 
 
 async def ask_user_type(message: Message, user, state: FSMContext):
@@ -304,8 +354,14 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     
     # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
-    def get_privacy_policy():
-        return PrivacyPolicy.objects.filter(is_active=True).first()
+    def get_privacy_text():
+        policy = PrivacyPolicy.objects.filter(is_active=True).first()
+        if policy:
+            if user.language == 'uz_latin':
+                return policy.content_uz_latin or ""
+            elif user.language == 'ru':
+                return policy.content_ru or policy.content_uz_latin or ""
+        return get_text(user, 'PRIVACY_POLICY_TEXT')
     
     policy = await get_privacy_policy()
     
@@ -494,7 +550,7 @@ async def process_promo_code(message: Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
 async def process_language_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор языка."""
-    language = callback.data.split('_')[1]  # uz_latin, uz_cyrillic или ru
+    language = callback.data.split('_')[1]  # uz_latin или ru
     
     @sync_to_async
     def update_language():
@@ -589,6 +645,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             try:
                 # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
                 qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
+                # Сначала ищем по полному коду (EABC123 или DABC123)
+                qr_code = QRCode.objects.get(code=qr_code_str)
             except QRCode.DoesNotExist:
                 # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
                 try:
@@ -723,8 +781,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 await ask_promo_code(message, user, state)
         elif result.get('success'):
             await message.answer(get_text(user, 'QR_ACTIVATED',
-                points=result['points'],
-                total_points=result['total_points']
+                points=format_number(result['points']),
+                total_points=format_number(result['total_points'])
             ))
             # Если пользователь еще не зарегистрирован, продолжаем регистрацию
             if not user.phone_number or not user.latitude:
@@ -786,7 +844,7 @@ async def show_main_menu(message: Message, user: TelegramUser):
             logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
     
     await message.answer(
-        get_text(user, 'MAIN_MENU', points=points),
+        get_text(user, 'MAIN_MENU', points=format_number(points)),
         reply_markup=keyboard
     )
     
@@ -817,25 +875,21 @@ async def handle_message(message: Message, state: FSMContext = None):
     # Получаем все возможные варианты текстов кнопок
     all_balance_texts = [
         TRANSLATIONS['uz_latin']['MY_BALANCE'],
-        TRANSLATIONS['uz_cyrillic']['MY_BALANCE'],
         TRANSLATIONS['ru']['MY_BALANCE'],
     ]
     
     all_gifts_texts = [
         TRANSLATIONS['uz_latin']['GIFTS'],
-        TRANSLATIONS['uz_cyrillic']['GIFTS'],
         TRANSLATIONS['ru']['GIFTS'],
     ]
     
     all_leaders_texts = [
         TRANSLATIONS['uz_latin']['TOP_LEADERS'],
-        TRANSLATIONS['uz_cyrillic']['TOP_LEADERS'],
         TRANSLATIONS['ru']['TOP_LEADERS'],
     ]
     
     all_language_texts = [
         TRANSLATIONS['uz_latin']['LANGUAGE'],
-        TRANSLATIONS['uz_cyrillic']['LANGUAGE'],
         TRANSLATIONS['ru']['LANGUAGE'],
     ]
     
@@ -862,7 +916,7 @@ async def handle_message(message: Message, state: FSMContext = None):
 
 async def show_balance(message: Message, user: TelegramUser):
     """Показывает баланс пользователя."""
-    await message.answer(get_text(user, 'BALANCE_INFO', points=user.points))
+    await message.answer(get_text(user, 'BALANCE_INFO', points=format_number(user.points)))
 
 
 
@@ -894,9 +948,9 @@ async def show_gifts(message: Message, state: FSMContext):
             ball_word = 'балл'
         else:
             ball_word = 'ball'
-        text += f"{can_afford} {gift.name} - {gift.points_cost} {ball_word}\n"
+        text += f"{can_afford} {gift.name} - {format_number(gift.points_cost)} {ball_word}\n"
         buttons.append([types.InlineKeyboardButton(
-            text=f"{gift.name} ({gift.points_cost} {ball_word})",
+            text=f"{gift.name} ({format_number(gift.points_cost)} {ball_word})",
             callback_data=f"gift_{gift.id}"
         )])
     
@@ -953,10 +1007,10 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
         elif result.get('error') == 'not_found':
             await callback.answer(get_text(user, 'GIFT_NOT_FOUND'), show_alert=True)
         elif result.get('success'):
-            await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=result['remaining_points']).split('!')[0] + "!", show_alert=True)
+            await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=format_number(result['remaining_points'])).split('!')[0] + "!", show_alert=True)
             await callback.message.answer(get_text(user, 'GIFT_REQUEST_SENT',
                 gift_name=result['gift_name'],
-                remaining_points=result['remaining_points']
+                remaining_points=format_number(result['remaining_points'])
             ))
             if state:
                 await state.clear()
@@ -1010,10 +1064,6 @@ async def show_language_selection(message: Message):
             callback_data='lang_uz_latin'
         )],
         [types.InlineKeyboardButton(
-            text=TRANSLATIONS['uz_latin']['UZBEK_CYRILLIC'],
-            callback_data='lang_uz_cyrillic'
-        )],
-        [types.InlineKeyboardButton(
             text=TRANSLATIONS['uz_latin']['RUSSIAN'],
             callback_data='lang_ru'
         )],
@@ -1025,7 +1075,7 @@ async def show_language_selection(message: Message):
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
 async def change_language(callback: CallbackQuery):
     """Обрабатывает смену языка."""
-    language_code = callback.data.split('_', 1)[1]  # uz_latin, uz_cyrillic, ru
+    language_code = callback.data.split('_', 1)[1]  # uz_latin, ru
     
     @sync_to_async
     def update_language():

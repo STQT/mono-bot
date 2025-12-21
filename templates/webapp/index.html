@@ -143,7 +143,7 @@
         <!-- Поле ввода QR кода -->
         <div class="qr-input-section">
             <div class="qr-input-wrapper" id="qrInputWrapper">
-                <input type="text" class="qr-input" id="qrInput" placeholder="E-XXXXXX" maxlength="10">
+                <input type="text" class="qr-input" id="qrInput" placeholder="EXXXXXX" maxlength="9">
                 <button class="register-btn" onclick="registerQRCode()">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_110_763)">
@@ -350,11 +350,6 @@
                     <span class="language-name">{% trans "WEBAPP_UZBEK" %}</span>
                     <span class="language-check" id="checkUzLatin" style="display: none;">✓</span>
                 </div>
-                <div class="language-option" onclick="changeLanguage('uz_cyrillic')">
-                    <span class="language-flag">🇺🇿</span>
-                    <span class="language-name">{% trans "WEBAPP_UZBEK_CYRILLIC" %}</span>
-                    <span class="language-check" id="checkUzCyrillic" style="display: none;">✓</span>
-                </div>
                 <div class="language-option" onclick="changeLanguage('ru')">
                     <span class="language-flag">🇷🇺</span>
                     <span class="language-name">{% trans "WEBAPP_RUSSIAN" %}</span>
@@ -413,7 +408,6 @@
             'WEBAPP_GIFTS': '{% trans "WEBAPP_GIFTS" %}',
             'WEBAPP_QR_HISTORY': '{% trans "WEBAPP_QR_HISTORY" %}',
             'WEBAPP_UZBEK': '{% trans "WEBAPP_UZBEK" %}',
-            'WEBAPP_UZBEK_CYRILLIC': '{% trans "WEBAPP_UZBEK_CYRILLIC" %}',
             'WEBAPP_RUSSIAN': '{% trans "WEBAPP_RUSSIAN" %}',
             'WEBAPP_CLOSE': '{% trans "WEBAPP_CLOSE" %}',
             'WEBAPP_BALL': '{% trans "WEBAPP_BALL" %}',
@@ -462,6 +456,11 @@
             }
         }
 
+        // Функция форматирования чисел с разделителями тысяч (пробелами)
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
+        
         function t(key, params = {}) {
             let text = translations[key] || key;
             if (Object.keys(params).length > 0) {
@@ -550,19 +549,19 @@
             if (!qrInput) return;
             
             if (currentUser && currentUser.user_type) {
-                // Если Продавец (seller) -> D-XXXXXX
-                // Если Покупатель/Электрик (electrician) -> E-XXXXXX
+                // Если Продавец (seller) -> DXXXXXX
+                // Если Покупатель/Электрик (electrician) -> EXXXXXX
                 if (currentUser.user_type === 'seller') {
-                    qrInput.placeholder = 'D-XXXXXX';
+                    qrInput.placeholder = 'DXXXXXX';
                 } else if (currentUser.user_type === 'electrician') {
-                    qrInput.placeholder = 'E-XXXXXX';
+                    qrInput.placeholder = 'EXXXXXX';
                 } else {
-                    // По умолчанию E-XXXXXX
-                    qrInput.placeholder = 'E-XXXXXX';
+                    // По умолчанию EXXXXXX
+                    qrInput.placeholder = 'EXXXXXX';
                 }
             } else {
-                // Если тип пользователя не определен, используем E-XXXXXX по умолчанию
-                qrInput.placeholder = 'E-XXXXXX';
+                // Если тип пользователя не определен, используем EXXXXXX по умолчанию
+                qrInput.placeholder = 'EXXXXXX';
             }
         }
 
@@ -611,7 +610,7 @@
                 if (userInfo) userInfo.style.display = 'flex';
                 if (pointsBadge) pointsBadge.style.display = 'flex';
                 
-                document.getElementById('points').textContent = currentUser.points.toLocaleString();
+                document.getElementById('points').textContent = formatNumber(currentUser.points);
                 
                 // Показываем информацию о пользователе
                 if (currentUser.first_name || currentUser.telegram_id) {
@@ -752,8 +751,8 @@
                 return;
             }
             
-            // Валидация формата QR кода (E-XXXXXX или D-XXXXXX)
-            const qrPattern = /^[ED]-\w{6,}$/;
+            // Валидация формата QR кода (EXXXXXX или DXXXXXX)
+            const qrPattern = /^[ED]\w{6,}$/;
             if (!qrPattern.test(qrCode)) {
                 showQRError(t('WEBAPP_QR_ERROR'));
                 return;
@@ -761,8 +760,8 @@
             
             // Валидация типа кода - проверяем соответствие типу пользователя
             if (currentUser && currentUser.user_type) {
-                const codePrefix = qrCode.substring(0, 2);
-                const expectedPrefix = currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                const codePrefix = qrCode.substring(0, 1);
+                const expectedPrefix = currentUser.user_type === 'seller' ? 'D' : 'E';
                 
                 if (codePrefix !== expectedPrefix) {
                     showQRError(t('WEBAPP_QR_WRONG_TYPE'));
@@ -804,7 +803,7 @@
                 if (data.success) {
                     // Обновляем баллы пользователя
                     currentUser.points = data.total_points;
-                    document.getElementById('points').textContent = data.total_points.toLocaleString();
+                    document.getElementById('points').textContent = formatNumber(data.total_points);
                     
                     // Очищаем поле ввода
                     const qrInput = document.getElementById('qrInput');
@@ -927,7 +926,7 @@
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%"></div>
                             </div>
-                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                            <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
                         </div>`;
                     }
                     
@@ -949,7 +948,7 @@
                         </div>
                         ${statusHtml}
                         <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
-                        <div class="gift-card-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-card-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
                     `;
                     container.appendChild(giftCard);
                 });
@@ -1001,7 +1000,7 @@
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%"></div>
                             </div>
-                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                            <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
                         </div>
                         <div class="not-enough-points">${t('WEBAPP_NOT_ENOUGH_POINTS')}</div>
                     `;
@@ -1023,7 +1022,7 @@
                     </div>
                     <div class="gift-detail-info">
                         <div class="gift-detail-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
-                        <div class="gift-detail-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-detail-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
                         ${gift.description ? `<div class="gift-detail-description">${gift.description}</div>` : ''}
                     </div>
                     ${actionHtml}
@@ -1053,7 +1052,7 @@
                 
                 const redemption = await response.json();
                 currentUser.points = redemption.user.points;
-                document.getElementById('points').textContent = currentUser.points.toLocaleString();
+                document.getElementById('points').textContent = formatNumber(currentUser.points);
                 showScreen('success');
             } catch (error) {
                 tg.showAlert(error.message || t('WEBAPP_ERROR_REQUESTING_GIFT'));
@@ -1235,13 +1234,11 @@
 
         function updateLanguageChecks() {
             document.getElementById('checkUzLatin').style.display = currentUser.language === 'uz_latin' ? 'block' : 'none';
-            document.getElementById('checkUzCyrillic').style.display = currentUser.language === 'uz_cyrillic' ? 'block' : 'none';
             document.getElementById('checkRu').style.display = currentUser.language === 'ru' ? 'block' : 'none';
         }
 
         function getLanguageName(language) {
             if (language === 'uz_latin') return t('WEBAPP_UZBEK');
-            if (language === 'uz_cyrillic') return t('WEBAPP_UZBEK_CYRILLIC');
             if (language === 'ru') return t('WEBAPP_RUSSIAN');
             return t('WEBAPP_UZBEK');
         }
@@ -1734,8 +1731,6 @@
                 if (index === 0) {
                     option.textContent = t('WEBAPP_UZBEK');
                 } else if (index === 1) {
-                    option.textContent = t('WEBAPP_UZBEK_CYRILLIC');
-                } else if (index === 2) {
                     option.textContent = t('WEBAPP_RUSSIAN');
                 }
             });
@@ -1880,9 +1875,9 @@
             
             function getExpectedPrefix() {
                 if (currentUser && currentUser.user_type) {
-                    return currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                    return currentUser.user_type === 'seller' ? 'D' : 'E';
                 }
-                return 'E-'; // По умолчанию E-
+                return 'E'; // По умолчанию E
             }
             
             if (qrInput) {
@@ -1926,14 +1921,11 @@
                     }
                     
                     // Если пользователь начинает вводить без префикса, добавляем его автоматически
-                    if (!value.startsWith('E-') && !value.startsWith('D-')) {
+                    if (!value.startsWith('E') && !value.startsWith('D')) {
                         // Если первый символ - буква или цифра, добавляем префикс типа пользователя
                         if (/^[A-Z0-9]/.test(value)) {
                             value = expectedPrefix + value;
                         }
-                    } else if (value.length === 1 && (value === 'E' || value === 'D')) {
-                        // Если пользователь ввел только E или D, добавляем дефис
-                        value = value + '-';
                     }
                     
                     // Сохраняем старую длину для корректного восстановления позиции курсора
@@ -1977,7 +1969,7 @@
                         let value = qrInput.value.toUpperCase();
                         const expectedPrefix = getExpectedPrefix();
                         
-                        if (value.length > 0 && !value.startsWith('E-') && !value.startsWith('D-')) {
+                        if (value.length > 0 && !value.startsWith('E') && !value.startsWith('D')) {
                             if (/^[A-Z0-9]/.test(value)) {
                                 value = expectedPrefix + value;
                             }

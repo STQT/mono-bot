@@ -22,17 +22,17 @@ from .utils import generate_qr_code_image, generate_qr_codes_batch
 class TelegramUserAdmin(admin.ModelAdmin):
     """Админка для пользователей Telegram."""
     list_display = [
-        'user_display', 'phone_number', 'user_type_badge', 
-        'points_display', 'language_badge', 'status_badge', 'created_at'
+        'user_display', 'phone_number', 'region_display', 'district_display', 
+        'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at'
     ]
-    list_filter = ['user_type', 'is_active', 'language', 'created_at']
+    list_filter = ['user_type', 'is_active', 'language', 'region', 'district', 'created_at']
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
-        'last_message_sent_at', 'blocked_bot_at'
+        'last_message_sent_at', 'blocked_bot_at', 'region', 'district'
     ]
-    ordering = ['-points', '-created_at']
-    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive']
+    ordering = ['region', 'district', '-created_at']
+    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive', 'update_locations_action']
     list_per_page = 50
     date_hierarchy = 'created_at'
     
@@ -67,7 +67,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
     
     def points_display(self, obj):
         """Отображает баллы с цветом."""
-        points_formatted = f"{obj.points:,}"
+        points_formatted = f"{obj.points:,}".replace(",", " ")
         return format_html(
             '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
             points_formatted
@@ -79,7 +79,6 @@ class TelegramUserAdmin(admin.ModelAdmin):
         """Отображает язык с цветным badge."""
         colors = {
             'uz_latin': ('#dbeafe', '#1e40af', '🇺🇿'),
-            'uz_cyrillic': ('#fef3c7', '#92400e', '🇺🇿'),
             'ru': ('#fee2e2', '#991b1b', '🇷🇺'),
         }
         bg, text, flag = colors.get(obj.language, ('#f3f4f6', '#374151', '🌐'))
@@ -107,12 +106,52 @@ class TelegramUserAdmin(admin.ModelAdmin):
     status_badge.short_description = 'Статус'
     status_badge.admin_order_field = 'is_active'
     
+    def region_display(self, obj):
+        """Отображает область пользователя."""
+        region_name = obj.get_region_display('ru')
+        if region_name:
+            return format_html(
+                '<span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">📍 {}</span>',
+                region_name
+            )
+        elif obj.latitude and obj.longitude:
+            return format_html(
+                '<span style="color: #718096; font-size: 12px;">Не определено</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #cbd5e0; font-size: 12px;">-</span>'
+            )
+    region_display.short_description = 'Область'
+    region_display.admin_order_field = 'region'
+    
+    def district_display(self, obj):
+        """Отображает район пользователя."""
+        district_name = obj.get_district_display('ru')
+        if district_name:
+            return format_html(
+                '<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">🏘️ {}</span>',
+                district_name
+            )
+        elif obj.latitude and obj.longitude:
+            return format_html(
+                '<span style="color: #718096; font-size: 12px;">Не определено</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #cbd5e0; font-size: 12px;">-</span>'
+            )
+    district_display.short_description = 'Район'
+    district_display.admin_order_field = 'district'
+    
     fieldsets = (
         ('Основная информация', {
             'fields': ('telegram_id', 'username', 'first_name', 'last_name')
         }),
         ('Контактные данные', {
-            'fields': ('phone_number', 'latitude', 'longitude')
+            'fields': ('phone_number', 'latitude', 'longitude', 'region', 'district')
         }),
         ('Тип и баллы', {
             'fields': ('user_type', 'points')
@@ -200,6 +239,55 @@ class TelegramUserAdmin(admin.ModelAdmin):
         queryset.update(is_active=False)
         self.message_user(request, f'{queryset.count()} пользователей помечено как неактивные')
     mark_as_inactive.short_description = 'Пометить как неактивных'
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Кастомный поиск с поддержкой поиска по последним 4 цифрам номера телефона."""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Если поисковый запрос состоит из 4 цифр, ищем по последним 4 цифрам номера телефона
+        if search_term and len(search_term) == 4 and search_term.isdigit():
+            from django.db.models import Q, CharField
+            from django.db.models.functions import Right, Replace
+            
+            # Ищем номера телефонов, которые заканчиваются на эти 4 цифры
+            # Учитываем разные форматы номеров (с пробелами, дефисами, плюсами и т.д.)
+            # Используем регулярное выражение для поиска номеров, заканчивающихся на эти 4 цифры
+            # Паттерн ищет номера, которые заканчиваются на эти 4 цифры (возможно с разделителями)
+            phone_pattern = rf'{search_term}$'
+            
+            # Прямой поиск по окончанию
+            phone_query = Q(phone_number__endswith=search_term)
+            
+            # Поиск с учетом разделителей перед последними 4 цифрами
+            # Ищем паттерны типа: -4567,  4567, (4567) и т.д.
+            # Регулярное выражение ищет номера, которые заканчиваются на эти 4 цифры
+            # с возможными разделителями (пробелы, дефисы, скобки и т.д.) перед ними
+            phone_query |= Q(phone_number__iregex=rf'[\s\-\(\)\.]*{search_term}$')
+            
+            phone_results = self.model.objects.filter(phone_query).distinct()
+            
+            # Объединяем результаты
+            queryset = queryset | phone_results
+            use_distinct = True
+        
+        return queryset, use_distinct
+    
+    
+    def update_locations_action(self, request, queryset):
+        """Действие для обновления локаций выбранных пользователей."""
+        updated = 0
+        for user in queryset:
+            if user.latitude is not None and user.longitude is not None:
+                user.update_location()
+                user.save(update_fields=['region', 'district'])
+                updated += 1
+        
+        self.message_user(
+            request,
+            f'Обновлено локаций: {updated} из {queryset.count()}',
+            messages.SUCCESS
+        )
+    update_locations_action.short_description = 'Обновить локации (область и район)'
 
 
 class QRCodeScanAttemptInline(admin.TabularInline):
@@ -546,7 +634,7 @@ class GiftAdmin(admin.ModelAdmin):
     
     def points_cost_display(self, obj):
         """Отображает стоимость с цветом."""
-        points_formatted = f"{obj.points_cost:,}"
+        points_formatted = f"{obj.points_cost:,}".replace(",", " ")
         return format_html(
             '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span> баллов',
             points_formatted
@@ -684,12 +772,96 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
-        """Автоматически устанавливает processed_at при изменении статуса."""
-        if change and 'status' in form.changed_data:
-            if obj.status != 'pending' and not obj.processed_at:
-                from django.utils import timezone
-                obj.processed_at = timezone.now()
+        """Автоматически устанавливает processed_at при изменении статуса и отправляет уведомления."""
+        old_status = None
+        old_delivery_status = None
+        
+        if change:
+            # Получаем старые значения статусов
+            old_obj = GiftRedemption.objects.get(pk=obj.pk)
+            old_status = old_obj.status
+            old_delivery_status = old_obj.delivery_status
+            
+            # Устанавливаем processed_at при изменении статуса
+            if 'status' in form.changed_data:
+                if obj.status != 'pending' and not obj.processed_at:
+                    from django.utils import timezone
+                    obj.processed_at = timezone.now()
+        
+        # Сохраняем объект
         super().save_model(request, obj, form, change)
+        
+        # Отправляем уведомления после сохранения
+        if change:
+            import asyncio
+            from aiogram import Bot
+            from bot.translations import get_text
+            
+            async def send_notification():
+                try:
+                    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+                    user = obj.user
+                    gift_name = obj.gift.name
+                    
+                    # Уведомление об изменении статуса
+                    if 'status' in form.changed_data and old_status != obj.status:
+                        if obj.status == 'approved':
+                            message = get_text(user, 'GIFT_STATUS_APPROVED', gift_name=gift_name)
+                        elif obj.status == 'rejected':
+                            admin_notes = obj.admin_notes or ""
+                            # Формируем текст причины в зависимости от языка пользователя
+                            if user.language == 'ru':
+                                if admin_notes and admin_notes.strip():
+                                    admin_notes_text = f"Причина: {admin_notes}"
+                                else:
+                                    admin_notes_text = "Причина не указана"
+                            else:  # uz_latin
+                                if admin_notes and admin_notes.strip():
+                                    admin_notes_text = f"Sabab: {admin_notes}"
+                                else:
+                                    admin_notes_text = "Sabab ko'rsatilmagan"
+                            message = get_text(user, 'GIFT_STATUS_REJECTED', gift_name=gift_name, admin_notes=admin_notes_text)
+                        elif obj.status == 'completed':
+                            message = get_text(user, 'GIFT_STATUS_COMPLETED', gift_name=gift_name)
+                        else:
+                            message = None
+                        
+                        if message:
+                            from core.messaging import send_message_to_user
+                            await send_message_to_user(bot, user, message)
+                    
+                    # Уведомление об изменении статуса доставки
+                    if 'delivery_status' in form.changed_data and old_delivery_status != obj.delivery_status:
+                        if obj.delivery_status == 'sent':
+                            message = get_text(user, 'GIFT_DELIVERY_SENT', gift_name=gift_name)
+                        elif obj.delivery_status == 'delivered':
+                            message = get_text(user, 'GIFT_DELIVERY_DELIVERED', gift_name=gift_name)
+                        else:
+                            message = None
+                        
+                        if message:
+                            from core.messaging import send_message_to_user
+                            await send_message_to_user(bot, user, message)
+                    
+                    await bot.session.close()
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Ошибка при отправке уведомления о статусе подарка: {e}")
+            
+            # Запускаем асинхронную функцию
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            if loop.is_running():
+                # Если цикл уже запущен, создаем задачу
+                asyncio.create_task(send_notification())
+            else:
+                # Если цикл не запущен, запускаем его
+                loop.run_until_complete(send_notification())
 
 
 @admin.register(BroadcastMessage)
