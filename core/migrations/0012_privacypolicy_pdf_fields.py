@@ -17,11 +17,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='privacypolicy',
-            name='pdf_uz_cyrillic',
-            field=models.FileField(blank=True, help_text='PDF файл политики конфиденциальности для узбекского языка (кириллица)', null=True, upload_to='privacy_policy/', verbose_name='PDF файл (O\'zbek kirill)'),
-        ),
-        migrations.AddField(
-            model_name='privacypolicy',
             name='pdf_ru',
             field=models.FileField(blank=True, help_text='PDF файл политики конфиденциальности для русского языка', null=True, upload_to='privacy_policy/', verbose_name='PDF файл (Ruscha)'),
         ),
@@ -29,11 +24,6 @@ class Migration(migrations.Migration):
             model_name='privacypolicy',
             name='content_uz_latin',
             field=models.TextField(blank=True, help_text='Текстовый контент для узбекского языка (латиница). Если загружен PDF, текст будет использован как подпись.', verbose_name='Kontent (O\'zbek lotin)'),
-        ),
-        migrations.AlterField(
-            model_name='privacypolicy',
-            name='content_uz_cyrillic',
-            field=models.TextField(blank=True, help_text='Текстовый контент для узбекского языка (кириллица). Если загружен PDF, текст будет использован как подпись.', verbose_name='Kontent (O\'zbek kirill)'),
         ),
         migrations.AlterField(
             model_name='privacypolicy',
