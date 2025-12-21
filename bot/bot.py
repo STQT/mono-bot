@@ -112,7 +112,7 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
     if username and user.username != username:
         user.username = username
         user.save(update_fields=['username'])
-    return user
+    return user, created
 
 
 @sync_to_async
