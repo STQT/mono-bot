@@ -346,10 +346,6 @@ async def ask_user_type(message: Message, user, state: FSMContext):
 
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     """Спрашивает согласие на политику конфиденциальности."""
-    from pathlib import Path
-    from aiogram.types import FSInputFile, InputMediaPhoto
-    from django.contrib.staticfiles import finders
-    import tempfile
     from core.models import PrivacyPolicy
     
     # Получаем активную политику конфиденциальности из базы данных
@@ -360,27 +356,17 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     
     @sync_to_async
     def get_privacy_text():
+        """Получает текст политики конфиденциальности на языке пользователя."""
         policy = PrivacyPolicy.objects.filter(is_active=True).first()
         if policy:
             if user.language == 'uz_latin':
-                return policy.content_uz_latin or ""
+                return policy.content_uz_latin or get_text(user, 'PRIVACY_POLICY_TEXT')
             elif user.language == 'ru':
-                return policy.content_ru or policy.content_uz_latin or ""
+                return policy.content_ru or policy.content_uz_latin or get_text(user, 'PRIVACY_POLICY_TEXT')
         return get_text(user, 'PRIVACY_POLICY_TEXT')
     
-    policy = await get_privacy_policy()
-    
-    # Определяем какой PDF файл использовать в зависимости от языка пользователя
-    pdf_file = None
-    privacy_text = get_text(user, 'PRIVACY_POLICY_TEXT')
-    
-    if policy:
-        if user.language == 'uz_latin' and policy.pdf_uz_latin:
-            pdf_file = policy.pdf_uz_latin
-            privacy_text = policy.content_uz_latin or privacy_text
-        elif user.language == 'ru' and policy.pdf_ru:
-            pdf_file = policy.pdf_ru
-            privacy_text = policy.content_ru or privacy_text
+    # Получаем текст политики конфиденциальности
+    privacy_text = await get_privacy_text()
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
@@ -393,39 +379,8 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
         )],
     ])
     
-    # Если PDF файл не найден в модели, пробуем статический файл как fallback
-    pdf_path = None
-    if pdf_file and pdf_file.path:
-        pdf_path = pdf_file.path
-    else:
-        # Fallback: пытаемся найти статический файл
-        pdf_path = finders.find('confidencial.pdf')
-        if not pdf_path:
-            static_dirs = getattr(settings, 'STATICFILES_DIRS', [])
-            for static_dir in static_dirs:
-                potential_path = Path(static_dir) / 'confidencial.pdf'
-                if potential_path.exists():
-                    pdf_path = str(potential_path)
-                    break
-        if not pdf_path:
-            static_root = getattr(settings, 'STATIC_ROOT', None)
-            if static_root:
-                potential_path = Path(static_root) / 'confidencial.pdf'
-                if potential_path.exists():
-                    pdf_path = str(potential_path)
-    
-    # Если файл не найден, отправляем только текст
-    if not pdf_path or not Path(pdf_path).exists():
-        logger.warning("PDF файл политики конфиденциальности не найден. Используется текстовая версия.")
-        await message.answer(privacy_text, reply_markup=keyboard)
-    else:
-        # ВРЕМЕННО: отправляем только PDF как документ, с одной клавиатурой для принятия
-        document = FSInputFile(pdf_path)
-        await message.answer_document(
-            document,
-            caption=privacy_text,
-            reply_markup=keyboard
-        )
+    # Отправляем текст политики конфиденциальности
+    await message.answer(privacy_text, reply_markup=keyboard)
     
     await state.set_state(RegistrationStates.waiting_for_privacy)
 
