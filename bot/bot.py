@@ -354,6 +354,11 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     
     # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
+    def get_privacy_policy():
+        """Получает активную политику конфиденциальности."""
+        return PrivacyPolicy.objects.filter(is_active=True).first()
+    
+    @sync_to_async
     def get_privacy_text():
         policy = PrivacyPolicy.objects.filter(is_active=True).first()
         if policy:
@@ -373,9 +378,6 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
         if user.language == 'uz_latin' and policy.pdf_uz_latin:
             pdf_file = policy.pdf_uz_latin
             privacy_text = policy.content_uz_latin or privacy_text
-        elif user.language == 'uz_cyrillic' and policy.pdf_uz_cyrillic:
-            pdf_file = policy.pdf_uz_cyrillic
-            privacy_text = policy.content_uz_cyrillic or policy.content_uz_latin or privacy_text
         elif user.language == 'ru' and policy.pdf_ru:
             pdf_file = policy.pdf_ru
             privacy_text = policy.content_ru or privacy_text
