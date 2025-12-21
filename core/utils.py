@@ -2,7 +2,7 @@
 Utility functions for core app.
 """
 import os
-from PIL import Image, ImageDraw, ImageFont
+from playwright.sync_api import sync_playwright
 from django.conf import settings
 from django.utils import timezone
 from .models import QRCode
@@ -11,7 +11,11 @@ from .models import QRCode
 def generate_qr_code_image(qr_code_instance):
     """
     Генерирует изображение с кодом (только текст, без QR-кода).
+    Использует HTML/CSS и Playwright для рендеринга в PNG.
     Высокое качество изображения для печати.
+    
+    Примечание: Для работы необходимо установить браузеры Playwright:
+    python -m playwright install chromium
     
     Args:
         qr_code_instance: Экземпляр модели QRCode
@@ -23,125 +27,101 @@ def generate_qr_code_image(qr_code_instance):
     qr_dir = os.path.join(settings.MEDIA_ROOT, 'qrcodes')
     os.makedirs(qr_dir, exist_ok=True)
     
-    # Параметры для высокого качества (DPI для печати)
-    dpi = 300  # Высокое разрешение для печати
-    scale_factor = dpi / 72  # Масштаб для перевода из точек в пиксели
-    
-    # Параметры для текста (в точках, затем умножим на scale_factor)
-    padding_pt = 40
-    code_font_size_pt = 72  # Крупный шрифт для кода
-    serial_font_size_pt = 24  # Шрифт для серийного номера
-    instruction_font_size_pt = 14  # Шрифт для инструкции
-    
-    # Конвертируем в пиксели с учетом DPI
-    padding = int(padding_pt * scale_factor)
-    code_font_size = int(code_font_size_pt * scale_factor)
-    serial_font_size = int(serial_font_size_pt * scale_factor)
-    instruction_font_size = int(instruction_font_size_pt * scale_factor)
-    
-    # Создаем объект для рисования (временно для измерения текста)
-    temp_img = Image.new('RGB', (100, 100), 'white')
-    temp_draw = ImageDraw.Draw(temp_img)
-    
-    # Пытаемся загрузить шрифт с поддержкой кириллицы и латиницы
-    font_code = None
-    font_serial = None
-    font_instruction = None
-    
-    # Список путей к шрифтам с поддержкой кириллицы
-    font_paths = [
-        # macOS
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/Library/Fonts/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        # Linux
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        # Windows (если запускается на Windows)
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
-    ]
-    
-    # Пытаемся найти подходящий шрифт
-    for font_path in font_paths:
-        try:
-            if os.path.exists(font_path):
-                font_code = ImageFont.truetype(font_path, code_font_size)
-                font_serial = ImageFont.truetype(font_path, serial_font_size)
-                font_instruction = ImageFont.truetype(font_path, instruction_font_size)
-                break
-        except:
-            continue
-    
-    # Если не нашли подходящий шрифт, используем стандартный
-    if font_code is None:
-        font_code = ImageFont.load_default()
-        font_serial = ImageFont.load_default()
-        font_instruction = ImageFont.load_default()
-    
     # Тексты для отображения
     code_text = qr_code_instance.code
     serial_text = f"Seriya raqami: {qr_code_instance.serial_number}"
     
-    # Измеряем размеры текстов
-    try:
-        code_bbox = temp_draw.textbbox((0, 0), code_text, font=font_code)
-        code_width = code_bbox[2] - code_bbox[0]
-        code_height = code_bbox[3] - code_bbox[1]
-    except:
-        code_width = temp_draw.textlength(code_text, font=font_code)
-        code_height = code_font_size
+    # Получаем username бота для инструкции
+    bot_username = settings.TELEGRAM_BOT_USERNAME
+    if bot_username:
+        instruction_text = f"Botga o'ting @{bot_username} va kodni kiriting"
+    else:
+        instruction_text = "Botga o'ting va kodni kiriting"
+    
+    # Создаем HTML с CSS
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            body {{
+                width: 1000px;
+                height: 600px;
+                background: white;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+                border: 4px solid black;
+                padding: 40px;
+            }}
+            .serial {{
+                font-size: 28px;
+                color: black;
+                margin-bottom: 40px;
+                text-align: center;
+            }}
+            .code {{
+                font-size: 200px;
+                font-weight: bold;
+                color: black;
+                letter-spacing: 8px;
+                margin-bottom: 40px;
+                text-align: center;
+                line-height: 1;
+            }}
+            .instruction {{
+                font-size: 20px;
+                color: black;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="serial">{serial_text}</div>
+        <div class="code">{code_text}</div>
+        <div class="instruction">{instruction_text}</div>
+    </body>
+    </html>
+    """
+    
+    # Сохраняем HTML во временный файл
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_html_path = f.name
     
     try:
-        serial_bbox = temp_draw.textbbox((0, 0), serial_text, font=font_serial)
-        serial_width = serial_bbox[2] - serial_bbox[0]
-        serial_height = serial_bbox[3] - serial_bbox[1]
-    except:
-        serial_width = temp_draw.textlength(serial_text, font=font_serial)
-        serial_height = serial_font_size
-    
-    # Вычисляем размеры изображения
-    max_text_width = max(code_width, serial_width)
-    total_width = int(max_text_width + (padding * 2))
-    total_height = int(padding + serial_height + padding + code_height + padding)
-    
-    # Создаем новое изображение с белым фоном и высоким разрешением
-    img = Image.new('RGB', (total_width, total_height), 'white')
-    draw = ImageDraw.Draw(img)
-    
-    # Рисуем рамку вокруг изображения (опционально, для красоты)
-    border_width = int(2 * scale_factor)
-    draw.rectangle(
-        [(border_width, border_width), (total_width - border_width, total_height - border_width)],
-        outline='black',
-        width=border_width
-    )
-    
-    # Рисуем серийный номер вверху
-    serial_x = (total_width - serial_width) // 2
-    serial_y = padding
-    draw.text((serial_x, serial_y), serial_text, fill='black', font=font_serial)
-    
-    # Рисуем код по центру (крупным шрифтом)
-    code_x = (total_width - code_width) // 2
-    code_y = serial_y + serial_height + padding
-    draw.text((code_x, code_y), code_text, fill='black', font=font_code)
-    
-    # Сохраняем изображение с высоким качеством
-    filename = f"{qr_code_instance.code.replace('-', '_')}.png"
-    filepath = os.path.join(qr_dir, filename)
-    
-    # Сохраняем с высоким DPI для качества печати
-    img.save(filepath, 'PNG', dpi=(dpi, dpi), quality=95)
-    
-    # Обновляем путь в модели
-    qr_code_instance.image_path = filepath
-    qr_code_instance.save(update_fields=['image_path'])
-    
-    return filepath
+        # Генерируем изображение с помощью Playwright
+        filename = f"{qr_code_instance.code.replace('-', '_')}.png"
+        filepath = os.path.join(qr_dir, filename)
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_viewport_size({"width": 1000, "height": 600})
+            page.goto(f"file://{temp_html_path}")
+            page.screenshot(path=filepath, full_page=False)
+            browser.close()
+        
+        # Обновляем путь в модели
+        qr_code_instance.image_path = filepath
+        qr_code_instance.save(update_fields=['image_path'])
+        
+        return filepath
+    finally:
+        # Удаляем временный HTML файл
+        try:
+            os.unlink(temp_html_path)
+        except:
+            pass
 
 
 def generate_qr_codes_batch(code_type, quantity, points=None):
@@ -164,4 +144,5 @@ def generate_qr_codes_batch(code_type, quantity, points=None):
         qr_codes.append(qr_code)
     
     return qr_codes
+
 
