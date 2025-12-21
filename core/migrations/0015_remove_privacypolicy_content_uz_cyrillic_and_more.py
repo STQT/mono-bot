@@ -10,22 +10,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='privacypolicy',
-            name='content_uz_cyrillic',
-        ),
+        # Удаляем только поля, которые были добавлены в 0012
         migrations.RemoveField(
             model_name='privacypolicy',
             name='pdf_ru',
         ),
         migrations.RemoveField(
             model_name='privacypolicy',
-            name='pdf_uz_cyrillic',
-        ),
-        migrations.RemoveField(
-            model_name='privacypolicy',
             name='pdf_uz_latin',
         ),
+        # content_uz_cyrillic и pdf_uz_cyrillic уже не существуют, поэтому не удаляем их
         migrations.AlterField(
             model_name='privacypolicy',
             name='content_ru',
