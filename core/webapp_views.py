@@ -202,8 +202,7 @@ def confirm_delivery(request):
             # Пользователь подтвердил получение подарка
             redemption.confirmed_at = timezone.now()
             redemption.status = 'completed'
-            redemption.delivery_status = 'delivered'
-            update_fields.extend(['confirmed_at', 'status', 'delivery_status'])
+            update_fields.extend(['confirmed_at', 'status'])
         else:
             # Пользователь указал, что подарок не получил
             redemption.confirmed_at = None

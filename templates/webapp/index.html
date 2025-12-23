@@ -8,6 +8,19 @@
     <title>{% trans "WEBAPP_MY_GIFTS" %}</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}">
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+        (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=105967279', 'ym');
+
+        ym(105967279, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/105967279" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
     <script>
         // Автоматический обход страницы предупреждения ngrok
         (function() {
@@ -418,6 +431,7 @@
             'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
             'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
             'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
+            'WEBAPP_STATUS_SENT': '{% trans "WEBAPP_STATUS_SENT" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
             'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
             'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
@@ -705,13 +719,17 @@
                         let statusText = t('WEBAPP_STATUS_PENDING');
                         if (activeRedemption.status === 'approved') {
                             statusText = t('WEBAPP_STATUS_APPROVED');
+                        } else if (activeRedemption.status === 'sent') {
+                            statusText = t('WEBAPP_STATUS_SENT');
+                        } else if (activeRedemption.status === 'rejected') {
+                            statusText = t('WEBAPP_STATUS_REJECTED');
                         } else if (activeRedemption.status === 'completed') {
                             statusText = t('WEBAPP_STATUS_COMPLETED');
                         }
                         document.getElementById('productStatus').textContent = statusText;
                         
-                        // Добавляем кнопку "Получил подарок" если еще не подтверждено
-                        if (!activeRedemption.user_confirmed) {
+                        // Добавляем кнопку "Получил подарок" только при статусе 'completed' и если еще не подтверждено
+                        if (!activeRedemption.user_confirmed && activeRedemption.status === 'completed') {
                             productStatusButton.innerHTML = `
                                 <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${activeRedemption.id});">
                                     ${t('WEBAPP_YES_RECEIVED')}
@@ -913,11 +931,15 @@
                     let statusHtml = '';
                     if (redemption) {
                         if (redemption.status === 'pending') {
-                            statusHtml = `<div class="gift-status waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
+                            statusHtml = `<div class="gift-status waiting">${t('WEBAPP_STATUS_PENDING')}</div>`;
                         } else if (redemption.status === 'approved') {
                             statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
+                        } else if (redemption.status === 'sent') {
+                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_SENT')}</div>`;
                         } else if (redemption.status === 'rejected') {
                             statusHtml = `<div class="gift-status rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
+                        } else if (redemption.status === 'completed') {
+                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
                         }
                     } else if (hasEnoughPoints) {
                         statusHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">${t('WEBAPP_GET_GIFT')}</button>`;
@@ -983,11 +1005,15 @@
                 let actionHtml = '';
                 if (redemption) {
                     if (redemption.status === 'pending') {
-                        actionHtml = `<div class="gift-status-badge waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
+                        actionHtml = `<div class="gift-status-badge waiting">${t('WEBAPP_STATUS_PENDING')}</div>`;
                     } else if (redemption.status === 'approved') {
                         actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
+                    } else if (redemption.status === 'sent') {
+                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_SENT')}</div>`;
                     } else if (redemption.status === 'rejected') {
                         actionHtml = `<div class="gift-status-badge rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
+                    } else if (redemption.status === 'completed') {
+                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
                     }
                 } else if (hasEnoughPoints) {
                     actionHtml = `<button class="btn btn-primary gift-detail-btn" onclick="requestGift(${gift.id})">
@@ -1083,10 +1109,13 @@
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
                     
-                    // Определяем статус в зависимости от статуса и delivery_status
+                    // Определяем статус в зависимости от статуса
                     if (redemption.status === 'approved') {
                         statusClass = 'approved';
                         statusText = t('WEBAPP_STATUS_APPROVED');
+                    } else if (redemption.status === 'sent') {
+                        statusClass = 'approved';
+                        statusText = t('WEBAPP_STATUS_SENT');
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
@@ -1102,8 +1131,8 @@
                     const imageUrl = redemption.gift.image || '/static/images/gift-box.png';
 
                     let confirmButtonHtml = '';
-                    // Показываем кнопку для всех статусов, если пользователь еще не подтвердил получение
-                    if (!redemption.user_confirmed && (redemption.status === 'pending' || redemption.status === 'approved' || redemption.status === 'completed')) {
+                    // Показываем кнопку только при статусе 'completed' и если пользователь еще не подтвердил получение
+                    if (!redemption.user_confirmed && redemption.status === 'completed') {
                         confirmButtonHtml = `
                             <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
                                 ${t('WEBAPP_YES_RECEIVED')}

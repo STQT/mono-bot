@@ -684,10 +684,10 @@ class GiftAdmin(admin.ModelAdmin):
 class GiftRedemptionAdmin(admin.ModelAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
-        'redemption_display', 'status_badge', 'delivery_status_badge', 
+        'redemption_display', 'status_badge', 
         'user_confirmed_badge', 'requested_at', 'processed_at'
     ]
-    list_filter = ['status', 'delivery_status', 'user_confirmed', 'requested_at']
+    list_filter = ['status', 'user_confirmed', 'requested_at']
     search_fields = ['user__username', 'user__first_name', 'gift__name']
     readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
     list_per_page = 50
@@ -710,8 +710,9 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
         colors = {
             'pending': ('#fff3cd', '#856404', '⏳'),
             'approved': ('#d4edda', '#155724', '✅'),
-            'rejected': ('#f8d7da', '#721c24', '❌'),
+            'sent': ('#dbeafe', '#1e40af', '📦'),
             'completed': ('#d1ecf1', '#0c5460', '✔️'),
+            'rejected': ('#f8d7da', '#721c24', '❌'),
         }
         bg, text, icon = colors.get(obj.status, ('#f3f4f6', '#374151', '📋'))
         label = dict(obj._meta.get_field('status').choices).get(obj.status, obj.status)
@@ -722,23 +723,6 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
         )
     status_badge.short_description = 'Статус'
     status_badge.admin_order_field = 'status'
-    
-    def delivery_status_badge(self, obj):
-        """Отображает статус доставки."""
-        colors = {
-            'pending': ('#fff3cd', '#856404', '⏳'),
-            'sent': ('#dbeafe', '#1e40af', '📦'),
-            'delivered': ('#d4edda', '#155724', '✅'),
-        }
-        bg, text, icon = colors.get(obj.delivery_status, ('#f3f4f6', '#374151', '📋'))
-        label = dict(obj._meta.get_field('delivery_status').choices).get(obj.delivery_status, obj.delivery_status)
-        return format_html(
-            '<span style="background: {}; color: {}; padding: 4px 12px; border-radius: 12px; '
-            'font-size: 12px; font-weight: 600;">{} {}</span>',
-            bg, text, icon, label
-        )
-    delivery_status_badge.short_description = 'Доставка'
-    delivery_status_badge.admin_order_field = 'delivery_status'
     
     def user_confirmed_badge(self, obj):
         """Отображает подтверждение пользователем."""
@@ -764,7 +748,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
             'fields': ('user', 'gift', 'requested_at')
         }),
         ('Обработка', {
-            'fields': ('status', 'delivery_status', 'processed_at', 'admin_notes')
+            'fields': ('status', 'processed_at', 'admin_notes')
         }),
         ('Подтверждение пользователем', {
             'fields': ('user_confirmed', 'user_comment', 'confirmed_at')
@@ -774,13 +758,11 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливает processed_at при изменении статуса и отправляет уведомления."""
         old_status = None
-        old_delivery_status = None
         
         if change:
-            # Получаем старые значения статусов
+            # Получаем старые значения статуса
             old_obj = GiftRedemption.objects.get(pk=obj.pk)
             old_status = old_obj.status
-            old_delivery_status = old_obj.delivery_status
             
             # Устанавливаем processed_at при изменении статуса
             if 'status' in form.changed_data:
@@ -807,6 +789,10 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
                     if 'status' in form.changed_data and old_status != obj.status:
                         if obj.status == 'approved':
                             message = get_text(user, 'GIFT_STATUS_APPROVED', gift_name=gift_name)
+                        elif obj.status == 'sent':
+                            message = get_text(user, 'GIFT_STATUS_SENT', gift_name=gift_name)
+                        elif obj.status == 'completed':
+                            message = get_text(user, 'GIFT_STATUS_COMPLETED', gift_name=gift_name)
                         elif obj.status == 'rejected':
                             admin_notes = obj.admin_notes or ""
                             # Формируем текст причины в зависимости от языка пользователя
@@ -821,21 +807,6 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
                                 else:
                                     admin_notes_text = "Sabab ko'rsatilmagan"
                             message = get_text(user, 'GIFT_STATUS_REJECTED', gift_name=gift_name, admin_notes=admin_notes_text)
-                        elif obj.status == 'completed':
-                            message = get_text(user, 'GIFT_STATUS_COMPLETED', gift_name=gift_name)
-                        else:
-                            message = None
-                        
-                        if message:
-                            from core.messaging import send_message_to_user
-                            await send_message_to_user(bot, user, message)
-                    
-                    # Уведомление об изменении статуса доставки
-                    if 'delivery_status' in form.changed_data and old_delivery_status != obj.delivery_status:
-                        if obj.delivery_status == 'sent':
-                            message = get_text(user, 'GIFT_DELIVERY_SENT', gift_name=gift_name)
-                        elif obj.delivery_status == 'delivered':
-                            message = get_text(user, 'GIFT_DELIVERY_DELIVERED', gift_name=gift_name)
                         else:
                             message = None
                         

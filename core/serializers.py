@@ -61,7 +61,7 @@ class GiftRedemptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = GiftRedemption
         fields = [
-            'id', 'user', 'gift', 'status', 'delivery_status',
+            'id', 'user', 'gift', 'status',
             'requested_at', 'processed_at', 'admin_notes',
             'user_confirmed', 'user_comment', 'confirmed_at'
         ]

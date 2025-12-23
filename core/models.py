@@ -325,10 +325,11 @@ class Gift(models.Model):
 class GiftRedemption(models.Model):
     """Модель получения подарка пользователем."""
     STATUS_CHOICES = [
-        ('pending', 'Kutilmoqda'),
-        ('approved', 'Tasdiqlandi'),
-        ('rejected', 'Rad etildi'),
-        ('completed', 'Bajarildi'),
+        ('pending', 'So\'rov qabul qilindi'),  # Запрос принят к обработке
+        ('approved', 'Mahsulot tayyorlash bosqichida'),  # Продукт находится в стадии подготовки
+        ('sent', 'Mahsulot yetkazib berish xizmatiga topshirildi'),  # Продукт передан в службу доставки
+        ('completed', 'Mahsulotni qabul qilganingizni tasdiqlang'),  # Подтверждение получения продукта
+        ('rejected', 'So\'rov bekor qilindi (administrator bilan bog\'laning)'),  # Запрос отменен
     ]
     
     user = models.ForeignKey(
@@ -352,16 +353,7 @@ class GiftRedemption(models.Model):
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name='So\'ralgan vaqt')
     processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Qayta ishlangan vaqt')
     admin_notes = models.TextField(blank=True, verbose_name='Administrator eslatmalari')
-    delivery_status = models.CharField(
-        max_length=20,
-        choices=[
-            ('pending', 'Yuborish kutilmoqda'),
-            ('sent', 'Yuborildi'),
-            ('delivered', 'Yetkazildi'),
-        ],
-        default='pending',
-        verbose_name='Yetkazib berish holati'
-    )
+    # Поле delivery_status удалено - теперь используется только status
     user_confirmed = models.BooleanField(default=False, verbose_name='Foydalanuvchi tomonidan tasdiqlandi')
     user_comment = models.TextField(blank=True, verbose_name='Foydalanuvchi sharhi')
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name='Tasdiqlangan vaqt')
