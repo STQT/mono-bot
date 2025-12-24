@@ -167,6 +167,19 @@ class TelegramUserAdmin(admin.ModelAdmin):
         }),
     )
     
+    def get_readonly_fields(self, request, obj=None):
+        """Делает points readonly для Call Center."""
+        readonly = list(super().get_readonly_fields(request, obj))
+        
+        # Если пользователь не superuser, делаем points readonly для Call Center
+        if not request.user.is_superuser:
+            # Если пользователь имеет только право change_user_type_call_center (Call Center),
+            # но не является superuser, делаем points readonly
+            if request.user.has_perm('core.change_user_type_call_center') and 'points' not in readonly:
+                readonly.append('points')
+        
+        return readonly
+    
     def send_personal_message_action(self, request, queryset):
         """Действие для отправки персонального сообщения."""
         from django.shortcuts import render
@@ -565,8 +578,9 @@ class QRCodeAdmin(admin.ModelAdmin):
     
     def generate_qr_codes_view(self, request):
         """Представление для генерации QR-кодов."""
-        # Проверяем права доступа: только суперадмины или пользователи с правом generate_qrcodes
-        if not request.user.is_superuser and not request.user.has_perm('core.generate_qrcodes'):
+        # Проверяем права доступа: только суперадмины могут генерировать QR-коды
+        # Call Center не может создавать QR коды
+        if not request.user.is_superuser:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied("У вас нет прав для генерации QR-кодов.")
         
@@ -608,7 +622,7 @@ class QRCodeAdmin(admin.ModelAdmin):
         context = {
             **self.admin_site.each_context(request),
             'title': 'Генерация QR-кодов',
-            'has_permission': request.user.is_superuser or request.user.has_perm('core.generate_qrcodes'),
+            'has_permission': request.user.is_superuser,  # Только superuser может генерировать QR коды
         }
         
         return TemplateResponse(request, 'admin/core/qrcode/generate.html', context)
@@ -757,6 +771,20 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
             'fields': ('user_confirmed', 'user_comment', 'confirmed_at')
         }),
     )
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Делает user_confirmed readonly для Call Center (они не могут подтверждать получение подарка)."""
+        readonly = list(super().get_readonly_fields(request, obj))
+        
+        # Если пользователь не superuser и имеет только permission для изменения статуса (Call Center),
+        # делаем user_confirmed readonly (Call Center не может подтверждать получение подарка)
+        if not request.user.is_superuser:
+            # Если пользователь имеет только право change_status_call_center (Call Center),
+            # делаем user_confirmed readonly
+            if request.user.has_perm('core.change_status_call_center') and 'user_confirmed' not in readonly:
+                readonly.append('user_confirmed')
+        
+        return readonly
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливает processed_at при изменении статуса и отправляет уведомления."""
@@ -1122,7 +1150,9 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
     has_pdf_files.short_description = 'Загруженные PDF'
     
     def has_add_permission(self, request):
-        """Разрешаем создание только для superuser."""
+        """Разрешаем создание только для superuser (Call Center не может создавать QR коды)."""
+        # Только superuser может создавать QR коды
+        # Call Center не может создавать QR коды, даже если у них есть permission generate_qrcodes
         return request.user.is_superuser
     
     def has_delete_permission(self, request, obj=None):

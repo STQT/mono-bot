@@ -55,6 +55,7 @@ class TelegramUser(models.Model):
         ordering = ['region', 'district', '-created_at']
         permissions = [
             ('send_region_messages', 'Can send messages to users by region'),
+            ('change_user_type_call_center', 'Call Center: Can change user type'),
         ]
     
     def update_location(self):
@@ -363,6 +364,9 @@ class GiftRedemption(models.Model):
         verbose_name = 'Sovg\'a olish'
         verbose_name_plural = 'Sovg\'a olishlar'
         ordering = ['-requested_at']
+        permissions = [
+            ('change_status_call_center', 'Call Center: Can change redemption status'),
+        ]
     
     def __str__(self):
         return f"{self.user} - {self.gift.name} ({self.get_status_display()})"
