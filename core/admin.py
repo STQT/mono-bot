@@ -11,6 +11,7 @@ from django.shortcuts import render, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
 from django.conf import settings
+from django.db import models
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
     Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy
@@ -168,15 +169,23 @@ class TelegramUserAdmin(admin.ModelAdmin):
     )
     
     def get_readonly_fields(self, request, obj=None):
-        """Делает points readonly для Call Center."""
+        """Делает все поля readonly для Call Center, кроме user_type."""
         readonly = list(super().get_readonly_fields(request, obj))
         
-        # Если пользователь не superuser, делаем points readonly для Call Center
-        if not request.user.is_superuser:
-            # Если пользователь имеет только право change_user_type_call_center (Call Center),
-            # но не является superuser, делаем points readonly
-            if request.user.has_perm('core.change_user_type_call_center') and 'points' not in readonly:
-                readonly.append('points')
+        # Если пользователь имеет пермишн call center и не является superuser
+        if not request.user.is_superuser and request.user.has_perm('core.change_user_type_call_center'):
+            # Получаем только конкретные поля модели (не обратные связи)
+            model_fields = [
+                f.name for f in TelegramUser._meta.get_fields() 
+                if isinstance(f, models.Field) and hasattr(f, 'name')
+            ]
+            # Исключаем user_type - это единственное поле, которое Call Center может менять
+            fields_to_make_readonly = [f for f in model_fields if f != 'user_type']
+            
+            # Добавляем все поля в readonly, кроме user_type
+            for field in fields_to_make_readonly:
+                if field not in readonly:
+                    readonly.append(field)
         
         return readonly
     
@@ -772,6 +781,21 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
         }),
     )
     
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """Исключает статус 'completed' из списка выбора для Call Center."""
+        if db_field.name == 'status':
+            # Проверяем, имеет ли пользователь пермишн call center
+            is_call_center = request.user.has_perm('core.change_user_type_call_center')
+            
+            if is_call_center and not request.user.is_superuser:
+                # Получаем текущие choices из модели
+                choices = list(GiftRedemption.STATUS_CHOICES)
+                # Исключаем статус 'completed' (клиент подтвердил получение заказа)
+                filtered_choices = [choice for choice in choices if choice[0] != 'completed']
+                kwargs['choices'] = filtered_choices
+            
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+    
     def get_readonly_fields(self, request, obj=None):
         """Делает user_confirmed readonly для Call Center (они не могут подтверждать получение подарка)."""
         readonly = list(super().get_readonly_fields(request, obj))
@@ -779,15 +803,25 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
         # Если пользователь не superuser и имеет только permission для изменения статуса (Call Center),
         # делаем user_confirmed readonly (Call Center не может подтверждать получение подарка)
         if not request.user.is_superuser:
-            # Если пользователь имеет только право change_status_call_center (Call Center),
+            # Если пользователь имеет пермишн call center,
             # делаем user_confirmed readonly
-            if request.user.has_perm('core.change_status_call_center') and 'user_confirmed' not in readonly:
+            if request.user.has_perm('core.change_user_type_call_center') and 'user_confirmed' not in readonly:
                 readonly.append('user_confirmed')
         
         return readonly
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливает processed_at при изменении статуса и отправляет уведомления."""
+        # Проверяем, не пытается ли Call Center установить статус 'completed'
+        is_call_center = request.user.has_perm('core.change_user_type_call_center')
+        if is_call_center and not request.user.is_superuser:
+            if obj.status == 'completed':
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied(
+                    "Сотрудники call center не могут устанавливать статус 'completed' "
+                    "(клиент подтвердил получение заказа). Этот статус может быть установлен только клиентом."
+                )
+        
         old_status = None
         
         if change:

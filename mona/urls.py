@@ -2,10 +2,12 @@
 URL configuration for mona project.
 """
 from django.contrib import admin
+from django.contrib.auth import logout
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.template.response import TemplateResponse
+from django.shortcuts import redirect
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -280,9 +282,16 @@ def send_region_message_view(request):
     return render(request, 'admin/core/telegramuser/send_region_message.html', context)
 
 
+def admin_logout_view(request):
+    """Кастомный обработчик logout для админки, поддерживающий GET-запросы."""
+    logout(request)
+    return redirect(settings.LOGIN_URL)
+
+
 urlpatterns = [
     path('admin/dashboard/', admin.site.admin_view(dashboard_view), name='dashboard'),
     path('admin/send-region-message/', admin.site.admin_view(send_region_message_view), name='send_region_message'),
+    path('admin/logout/', admin_logout_view, name='admin_logout'),
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
 ]
