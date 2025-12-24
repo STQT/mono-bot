@@ -69,7 +69,7 @@ def generate_qr_code_image(qr_code_instance):
                 text-align: center;
             }}
             .code {{
-                font-size: 200px;
+                font-size: 150px;
                 font-weight: bold;
                 color: black;
                 letter-spacing: 8px;

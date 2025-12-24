@@ -100,6 +100,8 @@ def format_number(number):
 @sync_to_async
 def get_or_create_user(telegram_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получает или создает пользователя Telegram."""
+    logger.info(f"[get_or_create_user] Получение/создание пользователя: telegram_id={telegram_id}, username={username}")
+    
     # Не сохраняем имя автоматически - пользователь должен ввести его сам
     user, created = TelegramUser.objects.get_or_create(
         telegram_id=telegram_id,
@@ -108,17 +110,22 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
             # first_name и last_name не сохраняем автоматически
         }
     )
+    
+    logger.info(f"[get_or_create_user] Пользователь {'создан' if created else 'получен'}: id={user.id}, language={user.language}")
+    
     # Обновляем username если он изменился
     if username and user.username != username:
         user.username = username
         user.save(update_fields=['username'])
+        logger.info(f"[get_or_create_user] Username обновлен на: {username}")
+    
     return user, created
 
 
 @sync_to_async
 def is_registration_complete(user):
     """Проверяет, завершена ли регистрация пользователя."""
-    return (
+    result = (
         user.language and
         user.first_name and  # Добавляем проверку имени
         user.user_type and
@@ -127,11 +134,21 @@ def is_registration_complete(user):
         user.latitude is not None and
         user.longitude is not None
     )
+    
+    logger.info(f"[is_registration_complete] Проверка регистрации для user_id={user.id}: "
+                f"language={bool(user.language)}, first_name={bool(user.first_name)}, "
+                f"user_type={bool(user.user_type)}, privacy_accepted={user.privacy_accepted}, "
+                f"phone_number={bool(user.phone_number)}, location={user.latitude is not None and user.longitude is not None}, "
+                f"result={result}")
+    
+    return result
 
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
+    logger.info(f"[cmd_start] Получена команда /start от пользователя {message.from_user.id}")
+    
     # Парсим аргументы команды /start
     # Формат может быть: /start qr_ABC123 или /start EABC123
     args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
@@ -146,6 +163,7 @@ async def cmd_start(message: Message, state: FSMContext):
         else:
             # Если формат без префикса, нормализуем регистр
             qr_code_str = arg.upper().strip()
+        logger.info(f"[cmd_start] Обнаружен QR-код в аргументе: {qr_code_str}")
     
     user, is_new_user = await get_or_create_user(
         telegram_id=message.from_user.id,
@@ -154,63 +172,93 @@ async def cmd_start(message: Message, state: FSMContext):
         last_name=message.from_user.last_name
     )
     
+    logger.info(f"[cmd_start] Пользователь получен/создан: id={user.id}, telegram_id={user.telegram_id}, "
+                f"is_new_user={is_new_user}, language={user.language}, first_name={user.first_name}, "
+                f"user_type={user.user_type}, privacy_accepted={user.privacy_accepted}, "
+                f"phone_number={user.phone_number}, latitude={user.latitude}, longitude={user.longitude}")
+    
     # Проверяем, завершена ли регистрация
     registration_complete = await is_registration_complete(user)
+    logger.info(f"[cmd_start] Регистрация завершена: {registration_complete}")
     
     # Если передан QR-код в аргументе
     if qr_code_str:
         if registration_complete:
             # Пользователь зарегистрирован - обрабатываем QR-код сразу
+            logger.info(f"[cmd_start] Пользователь зарегистрирован, обрабатываем QR-код")
             await handle_qr_code_scan(message, user, qr_code_str, state)
             return
         else:
             # Пользователь не зарегистрирован - сохраняем QR-код в state для обработки после регистрации
+            logger.info(f"[cmd_start] Пользователь не зарегистрирован, сохраняем QR-код в state")
             await state.update_data(pending_qr_code=qr_code_str)
     
     if registration_complete:
         # Пользователь уже зарегистрирован - показываем меню
+        logger.info(f"[cmd_start] Пользователь уже зарегистрирован, показываем меню")
         await show_main_menu(message, user)
         await state.clear()
         return
     
     # Очищаем state для новой сессии регистрации
     await state.clear()
+    logger.info(f"[cmd_start] Начинаем процесс регистрации")
     
     # Начинаем процесс регистрации с первого шага
     # Шаг 1: Выбор языка - всегда показываем приветствие если:
-    # - это новый пользователь (только что создан)
+    # - это новый пользователь (только что создан) - даже если у него есть default язык
     # - или язык не выбран или пустой
-    if not user.language:
+    # ВАЖНО: Новые пользователи всегда должны выбрать язык, даже если в модели есть default
+    if is_new_user or not user.language:
+        logger.info(f"[cmd_start] Новый пользователь или язык не выбран (is_new_user={is_new_user}, user.language={user.language}), вызываем ask_language")
         await ask_language(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Язык уже выбран: {user.language}, пропускаем ask_language")
     
     # Шаг 2: Ввод имени - спрашиваем только после выбора языка
     if not user.first_name:
+        logger.info(f"[cmd_start] Имя не указано, вызываем ask_name")
         await ask_name(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Имя указано: {user.first_name}, пропускаем ask_name")
     
     # Шаг 3: Выбор типа пользователя
     if not user.user_type:
+        logger.info(f"[cmd_start] Тип пользователя не выбран, вызываем ask_user_type")
         await ask_user_type(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Тип пользователя выбран: {user.user_type}, пропускаем ask_user_type")
     
     # Шаг 3: Согласие на политику конфиденциальности
     if not user.privacy_accepted:
+        logger.info(f"[cmd_start] Политика конфиденциальности не принята, вызываем ask_privacy_acceptance")
         await ask_privacy_acceptance(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Политика конфиденциальности принята, пропускаем ask_privacy_acceptance")
     
     # Шаг 4: Телефонный номер
     if not user.phone_number:
+        logger.info(f"[cmd_start] Телефонный номер не указан, вызываем ask_phone")
         await ask_phone(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Телефонный номер указан, пропускаем ask_phone")
     
     # Шаг 5: Локация
     if user.latitude is None or user.longitude is None:
+        logger.info(f"[cmd_start] Локация не указана, вызываем ask_location")
         await ask_location(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Локация указана, пропускаем ask_location")
     
     # Шаг 6: Промокод (если еще не введен)
     # Промокод не обязателен, поэтому просто завершаем регистрацию
+    logger.info(f"[cmd_start] Все шаги регистрации пройдены, показываем главное меню")
     await state.clear()
     await show_main_menu(message, user)
 
@@ -274,6 +322,8 @@ async def process_location(message: Message, state: FSMContext):
 
 async def ask_language(message: Message, user, state: FSMContext):
     """Спрашивает у пользователя язык интерфейса."""
+    logger.info(f"[ask_language] Вызывается для пользователя {user.telegram_id}, текущий язык: {user.language}")
+    
     # Показываем приветствие на всех языках
     welcome_text = "👋 Salom! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n👋 Салом! «Mono Electric» бонус дастурига хуш келибсиз!\nИлтимос, тилни танланг:\n\n👋 Салом! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:"
     
@@ -287,8 +337,11 @@ async def ask_language(message: Message, user, state: FSMContext):
             callback_data='lang_ru'
         )],
     ])
+    
+    logger.info(f"[ask_language] Отправляем сообщение с выбором языка пользователю {user.telegram_id}")
     await message.answer(welcome_text, reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_language)
+    logger.info(f"[ask_language] Состояние установлено в waiting_for_language")
 
 
 async def ask_name(message: Message, user, state: FSMContext):
@@ -347,6 +400,8 @@ async def ask_user_type(message: Message, user, state: FSMContext):
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     """Спрашивает согласие на политику конфиденциальности."""
     from core.models import PrivacyPolicy
+    from django.conf import settings
+    import os
     
     # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
@@ -355,18 +410,23 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
         return PrivacyPolicy.objects.filter(is_active=True).first()
     
     @sync_to_async
-    def get_privacy_text():
-        """Получает текст политики конфиденциальности на языке пользователя."""
+    def get_privacy_pdf():
+        """Получает PDF файл политики конфиденциальности на языке пользователя."""
         policy = PrivacyPolicy.objects.filter(is_active=True).first()
         if policy:
-            if user.language == 'uz_latin':
-                return policy.content_uz_latin or get_text(user, 'PRIVACY_POLICY_TEXT')
-            elif user.language == 'ru':
-                return policy.content_ru or policy.content_uz_latin or get_text(user, 'PRIVACY_POLICY_TEXT')
-        return get_text(user, 'PRIVACY_POLICY_TEXT')
+            if user.language == 'uz_latin' and policy.pdf_uz_latin:
+                return policy.pdf_uz_latin
+            elif user.language == 'ru' and policy.pdf_ru:
+                return policy.pdf_ru
+            # Если для выбранного языка нет PDF, пробуем другой язык
+            elif user.language == 'uz_latin' and policy.pdf_ru:
+                return policy.pdf_ru
+            elif user.language == 'ru' and policy.pdf_uz_latin:
+                return policy.pdf_uz_latin
+        return None
     
-    # Получаем текст политики конфиденциальности
-    privacy_text = await get_privacy_text()
+    # Получаем PDF файл политики конфиденциальности
+    pdf_file = await get_privacy_pdf()
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
@@ -379,8 +439,26 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
         )],
     ])
     
-    # Отправляем текст политики конфиденциальности
-    await message.answer(privacy_text, reply_markup=keyboard)
+    # Отправляем PDF файл политики конфиденциальности
+    if pdf_file:
+        # Получаем полный путь к файлу
+        pdf_path = pdf_file.path if hasattr(pdf_file, 'path') else os.path.join(settings.MEDIA_ROOT, pdf_file.name)
+        
+        # Проверяем существование файла
+        if os.path.exists(pdf_path):
+            # Отправляем PDF как документ
+            await message.answer_document(
+                types.FSInputFile(pdf_path),
+                caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
+                reply_markup=keyboard
+            )
+        else:
+            # Если файл не найден, отправляем сообщение об ошибке
+            await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
+            logger.warning(f"PDF файл политики конфиденциальности не найден: {pdf_path}")
+    else:
+        # Если PDF файл не загружен, отправляем текстовое сообщение (fallback)
+        await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
     
     await state.set_state(RegistrationStates.waiting_for_privacy)
 
@@ -507,22 +585,32 @@ async def process_promo_code(message: Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
 async def process_language_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор языка."""
-    language = callback.data.split('_')[1]  # uz_latin или ru
+    logger.info(f"[process_language_selection] Получен callback: {callback.data} от пользователя {callback.from_user.id}")
     
-    @sync_to_async
-    def update_language():
-        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        user.language = language
-        user.save(update_fields=['language'])
-        return user
-    
-    user = await update_language()
-    
-    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
-    await callback.message.delete()
-    
-    # Переходим к следующему шагу - выбор типа пользователя
-    await ask_user_type(callback.message, user, state)
+    try:
+        language = callback.data.split('_')[1]  # uz_latin или ru
+        logger.info(f"[process_language_selection] Выбранный язык: {language}")
+        
+        @sync_to_async
+        def update_language():
+            user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+            logger.info(f"[process_language_selection] Текущий язык пользователя до обновления: {user.language}")
+            user.language = language
+            user.save(update_fields=['language'])
+            logger.info(f"[process_language_selection] Язык пользователя обновлен на: {user.language}")
+            return user
+        
+        user = await update_language()
+        
+        await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
+        await callback.message.delete()
+        logger.info(f"[process_language_selection] Сообщение с выбором языка удалено, переходим к ask_name")
+        
+        # Переходим к следующему шагу - ввод имени
+        await ask_name(callback.message, user, state)
+    except Exception as e:
+        logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
+        await callback.answer("Произошла ошибка. Попробуйте еще раз.")
 
 
 @dp.callback_query(lambda c: c.data.startswith('user_type_'))

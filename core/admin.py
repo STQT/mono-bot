@@ -619,7 +619,7 @@ class GiftAdmin(admin.ModelAdmin):
     """Админка для подарков."""
     list_display = ['gift_display', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
     list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'description']
+    search_fields = ['name', 'description_uz_latin', 'description_ru']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
     list_per_page = 25
     
@@ -669,7 +669,10 @@ class GiftAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('name', 'description', 'image', 'image_preview')
+            'fields': ('name', 'image', 'image_preview')
+        }),
+        ('Описание', {
+            'fields': ('description_uz_latin', 'description_ru')
         }),
         ('Настройки', {
             'fields': ('points_cost', 'is_active')
@@ -1091,10 +1094,10 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
     list_filter = ['is_active', 'created_at', 'updated_at']
     fieldsets = (
         ('Узбекский язык (Латиница)', {
-            'fields': ('content_uz_latin',),
+            'fields': ('pdf_uz_latin',),
         }),
         ('Русский язык', {
-            'fields': ('content_ru',),
+            'fields': ('pdf_ru',),
         }),
         ('Настройки', {
             'fields': ('is_active',),
@@ -1108,8 +1111,14 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
     
     def has_pdf_files(self, obj):
         """Показывает, загружены ли PDF файлы."""
-        # PDF файлы были удалены из модели, поэтому всегда возвращаем "Нет PDF"
-        return '-'
+        if not obj:
+            return '-'
+        pdfs = []
+        if obj.pdf_uz_latin:
+            pdfs.append('UZ (Lat)')
+        if obj.pdf_ru:
+            pdfs.append('RU')
+        return ', '.join(pdfs) if pdfs else 'Нет PDF'
     has_pdf_files.short_description = 'Загруженные PDF'
     
     def has_add_permission(self, request):

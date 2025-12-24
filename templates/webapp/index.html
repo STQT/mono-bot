@@ -203,17 +203,12 @@
             </button>
         </div>
 
-        <!-- Карточка статуса продукта -->
-        <div class="product-status-card" id="productStatusCard" style="display: none;">
-            <div class="product-image" onclick="showProfileGifts()">
-                <img src="" alt="" id="productImage" onerror="this.style.display='none'">
+        <!-- Список заказов -->
+        <div class="orders-section" id="ordersSection" style="display: none;">
+            <!-- <h3 class="orders-title">{% trans "WEBAPP_MY_ORDERS" %}</h3> -->
+            <div class="orders-list" id="ordersList">
+                <!-- Заказы будут загружены динамически -->
             </div>
-            <div class="product-info" onclick="showProfileGifts()">
-                <div class="product-name" id="productName"></div>
-                <div class="product-status" id="productStatus"></div>
-                <div id="productStatusButton" style="margin-top: 0.5rem;"></div>
-            </div>
-            <div class="product-arrow" onclick="showProfileGifts()">›</div>
         </div>
 
         <!-- Информационный текст -->
@@ -449,6 +444,8 @@
             'WEBAPP_CANCEL': '{% trans "WEBAPP_CANCEL" %}',
             'WEBAPP_UPDATED': '{% trans "WEBAPP_UPDATED" %}',
             'WEBAPP_QR_MAX_ATTEMPTS': '{% trans "WEBAPP_QR_MAX_ATTEMPTS" %}',
+            'WEBAPP_PRIVACY_PDF_DESCRIPTION': '{% trans "WEBAPP_PRIVACY_PDF_DESCRIPTION" %}',
+            'WEBAPP_OPEN_PDF': '{% trans "WEBAPP_OPEN_PDF" %}',
         };
 
         async function loadTranslations(language) {
@@ -660,7 +657,11 @@
 
         async function loadGiftsCount() {
             try {
-                const response = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке (если пользователь загружен)
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const response = await fetch(giftsUrl);
                 if (response.ok) {
                     const gifts = await response.json();
                     const countElement = document.getElementById('giftsCount');
@@ -703,50 +704,96 @@
                 const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (response.ok) {
                     const redemptions = await response.json();
-                    // Ищем первый redemption со статусом pending, approved или completed, который еще не подтвержден пользователем
-                    const activeRedemption = redemptions.find(r => 
-                        (r.status === 'pending' || r.status === 'approved' || r.status === 'completed') && 
-                        !r.user_confirmed
-                    );
+                    const ordersSection = document.getElementById('ordersSection');
+                    const ordersList = document.getElementById('ordersList');
                     
-                    if (activeRedemption) {
-                        const productCard = document.getElementById('productStatusCard');
-                        const productStatusButton = document.getElementById('productStatusButton');
-                        productCard.style.display = 'flex';
-                        document.getElementById('productName').textContent = activeRedemption.gift.name;
+                    if (redemptions && redemptions.length > 0) {
+                        // Сортируем заказы: сначала активные (pending, approved, sent), потом completed, потом rejected
+                        const sortedRedemptions = redemptions.sort((a, b) => {
+                            const statusOrder = {
+                                'pending': 1,
+                                'approved': 2,
+                                'sent': 3,
+                                'completed': 4,
+                                'rejected': 5
+                            };
+                            const orderA = statusOrder[a.status] || 999;
+                            const orderB = statusOrder[b.status] || 999;
+                            if (orderA !== orderB) {
+                                return orderA - orderB;
+                            }
+                            // Если статусы одинаковые, сортируем по дате (новые сверху)
+                            return new Date(b.requested_at) - new Date(a.requested_at);
+                        });
                         
-                        // Определяем текст статуса
-                        let statusText = t('WEBAPP_STATUS_PENDING');
-                        if (activeRedemption.status === 'approved') {
-                            statusText = t('WEBAPP_STATUS_APPROVED');
-                        } else if (activeRedemption.status === 'sent') {
-                            statusText = t('WEBAPP_STATUS_SENT');
-                        } else if (activeRedemption.status === 'rejected') {
-                            statusText = t('WEBAPP_STATUS_REJECTED');
-                        } else if (activeRedemption.status === 'completed') {
-                            statusText = t('WEBAPP_STATUS_COMPLETED');
-                        }
-                        document.getElementById('productStatus').textContent = statusText;
-                        
-                        // Добавляем кнопку "Получил подарок" только при статусе 'completed' и если еще не подтверждено
-                        if (!activeRedemption.user_confirmed && activeRedemption.status === 'completed') {
-                            productStatusButton.innerHTML = `
-                                <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${activeRedemption.id});">
-                                    ${t('WEBAPP_YES_RECEIVED')}
-                                </button>
+                        ordersList.innerHTML = '';
+                        sortedRedemptions.forEach(redemption => {
+                            // Определяем текст статуса
+                            let statusText = t('WEBAPP_STATUS_PENDING');
+                            let statusClass = 'waiting';
+                            if (redemption.status === 'approved') {
+                                statusText = t('WEBAPP_STATUS_APPROVED');
+                                statusClass = 'approved';
+                            } else if (redemption.status === 'sent') {
+                                statusText = t('WEBAPP_STATUS_SENT');
+                                statusClass = 'sent';
+                            } else if (redemption.status === 'rejected') {
+                                statusText = t('WEBAPP_STATUS_REJECTED');
+                                statusClass = 'rejected';
+                            } else if (redemption.status === 'completed') {
+                                statusText = t('WEBAPP_STATUS_COMPLETED');
+                                statusClass = 'completed';
+                            }
+                            
+                            // Форматируем дату
+                            const date = new Date(redemption.requested_at);
+                            const dateStr = date.toLocaleDateString('ru-RU', { 
+                                year: 'numeric', 
+                                month: '2-digit', 
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            const orderCard = document.createElement('div');
+                            orderCard.className = 'order-card';
+                            orderCard.onclick = () => showProfileGifts();
+                            
+                            let imageUrl = '/static/images/gift-box.png';
+                            if (redemption.gift && redemption.gift.image) {
+                                imageUrl = redemption.gift.image.startsWith('http') 
+                                    ? redemption.gift.image 
+                                    : redemption.gift.image;
+                            }
+                            
+                            let confirmButtonHtml = '';
+                            if (!redemption.user_confirmed && redemption.status === 'completed') {
+                                confirmButtonHtml = `
+                                    <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
+                                        ${t('WEBAPP_YES_RECEIVED')}
+                                    </button>
+                                `;
+                            }
+                            
+                            orderCard.innerHTML = `
+                                <div class="order-image">
+                                    <img src="${imageUrl}" alt="" onerror="this.src='/static/images/gift-box.png'">
+                                </div>
+                                <div class="order-info">
+                                    <div class="order-name">${redemption.gift ? redemption.gift.name : 'N/A'}</div>
+                                    <div class="order-status ${statusClass}">${statusText}</div>
+                                    <div class="order-date">${dateStr}</div>
+                                    ${confirmButtonHtml ? `<div style="margin-top: 0.5rem;">${confirmButtonHtml}</div>` : ''}
+                                </div>
+                                <div class="order-arrow">›</div>
                             `;
-                        } else {
-                            productStatusButton.innerHTML = '';
-                        }
+                            
+                            ordersList.appendChild(orderCard);
+                        });
                         
-                        if (activeRedemption.gift.image) {
-                            document.getElementById('productImage').src = activeRedemption.gift.image;
-                            document.getElementById('productImage').style.display = 'block';
-                        }
+                        ordersSection.style.display = 'block';
                     } else {
-                        // Скрываем карточку, если нет активных redemption
-                        const productCard = document.getElementById('productStatusCard');
-                        productCard.style.display = 'none';
+                        ordersSection.style.display = 'none';
                     }
                 }
             } catch (error) {
@@ -853,7 +900,8 @@
             const errorDiv = document.getElementById('qrError');
             const inputWrapper = document.getElementById('qrInputWrapper');
             
-            errorDiv.textContent = message;
+            // Обертываем текст в span для корректного переноса
+            errorDiv.innerHTML = '<span class="qr-error-text">' + message + '</span>';
             errorDiv.style.display = 'flex';
             inputWrapper.classList.add('error');
         }
@@ -864,7 +912,7 @@
         }
 
         // Система навигации между экранами
-        function showScreen(screenName) {
+        async function showScreen(screenName) {
             // Скрываем все экраны
             document.querySelectorAll('.screen').forEach(screen => {
                 screen.style.display = 'none';
@@ -874,10 +922,34 @@
             // Показываем нужный экран
             if (screenName === 'home') {
                 document.querySelector('.main-container').style.display = 'flex';
+                // Обновляем список заказов при возврате на главную страницу
+                await loadProductStatus();
+                // Обновляем данные пользователя (баллы)
+                if (currentUser && currentUser.telegram_id) {
+                    try {
+                        const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${currentUser.telegram_id}`);
+                        if (userResponse.ok) {
+                            const userData = await userResponse.json();
+                            currentUser.points = userData.points;
+                            document.getElementById('points').textContent = formatNumber(currentUser.points);
+                        }
+                    } catch (error) {
+                        console.error('Error updating user data:', error);
+                    }
+                }
             } else {
                 const screen = document.getElementById(`${screenName}Screen`);
                 if (screen) {
                     screen.style.display = 'block';
+                    
+                    // Загружаем данные для конкретных экранов
+                    if (screenName === 'profileGifts') {
+                        await loadProfileGifts();
+                    } else if (screenName === 'qrHistory') {
+                        await loadQRHistory();
+                    } else if (screenName === 'privacy') {
+                        await loadPrivacyPolicy();
+                    }
                 }
             }
         }
@@ -893,7 +965,9 @@
                     throw new Error('User not loaded');
                 }
                 
-                const response = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`;
+                const response = await fetch(giftsUrl);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -935,11 +1009,11 @@
                         } else if (redemption.status === 'approved') {
                             statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
                         } else if (redemption.status === 'sent') {
-                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_SENT')}</div>`;
+                            statusHtml = `<div class="gift-status sent">${t('WEBAPP_STATUS_SENT')}</div>`;
                         } else if (redemption.status === 'rejected') {
                             statusHtml = `<div class="gift-status rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
                         } else if (redemption.status === 'completed') {
-                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
+                            statusHtml = `<div class="gift-status completed">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
                         }
                     } else if (hasEnoughPoints) {
                         statusHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">${t('WEBAPP_GET_GIFT')}</button>`;
@@ -986,15 +1060,15 @@
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
             
             try {
-                const giftsResponse = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const giftsResponse = await fetch(giftsUrl);
                 const gifts = await giftsResponse.json();
                 const gift = gifts.find(g => g.id === giftId);
                 
                 if (!gift) throw new Error('Gift not found');
-                
-                const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                const redemptions = redemptionsResponse.ok ? await redemptionsResponse.json() : [];
-                const redemption = redemptions.find(r => r.gift.id === gift.id);
                 
                 const userPoints = currentUser.points || 0;
                 const hasEnoughPoints = userPoints >= gift.points_cost;
@@ -1002,20 +1076,9 @@
                 
                 document.getElementById('giftDetailTitle').textContent = gift.name;
                 
+                // Всегда разрешаем заказ, если есть баллы, независимо от существующих заказов
                 let actionHtml = '';
-                if (redemption) {
-                    if (redemption.status === 'pending') {
-                        actionHtml = `<div class="gift-status-badge waiting">${t('WEBAPP_STATUS_PENDING')}</div>`;
-                    } else if (redemption.status === 'approved') {
-                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
-                    } else if (redemption.status === 'sent') {
-                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_SENT')}</div>`;
-                    } else if (redemption.status === 'rejected') {
-                        actionHtml = `<div class="gift-status-badge rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
-                    } else if (redemption.status === 'completed') {
-                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
-                    }
-                } else if (hasEnoughPoints) {
+                if (hasEnoughPoints) {
                     actionHtml = `<button class="btn btn-primary gift-detail-btn" onclick="requestGift(${gift.id})">
                         <span class="btn-icon">🔄</span>
                         ${t('WEBAPP_GET_GIFT')}
@@ -1079,6 +1142,8 @@
                 const redemption = await response.json();
                 currentUser.points = redemption.user.points;
                 document.getElementById('points').textContent = formatNumber(currentUser.points);
+                // Обновляем список заказов перед переходом на экран успеха
+                await loadProductStatus();
                 showScreen('success');
             } catch (error) {
                 tg.showAlert(error.message || t('WEBAPP_ERROR_REQUESTING_GIFT'));
@@ -1087,11 +1152,22 @@
 
         async function loadProfileGifts() {
             const container = document.getElementById('profileGiftsContainer');
+            if (!container) return;
+            
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_ORDERS') + '</div>';
+            
+            if (!currentUser || !currentUser.telegram_id) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                console.error('loadProfileGifts: currentUser not loaded');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
                 
                 const redemptions = await response.json();
                 
@@ -1114,13 +1190,13 @@
                         statusClass = 'approved';
                         statusText = t('WEBAPP_STATUS_APPROVED');
                     } else if (redemption.status === 'sent') {
-                        statusClass = 'approved';
+                        statusClass = 'sent';
                         statusText = t('WEBAPP_STATUS_SENT');
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
                     } else if (redemption.status === 'completed') {
-                        statusClass = 'approved';
+                        statusClass = 'completed';
                         statusText = t('WEBAPP_STATUS_COMPLETED');
                     } else {
                         // pending
@@ -1152,7 +1228,8 @@
                     container.appendChild(card);
                 });
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+                console.error('Error loading profile gifts:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_ORDERS')) + '</div>';
             }
         }
 
@@ -1322,11 +1399,11 @@
 
         function showProfileGifts() {
             showScreen('profileGifts');
-            loadProfileGifts();
+            // loadProfileGifts() вызывается автоматически в showScreen()
         }
 
         function contactAdmin() {
-            const botUsername = '{{ TELEGRAM_BOT_USERNAME }}';
+            const botUsername = '{{ TELEGRAM_BOT_ADMIN_USERNAME }}';
             if (botUsername) {
                 tg.openTelegramLink(`https://t.me/${botUsername}`);
             } else {
@@ -1334,29 +1411,65 @@
             }
         }
 
+        function openPrivacyPDF(pdfUrl) {
+            if (tg && tg.openLink) {
+                tg.openLink(pdfUrl);
+            } else {
+                window.open(pdfUrl, '_blank');
+            }
+        }
+
         async function showPrivacy() {
             showScreen('privacy');
-            await loadPrivacyPolicy();
+            // loadPrivacyPolicy() вызывается автоматически в showScreen()
         }
 
         async function loadPrivacyPolicy() {
             const container = document.getElementById('privacyContainer');
+            if (!container) return;
+            
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            if (!currentUser || !currentUser.language) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/privacy-policy/?lang=${currentUser.language}`);
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
                 
                 const data = await response.json();
                 
-                container.innerHTML = `
-                    <div class="privacy-content">
-                        <div class="privacy-text">${data.content.replace(/\n/g, '<br>')}</div>
-                        ${data.updated_at ? `<div class="privacy-updated">${t('WEBAPP_UPDATED')}: ${data.updated_at}</div>` : ''}
-                    </div>
-                `;
+                let contentHtml = '';
+                
+                // Если есть PDF файл, показываем кнопку для открытия
+                // В Telegram Web App PDF нельзя отобразить напрямую из-за ограничений безопасности
+                if (data.pdf_url) {
+                    contentHtml = `
+                        <div class="privacy-content">
+                            <div class="privacy-pdf-wrapper">
+                                <div class="privacy-pdf-icon">📄</div>
+                                <h3 class="privacy-pdf-title">${t('WEBAPP_PRIVACY_POLICY') || 'Политика конфиденциальности'}</h3>
+                                <p class="privacy-pdf-text">${t('WEBAPP_PRIVACY_PDF_DESCRIPTION') || 'Политика конфиденциальности доступна в формате PDF. Нажмите кнопку ниже, чтобы открыть документ в браузере.'}</p>
+                                <button class="btn btn-primary privacy-pdf-open-btn" onclick="openPrivacyPDF('${data.pdf_url}')">
+                                    ${t('WEBAPP_OPEN_PDF') || 'Открыть PDF'}
+                                </button>
+                            </div>
+                            ${data.updated_at ? `<div class="privacy-updated">${t('WEBAPP_UPDATED')}: ${data.updated_at}</div>` : ''}
+                        </div>
+                    `;
+                    container.innerHTML = contentHtml;
+                } else {
+                    contentHtml = '<div class="empty-state">' + (t('WEBAPP_NO_CONTENT') || 'Контент не найден') + '</div>';
+                    container.innerHTML = contentHtml;
+                }
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                console.error('Error loading privacy policy:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_USER')) + '</div>';
             }
         }
 

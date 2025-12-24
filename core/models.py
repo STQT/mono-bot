@@ -303,7 +303,8 @@ class QRCodeScanAttempt(models.Model):
 class Gift(models.Model):
     """Модель подарка."""
     name = models.CharField(max_length=255, verbose_name='Nomi')
-    description = models.TextField(blank=True, verbose_name='Tavsif')
+    description_uz_latin = models.TextField(blank=True, verbose_name='Tavsif (O\'zbek lotin)')
+    description_ru = models.TextField(blank=True, verbose_name='Tavsif (Ruscha)')
     image = models.ImageField(upload_to='gifts/', verbose_name='Rasm')
     points_cost = models.IntegerField(
         validators=[MinValueValidator(1)],
@@ -435,8 +436,8 @@ class Promotion(models.Model):
 
 class PrivacyPolicy(models.Model):
     """Модель для политики конфиденциальности."""
-    content_uz_latin = models.TextField(verbose_name='Kontent (O\'zbek lotin)')
-    content_ru = models.TextField(verbose_name='Kontent (Ruscha)', blank=True)
+    pdf_uz_latin = models.FileField(blank=True, null=True, upload_to='privacy_policy/', verbose_name='PDF файл (O\'zbek lotin)', help_text='PDF файл политики конфиденциальности для узбекского языка (латиница)')
+    pdf_ru = models.FileField(blank=True, null=True, upload_to='privacy_policy/', verbose_name='PDF файл (Ruscha)', help_text='PDF файл политики конфиденциальности для русского языка')
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')

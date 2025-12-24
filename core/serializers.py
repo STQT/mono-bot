@@ -34,6 +34,7 @@ class QRCodeSerializer(serializers.ModelSerializer):
 class GiftSerializer(serializers.ModelSerializer):
     """Сериализатор для подарка."""
     image = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
     
     class Meta:
         model = Gift
@@ -51,12 +52,42 @@ class GiftSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
+    
+    def get_description(self, obj):
+        """Возвращает описание на языке пользователя."""
+        # Пытаемся получить язык из контекста (если передан из родительского сериализатора)
+        language = self.context.get('language')
+        
+        if not language:
+            # Пытаемся получить язык пользователя из запроса
+            request = self.context.get('request')
+            if request:
+                telegram_id = request.GET.get('telegram_id') or request.data.get('telegram_id')
+                if telegram_id:
+                    try:
+                        from .models import TelegramUser
+                        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+                        language = user.language or 'uz_latin'
+                    except (TelegramUser.DoesNotExist, ValueError, TypeError):
+                        language = 'uz_latin'
+                else:
+                    language = 'uz_latin'
+            else:
+                language = 'uz_latin'
+        
+        # Возвращаем описание на нужном языке
+        if language == 'ru' and obj.description_ru:
+            return obj.description_ru
+        elif language == 'uz_latin' and obj.description_uz_latin:
+            return obj.description_uz_latin
+        # Fallback: возвращаем доступное описание или пустую строку
+        return obj.description_uz_latin or obj.description_ru or ''
 
 
 class GiftRedemptionSerializer(serializers.ModelSerializer):
     """Сериализатор для получения подарка."""
     user = TelegramUserSerializer(read_only=True)
-    gift = GiftSerializer(read_only=True)
+    gift = serializers.SerializerMethodField()
     
     class Meta:
         model = GiftRedemption
@@ -66,4 +97,12 @@ class GiftRedemptionSerializer(serializers.ModelSerializer):
             'user_confirmed', 'user_comment', 'confirmed_at'
         ]
         read_only_fields = ['id', 'requested_at', 'processed_at', 'confirmed_at']
+    
+    def get_gift(self, obj):
+        """Возвращает подарок с учетом языка пользователя."""
+        # Получаем язык пользователя для передачи в GiftSerializer
+        user_language = obj.user.language if obj.user and obj.user.language else 'uz_latin'
+        context = self.context.copy()
+        context['language'] = user_language
+        return GiftSerializer(obj.gift, context=context).data
 

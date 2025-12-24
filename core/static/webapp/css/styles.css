@@ -721,8 +721,6 @@ body {
 }
 
 .view-gifts-btn .view-gifts-text {
-    width: 7.25rem; /* 116px */
-    height: 1.375rem; /* 22px */
     font-family: 'Funnel Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-style: normal;
     font-weight: 600;
@@ -821,12 +819,109 @@ body {
     color: #999999;
 }
 
+/* Список заказов */
+.orders-section {
+    width: 100%;
+    margin-bottom: 0.5rem; /* 8px */
+}
+
+.orders-title {
+    font-size: 1rem; /* 16px */
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 0.5rem; /* 8px */
+    padding: 0 0.25rem; /* 4px */
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* 8px */
+}
+
+.order-card {
+    background: white;
+    border-radius: 1.5rem; /* 16px */
+    padding: 4px; /* 16px */
+    display: flex;
+    align-items: center;
+    gap: 0.75rem; /* 12px */
+    cursor: pointer;
+}
+
+.order-image {
+    width: 3.75rem; /* 60px */
+    height: 3.75rem; /* 60px */
+    border-radius: 50%;
+    background: #F5F5F5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.order-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+}
+
+.order-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.order-name {
+    font-size: 1rem; /* 16px */
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 0.25rem; /* 4px */
+    word-wrap: break-word;
+}
+
+.order-status {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 500;
+    margin-bottom: 0.25rem; /* 4px */
+}
+
+.order-status.waiting {
+    color: #EAB208;
+}
+
+.order-status.approved {
+    color: #EAB208;
+}
+
+.order-status.completed {
+    color: #4CAF50;
+}
+
+.order-status.rejected {
+    color: #EAB208;
+}
+
+.order-status.sent {
+    color: #EAB208;
+}
+
+.order-date {
+    font-size: 0.75rem; /* 12px */
+    color: #999999;
+}
+
+.order-arrow {
+    font-size: 1.25rem; /* 20px */
+    color: #999999;
+    flex-shrink: 0;
+}
+
 /* Информационный текст */
 .info-text {
     background: #E3F2FD;
     border-radius: 0.75rem; /* 12px */
     padding: 1rem; /* 16px */
-    width: 100%;
     margin-bottom: 0.5rem; /* 8px */
 }
 
@@ -990,21 +1085,39 @@ body {
 .qr-error {
     display: flex;
     flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    padding: 0 1rem; /* 0px 16px */
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 0.5rem 1rem; /* 8px 16px */
     gap: 0.625rem; /* 10px */
     width: 100%;
-    height: 1.1875rem; /* 19px */
+    min-height: 1.1875rem; /* 19px */
+    max-width: 100%;
     font-family: 'Funnel Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-style: normal;
     font-weight: 400;
-    font-size: 1rem; /* 16px */
-    line-height: 120%;
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.4;
     letter-spacing: -0.01em;
     color: #F43F5D;
-    flex: none;
     align-self: stretch;
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+.qr-error::before {
+    content: '✕';
+    flex-shrink: 0;
+    margin-right: 0.25rem;
+    margin-top: 0.1em;
+}
+
+.qr-error-text {
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Экраны */
@@ -1133,18 +1246,28 @@ body {
 }
 
 .gift-status.waiting {
-    background: #FFF3CD;
-    color: #856404;
+    background: #FFF8E1;
+    color: #EAB208;
 }
 
 .gift-status.approved {
+    background: #FFF8E1;
+    color: #EAB208;
+}
+
+.gift-status.completed {
     background: #D4EDDA;
     color: #155724;
 }
 
 .gift-status.rejected {
-    background: #F8D7DA;
-    color: #721C24;
+    background: #FFF8E1;
+    color: #EAB208;
+}
+
+.gift-status.sent {
+    background: #FFF8E1;
+    color: #EAB208;
 }
 
 .gift-get-btn {
@@ -1260,18 +1383,28 @@ body {
 }
 
 .gift-status-badge.waiting {
-    background: #FFF3CD;
-    color: #856404;
+    background: #FFF8E1;
+    color: #EAB208;
 }
 
 .gift-status-badge.approved {
+    background: #FFF8E1;
+    color: #EAB208;
+}
+
+.gift-status-badge.completed {
     background: #D4EDDA;
     color: #155724;
 }
 
 .gift-status-badge.rejected {
-    background: #F8D7DA;
-    color: #721C24;
+    background: #FFF8E1;
+    color: #EAB208;
+}
+
+.gift-status-badge.sent {
+    background: #FFF8E1;
+    color: #EAB208;
 }
 
 .gift-detail-btn {
@@ -1498,19 +1631,23 @@ body {
 }
 
 .profile-gift-status.pending {
-    color: #FF6B35;
+    color: #EAB208;
 }
 
 .profile-gift-status.approved {
-    color: #4CAF50;
+    color: #EAB208;
 }
 
 .profile-gift-status.rejected {
-    color: #c62828;
+    color: #EAB208;
 }
 
 .profile-gift-status.completed {
     color: #4CAF50;
+}
+
+.profile-gift-status.sent {
+    color: #EAB208;
 }
 
 .profile-gift-arrow {
@@ -1609,6 +1746,78 @@ body {
     color: #333333;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+.privacy-pdf-wrapper {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.privacy-pdf-icon {
+    font-size: 80px;
+    margin-bottom: 24px;
+    line-height: 1;
+}
+
+.privacy-pdf-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 16px;
+}
+
+.privacy-pdf-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #666666;
+    margin-bottom: 32px;
+    padding: 0 10px;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+.privacy-pdf-open-btn {
+    min-width: 240px;
+    max-width: 100%;
+    padding: 16px 40px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: inline-block;
+}
+
+.privacy-pdf-open-btn:active {
+    opacity: 0.8;
+}
+
+@media (max-width: 480px) {
+    .privacy-pdf-open-btn {
+        min-width: 200px;
+        padding: 14px 32px;
+        font-size: 15px;
+    }
+    
+    .privacy-pdf-wrapper {
+        padding: 30px 16px;
+    }
+    
+    .privacy-pdf-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+    
+    .privacy-pdf-title {
+        font-size: 18px;
+        margin-bottom: 14px;
+    }
+    
+    .privacy-pdf-text {
+        font-size: 15px;
+        margin-bottom: 28px;
+    }
 }
 
 .privacy-updated {

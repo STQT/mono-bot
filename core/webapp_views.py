@@ -36,6 +36,7 @@ def webapp_view(request):
     context = {
         'user_language': user_language,
         'TELEGRAM_BOT_USERNAME': settings.TELEGRAM_BOT_USERNAME or '',
+        'TELEGRAM_BOT_ADMIN_USERNAME': settings.TELEGRAM_BOT_ADMIN_USERNAME or '',
     }
     
     return render(request, 'webapp/index.html', context)
@@ -325,16 +326,21 @@ def get_privacy_policy(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Выбираем контент в зависимости от языка
+        # Выбираем PDF в зависимости от языка
         if language == 'uz_latin':
-            content = policy.content_uz_latin
+            pdf_file = policy.pdf_uz_latin
         elif language == 'ru':
-            content = policy.content_ru or policy.content_uz_latin
+            pdf_file = policy.pdf_ru
         else:
-            content = policy.content_uz_latin
+            pdf_file = policy.pdf_uz_latin
+        
+        # Формируем URL для PDF файла, если он существует
+        pdf_url = None
+        if pdf_file:
+            pdf_url = request.build_absolute_uri(pdf_file.url)
         
         return Response({
-            'content': content,
+            'pdf_url': pdf_url,
             'updated_at': policy.updated_at.strftime('%d.%m.%Y %H:%M') if policy.updated_at else None
         })
     except Exception as e:

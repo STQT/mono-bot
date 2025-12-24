@@ -143,7 +143,7 @@ TRANSLATIONS = {
         'WEBAPP_TO_HOME': "Bosh sahifaga",
         'WEBAPP_PROFILE': "Profil",
         'WEBAPP_INTERFACE_LANGUAGE': "Interfeys tili",
-        'WEBAPP_GIFTS': "Sovg'alar",
+        'WEBAPP_GIFTS': "Mening sovg'alarim",
         'WEBAPP_QR_HISTORY': "QR kodlar tarixi",
         'WEBAPP_UZBEK': "O'zbekcha",
         'WEBAPP_RUSSIAN': "Ruscha",
@@ -154,6 +154,8 @@ TRANSLATIONS = {
         'WEBAPP_NO_QR_HISTORY': "QR kodlar tarixi yo'q",
         'WEBAPP_QR_MAX_ATTEMPTS': "❌ Сиз бугун {max_attempts} марта нотўғри QR-код киритдингиз. Кейинги уринишлар эртага (00:00) қайта очилади.",
         'WEBAPP_QR_WRONG_TYPE': "❌ Bu QR-kod sizning turingizga mos kelmaydi. Siz faqat o'z turingizga mos QR-kodlarni kiritishingiz mumkin.",
+        'WEBAPP_PRIVACY_PDF_DESCRIPTION': "Maxfiylik siyosati PDF formatida mavjud. Hujjatni ochish uchun quyidagi tugmani bosing.",
+        'WEBAPP_OPEN_PDF': "PDF-ni ochish",
     },
     
     'ru': {
@@ -171,7 +173,7 @@ TRANSLATIONS = {
         'USE_BUTTON_LOCATION': "Пожалуйста, используйте кнопку для отправки геолокации.",
         'SELECT_USER_TYPE': "К какой категории профессии вы относитесь?",
         'USER_TYPE_ELECTRICIAN': "1️⃣ Электрик",
-        'USER_TYPE_SELLER': "2️⃣ Продавец",
+        'USER_TYPE_SELLER': "2️⃣ Предприниматель",
         'USER_TYPE_SAVED': "✅ Тип сохранен!",
         'PRIVACY_POLICY_TEXT': "📄 Пожалуйста, ознакомьтесь с условиями участия в бонусной программе и обработкой ваших персональных данных, и подтвердите своё согласие.",
         'ACCEPT_PRIVACY': "✅ Я ознакомился с условиями и согласен",
@@ -295,7 +297,7 @@ TRANSLATIONS = {
         'WEBAPP_TO_HOME': "На главную",
         'WEBAPP_PROFILE': "Профиль",
         'WEBAPP_INTERFACE_LANGUAGE': "Язык интерфейса",
-        'WEBAPP_GIFTS': "Подарки",
+        'WEBAPP_GIFTS': "Мои подарки",
         'WEBAPP_QR_HISTORY': "История QR-кодов",
         'WEBAPP_UZBEK': "Узбекский",
         'WEBAPP_RUSSIAN': "Русский",
@@ -306,6 +308,8 @@ TRANSLATIONS = {
         'WEBAPP_NO_QR_HISTORY': "История QR-кодов отсутствует",
         'WEBAPP_QR_MAX_ATTEMPTS': "❌ Вы сегодня {max_attempts} раз ввели неверный QR-код. Следующие попытки откроются завтра (00:00).",
         'WEBAPP_QR_WRONG_TYPE': "❌ Этот QR-код не соответствует вашему типу. Вы можете вводить только QR-коды, соответствующие вашему типу.",
+        'WEBAPP_PRIVACY_PDF_DESCRIPTION': "Политика конфиденциальности доступна в формате PDF. Нажмите кнопку ниже, чтобы открыть документ в браузере.",
+        'WEBAPP_OPEN_PDF': "Открыть PDF",
     },
 }
 
