@@ -1100,11 +1100,11 @@
                         <div class="gift-card-image-wrapper">
                             <img src="${imageUrl}" alt="${gift.name || 'Gift'}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
                         </div>
-                        ${statusHtml}
                         <div class="gift-card-info">
                             <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
                             <div class="gift-card-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
                         </div>
+                        ${statusHtml}
                     `;
                     container.appendChild(giftCard);
                 });
@@ -1501,7 +1501,7 @@
                 redemptions.forEach(redemption => {
                     const card = document.createElement('div');
                     card.className = 'profile-gift-card';
-                    card.onclick = () => showGiftDetail(redemption.gift.id);
+                    card.onclick = () => showRedemptionDetail(redemption.id);
                     
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
@@ -1633,7 +1633,29 @@
                     const card = document.createElement('div');
                     card.className = 'qr-history-card';
                     card.innerHTML = `
-                        <div class="qr-history-icon">📱</div>
+                        <div class="qr-history-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_1353_${item.id})">
+                                    <path d="M13.5 6H7.5C6.67157 6 6 6.67157 6 7.5V13.5C6 14.3284 6.67157 15 7.5 15H13.5C14.3284 15 15 14.3284 15 13.5V7.5C15 6.67157 14.3284 6 13.5 6Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 25.5V25.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M28.5 6H22.5C21.6716 6 21 6.67157 21 7.5V13.5C21 14.3284 21.6716 15 22.5 15H28.5C29.3284 15 30 14.3284 30 13.5V7.5C30 6.67157 29.3284 6 28.5 6Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 10.5V10.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M13.5 21H7.5C6.67157 21 6 21.6716 6 22.5V28.5C6 29.3284 6.67157 30 7.5 30H13.5C14.3284 30 15 29.3284 15 28.5V22.5C15 21.6716 14.3284 21 13.5 21Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M25.5 10.5V10.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 21H25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M30 21V21.015" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 21V25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 30H25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M25.5 25.5H30" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M30 25.5V30" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_1353_${item.id}">
+                                        <rect width="36" height="36" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                        </div>
                         <div class="qr-history-info">
                             <div class="qr-history-code">#${item.code}</div>
                             <div class="qr-history-date">${item.scanned_at}</div>

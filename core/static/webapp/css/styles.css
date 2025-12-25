@@ -1123,14 +1123,7 @@ body {
 /* Экраны */
 .screen {
     display: none;
-    flex-direction: column;
-    width: 100%;
-    max-width: 25.125rem; /* 402px */
-    margin: 0 auto;
-    background: #F1F2F4;
-    min-height: 100vh;
-    padding: 1.25rem; /* 20px */
-    gap: 0.5rem; /* 8px */
+    margin: 4px;
 }
 
 .screen-header {
@@ -1138,6 +1131,7 @@ body {
     align-items: center;
     gap: 0.75rem; /* 12px */
     margin-bottom: 0.5rem; /* 8px */
+    padding-left: 20px;
 }
 
 .back-btn {
@@ -1150,8 +1144,9 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 1.25rem; /* 20px */
-    color: #667eea;
+    color: #2064AE;
     cursor: pointer;
+    box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
 }
 
 .screen-title {
@@ -1173,20 +1168,19 @@ body {
 .gifts-list-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem; /* 12px */
-    width: 100%;
+    gap: 4px; /* 12px */
+    padding: 8px;
+    margin: 8px;
 }
 
 .gift-card {
     /* Auto layout */
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     padding: 8px;
-    gap: 8px;
-    
-    width: 177px;
+    gap: 12px;
     min-height: 280px;
     
     /* Color/Neutral/White */
@@ -1227,8 +1221,7 @@ body {
 }
 
 .gift-card-image {
-    width: 76px;
-    height: 87px;
+    width: 80%;
     object-fit: contain;
     position: relative;
     z-index: 1;
@@ -1254,9 +1247,8 @@ body {
     
     /* Inside auto layout */
     flex: none;
-    order: 1;
     align-self: stretch;
-    flex-grow: 0;
+    flex-grow: 1;
 }
 
 .gift-card-name {
@@ -1402,12 +1394,11 @@ body {
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    padding: 12px 16px;
+    padding: 8px;
     gap: 8px;
     
     width: 100%;
-    height: 48px;
-    
+    height: 100%;
     background: #40C4AA;
     border-radius: 24px;
     border: none;
@@ -1417,7 +1408,6 @@ body {
     font-style: normal;
     font-weight: 600;
     font-size: 16px;
-    line-height: 155%;
     text-align: center;
     
     cursor: pointer;
@@ -1442,17 +1432,16 @@ body {
 .gift-progress-wrapper {
     position: relative;
     width: 100%;
-    height: 48px;
-    display: flex;
     align-items: center;
     justify-content: flex-start;
+    padding-bottom: 18px;
 }
 
 /* Фон прогресс-бара */
 .gift-progress-bar-bg {
     position: absolute;
     width: 100%;
-    height: 48px;
+    height: 100%;
     background: #D7E5FF;
     border-radius: 24px;
     left: 0;
@@ -1467,7 +1456,7 @@ body {
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    padding: 12px 10px;
+    padding: 0px 10px;
     gap: 8px;
     
     min-width: 25px;
@@ -1480,7 +1469,7 @@ body {
     font-style: normal;
     font-weight: 600;
     font-size: 16px;
-    line-height: 155%;
+    height: 200%;
     text-align: center;
     
     transition: width 0.3s ease;
@@ -1720,6 +1709,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 10px;
 }
 
 .profile-menu {
@@ -1893,22 +1883,25 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 10px
 }
 
 .qr-history-card {
     background: white;
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     gap: 12px;
+    height: 72px;
+    padding: 2px 6px;
+    box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
 }
 
 .qr-history-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: #667eea;
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: #2064AE;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1929,7 +1922,7 @@ body {
 
 .qr-history-date {
     font-size: 12px;
-    color: #667eea;
+    color: #447DBB;
 }
 
 .qr-history-points {
@@ -1937,15 +1930,15 @@ body {
     flex-direction: column;
     align-items: center;
     background: #F5F5F5;
-    border-radius: 12px;
-    padding: 8px 12px;
-    min-width: 60px;
+    border-radius: 20px;
+    padding: 16px 12px;
+    min-width: 64px;
 }
 
 .qr-history-points-value {
     font-size: 16px;
     font-weight: 600;
-    color: #667eea;
+    color: #2064AE;
 }
 
 .qr-history-points-label {
@@ -2313,7 +2306,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    max-width: 25.125rem;
     margin: 0 auto;
     background: #F1F2F4;
     min-height: calc(100vh - 4rem);
@@ -2479,7 +2471,6 @@ body {
     gap: 8px;
     
     width: 100%;
-    max-width: 362px;
     height: 56px;
     
     /* Color/Brand/Tertiary/500 */
