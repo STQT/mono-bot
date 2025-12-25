@@ -308,10 +308,15 @@ async def process_location(message: Message, state: FSMContext):
         
         # Убираем клавиатуру с кнопкой геолокации
         remove_keyboard = types.ReplyKeyboardRemove()
-        await message.answer(get_text(user, 'LOCATION_SAVED'), reply_markup=remove_keyboard)
         
-        # Переходим к следующему шагу - промокод
-        await ask_promo_code(message, user, state)
+        # Сообщение об успешной регистрации
+        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_keyboard)
+        
+        # Очищаем состояние и показываем главное меню
+        await state.clear()
+        await show_main_menu(message, user)
+        # Затем обычным текстом просим ввести промокод (без установки состояния)
+        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
     else:
         @sync_to_async
         def get_user_for_location():
@@ -403,6 +408,8 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     from django.conf import settings
     import os
     
+    logger.info(f"[ask_privacy_acceptance] Запрос политики для user_id={user.id}, language={user.language}")
+    
     # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
     def get_privacy_policy():
@@ -413,20 +420,29 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     def get_privacy_pdf():
         """Получает PDF файл политики конфиденциальности на языке пользователя."""
         policy = PrivacyPolicy.objects.filter(is_active=True).first()
+        logger.info(f"[get_privacy_pdf] Политика найдена: {policy is not None}")
         if policy:
-            if user.language == 'uz_latin' and policy.pdf_uz_latin:
+            logger.info(f"[get_privacy_pdf] pdf_uz_latin: {bool(policy.pdf_uz_latin)}, pdf_ru: {bool(policy.pdf_ru)}")
+            # Узбекский язык может быть 'uz' или 'uz_latin'
+            if user.language in ['uz', 'uz_latin'] and policy.pdf_uz_latin:
+                logger.info(f"[get_privacy_pdf] Возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
                 return policy.pdf_uz_latin
             elif user.language == 'ru' and policy.pdf_ru:
+                logger.info(f"[get_privacy_pdf] Возвращаем pdf_ru: {policy.pdf_ru.name}")
                 return policy.pdf_ru
             # Если для выбранного языка нет PDF, пробуем другой язык
-            elif user.language == 'uz_latin' and policy.pdf_ru:
+            elif user.language in ['uz', 'uz_latin'] and policy.pdf_ru:
+                logger.info(f"[get_privacy_pdf] Нет uz_latin, возвращаем pdf_ru: {policy.pdf_ru.name}")
                 return policy.pdf_ru
             elif user.language == 'ru' and policy.pdf_uz_latin:
+                logger.info(f"[get_privacy_pdf] Нет ru, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
                 return policy.pdf_uz_latin
+        logger.info(f"[get_privacy_pdf] PDF не найден")
         return None
     
     # Получаем PDF файл политики конфиденциальности
     pdf_file = await get_privacy_pdf()
+    logger.info(f"[ask_privacy_acceptance] PDF файл получен: {pdf_file is not None}")
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
@@ -443,9 +459,11 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     if pdf_file:
         # Получаем полный путь к файлу
         pdf_path = pdf_file.path if hasattr(pdf_file, 'path') else os.path.join(settings.MEDIA_ROOT, pdf_file.name)
+        logger.info(f"[ask_privacy_acceptance] Путь к PDF: {pdf_path}")
         
         # Проверяем существование файла
         if os.path.exists(pdf_path):
+            logger.info(f"[ask_privacy_acceptance] Файл существует, отправляем PDF")
             # Отправляем PDF как документ
             await message.answer_document(
                 types.FSInputFile(pdf_path),
@@ -454,10 +472,11 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
             )
         else:
             # Если файл не найден, отправляем сообщение об ошибке
+            logger.warning(f"[ask_privacy_acceptance] PDF файл не найден на диске: {pdf_path}")
             await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
-            logger.warning(f"PDF файл политики конфиденциальности не найден: {pdf_path}")
     else:
         # Если PDF файл не загружен, отправляем текстовое сообщение (fallback)
+        logger.warning(f"[ask_privacy_acceptance] PDF файл не загружен в базу данных для языка {user.language}")
         await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
     
     await state.set_state(RegistrationStates.waiting_for_privacy)
@@ -503,6 +522,26 @@ async def process_promo_code(message: Message, state: FSMContext):
         return TelegramUser.objects.get(telegram_id=message.from_user.id)
     
     user = await get_user()
+    
+    # Проверяем, не является ли это командой меню
+    all_menu_commands = [
+        TRANSLATIONS['uz_latin']['MY_BALANCE'],
+        TRANSLATIONS['ru']['MY_BALANCE'],
+        TRANSLATIONS['uz_latin']['GIFTS'],
+        TRANSLATIONS['ru']['GIFTS'],
+        TRANSLATIONS['uz_latin']['TOP_LEADERS'],
+        TRANSLATIONS['ru']['TOP_LEADERS'],
+        TRANSLATIONS['uz_latin']['LANGUAGE'],
+        TRANSLATIONS['ru']['LANGUAGE'],
+        TRANSLATIONS['uz_latin']['ENTER_PROMO_CODE'],
+        TRANSLATIONS['ru']['ENTER_PROMO_CODE'],
+    ]
+    
+    # Если это команда меню, выходим из состояния и обрабатываем как обычное сообщение
+    if message.text in all_menu_commands:
+        await state.clear()
+        await handle_message(message, state)
+        return
     
     # Проверяем, есть ли ожидающий QR-код из state (передан при /start)
     state_data = await state.get_data()
@@ -588,26 +627,98 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
     logger.info(f"[process_language_selection] Получен callback: {callback.data} от пользователя {callback.from_user.id}")
     
     try:
-        language = callback.data.split('_')[1]  # uz_latin или ru
+        language = callback.data.split('_', 1)[1]  # uz_latin или ru (берем всё после 'lang_')
         logger.info(f"[process_language_selection] Выбранный язык: {language}")
         
         @sync_to_async
-        def update_language():
+        def update_language_and_check_registration():
             user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
             logger.info(f"[process_language_selection] Текущий язык пользователя до обновления: {user.language}")
             user.language = language
             user.save(update_fields=['language'])
             logger.info(f"[process_language_selection] Язык пользователя обновлен на: {user.language}")
-            return user
+            # Проверяем, завершена ли регистрация
+            is_registered = (
+                user.language and
+                user.first_name and
+                user.user_type and
+                user.privacy_accepted and
+                user.phone_number and
+                user.latitude is not None and
+                user.longitude is not None
+            )
+            return user, is_registered
         
-        user = await update_language()
+        user, is_registered = await update_language_and_check_registration()
+        logger.info(f"[process_language_selection] Регистрация завершена: {is_registered}")
         
         await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
         await callback.message.delete()
-        logger.info(f"[process_language_selection] Сообщение с выбором языка удалено, переходим к ask_name")
         
-        # Переходим к следующему шагу - ввод имени
-        await ask_name(callback.message, user, state)
+        if is_registered:
+            # Пользователь уже зарегистрирован - показываем обновленное меню
+            logger.info(f"[process_language_selection] Пользователь зарегистрирован, показываем меню")
+            await state.clear()
+            
+            # Получаем баллы пользователя
+            @sync_to_async
+            def get_user_points():
+                user_obj = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+                return user_obj.points
+            
+            points = await get_user_points()
+            
+            # Создаем reply keyboard кнопки
+            keyboard_buttons = []
+            
+            # Определяем URL для Web App
+            web_app_url = get_web_app_url()
+            
+            # Добавляем кнопки меню
+            keyboard_buttons.extend([
+                [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
+                [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+                [types.KeyboardButton(text=get_text(user, 'ENTER_PROMO_CODE'))],
+                [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
+            ])
+            
+            keyboard = types.ReplyKeyboardMarkup(
+                keyboard=keyboard_buttons,
+                resize_keyboard=True
+            )
+            
+            # Создаем inline кнопку для Web App
+            inline_keyboard = None
+            if web_app_url:
+                try:
+                    web_app_button = types.InlineKeyboardButton(
+                        text=get_text(user, 'MY_GIFTS'),
+                        web_app=types.WebAppInfo(url=web_app_url)
+                    )
+                    inline_keyboard = types.InlineKeyboardMarkup(
+                        inline_keyboard=[[web_app_button]]
+                    )
+                except Exception as e:
+                    logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
+            
+            # Отправляем сообщение с обновленной клавиатурой
+            await bot.send_message(
+                chat_id=callback.from_user.id,
+                text=get_text(user, 'MAIN_MENU', points=format_number(points)),
+                reply_markup=keyboard
+            )
+            
+            # Отправляем отдельное сообщение с inline кнопкой для Web App
+            if inline_keyboard:
+                await bot.send_message(
+                    chat_id=callback.from_user.id,
+                    text=get_text(user, 'OPEN_WEB_APP'),
+                    reply_markup=inline_keyboard
+                )
+        else:
+            # Регистрация не завершена - продолжаем регистрацию
+            logger.info(f"[process_language_selection] Регистрация не завершена, переходим к ask_name")
+            await ask_name(callback.message, user, state)
     except Exception as e:
         logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
         await callback.answer("Произошла ошибка. Попробуйте еще раз.")
@@ -866,6 +977,7 @@ async def show_main_menu(message: Message, user: TelegramUser):
     keyboard_buttons.extend([
         [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
         [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+        [types.KeyboardButton(text=get_text(user, 'ENTER_PROMO_CODE'))],
         [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
     ])
     
@@ -938,6 +1050,11 @@ async def handle_message(message: Message, state: FSMContext = None):
         TRANSLATIONS['ru']['LANGUAGE'],
     ]
     
+    all_promo_code_texts = [
+        TRANSLATIONS['uz_latin']['ENTER_PROMO_CODE'],
+        TRANSLATIONS['ru']['ENTER_PROMO_CODE'],
+    ]
+    
     # Обрабатываем в зависимости от текста
     if message.text in all_balance_texts:
         await show_balance(message, user)
@@ -947,6 +1064,10 @@ async def handle_message(message: Message, state: FSMContext = None):
         await show_leaders(message)
     elif message.text in all_language_texts:
         await show_language_selection(message)
+    elif message.text in all_promo_code_texts:
+        # Отправляем просьбу ввести промокод
+        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+        await state.set_state(RegistrationStates.waiting_for_promo_code)
     else:
         # Если это не команда меню, пытаемся обработать как QR-код
         # Пользователь может ввести QR-код вручную
@@ -1117,84 +1238,7 @@ async def show_language_selection(message: Message):
     await message.answer(get_text(user, 'SELECT_LANGUAGE'), reply_markup=keyboard)
 
 
-@dp.callback_query(lambda c: c.data.startswith('lang_'))
-async def change_language(callback: CallbackQuery):
-    """Обрабатывает смену языка."""
-    language_code = callback.data.split('_', 1)[1]  # uz_latin, ru
-    
-    @sync_to_async
-    def update_language():
-        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        user.language = language_code
-        user.save(update_fields=['language'])
-        return user
-    
-    user = await update_language()
-    
-    # Показываем уведомление о смене языка
-    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'), show_alert=True)
-    
-    # Удаляем сообщение с выбором языка
-    try:
-        await callback.message.delete()
-    except Exception as e:
-        logger.warning(f"Не удалось удалить сообщение: {e}")
-    
-    # Отправляем новое сообщение с обновленной клавиатурой через бота напрямую
-    # Это гарантирует обновление ReplyKeyboard с новыми текстами кнопок
-    @sync_to_async
-    def get_user_points():
-        user_obj = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        return user_obj.points
-    
-    points = await get_user_points()
-    
-    # Создаем reply keyboard кнопки
-    keyboard_buttons = []
-    
-    # Определяем URL для Web App
-    web_app_url = get_web_app_url()
-    
-    # Добавляем остальные кнопки (без Web App кнопки в reply keyboard)
-    keyboard_buttons.extend([
-        [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
-        [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
-        [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
-    ])
-    
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=keyboard_buttons,
-        resize_keyboard=True
-    )
-    
-    # Создаем inline кнопку для Web App
-    inline_keyboard = None
-    if web_app_url:
-        try:
-            web_app_button = types.InlineKeyboardButton(
-                text=get_text(user, 'MY_GIFTS'),
-                web_app=types.WebAppInfo(url=web_app_url)
-            )
-            inline_keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[[web_app_button]]
-            )
-        except Exception as e:
-            logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
-    
-    # Отправляем сообщение через бота напрямую, чтобы обновить клавиатуру
-    await bot.send_message(
-        chat_id=callback.from_user.id,
-        text=get_text(user, 'MAIN_MENU', points=points),
-        reply_markup=keyboard
-    )
-    
-    # Отправляем отдельное сообщение с inline кнопкой для Web App
-    if inline_keyboard:
-        await bot.send_message(
-            chat_id=callback.from_user.id,
-            text=get_text(user, 'OPEN_WEB_APP'),
-            reply_markup=inline_keyboard
-        )
+# Этот обработчик удален - теперь смена языка обрабатывается в process_language_selection выше
 
 
 async def handle_unknown_message(message: Message):

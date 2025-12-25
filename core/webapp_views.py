@@ -218,9 +218,9 @@ def confirm_delivery(request):
             update_fields.extend(['confirmed_at', 'status'])
         else:
             # Пользователь указал, что подарок не получил
-            redemption.confirmed_at = None
-            # Статусы оставляем как есть, но сохраняем изменение комментария
-            update_fields.append('confirmed_at')
+            redemption.confirmed_at = timezone.now()
+            redemption.status = 'not_received'
+            update_fields.extend(['confirmed_at', 'status'])
 
         redemption.save(update_fields=update_fields)
         

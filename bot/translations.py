@@ -49,6 +49,7 @@ TRANSLATIONS = {
         'MY_BALANCE': "📊 Mening balansim",
         'TOP_LEADERS': "🏆 TOP yetakchilar",
         'LANGUAGE': "🌐 Til",
+        'ENTER_PROMO_CODE': "🎟 Promokod kiritish",
         
         # Баланс
         'BALANCE_INFO': "💰 Sizning balansingiz: {points} ball",
@@ -115,8 +116,9 @@ TRANSLATIONS = {
         'WEBAPP_STATUS_PENDING': "Kutish jarayonida",
         'WEBAPP_STATUS_APPROVED': "Mahsulot tayyorlash bosqichida",
         'WEBAPP_STATUS_SENT': "Mahsulot yetkazib berish xizmatiga topshirildi",
-        'WEBAPP_STATUS_REJECTED': "So’rov bekor qilindi (administrator bilan bog’lanamiz)",
+        'WEBAPP_STATUS_REJECTED': "So'rov bekor qilindi (administrator bilan bog'lanamiz)",
         'WEBAPP_STATUS_COMPLETED': "Mahsulotni qabul qilganingizni tasdiqlang",
+        'WEBAPP_STATUS_NOT_RECEIVED': "Sovg'a berilmagan",
         'WEBAPP_DELIVERY_PENDING': "Yuborish kutilmoqda",
         'WEBAPP_DELIVERY_SENT': "Yuborildi",
         'WEBAPP_DELIVERY_DELIVERED': "Yetkazildi",
@@ -203,6 +205,7 @@ TRANSLATIONS = {
         'MY_BALANCE': "📊 Мой баланс",
         'TOP_LEADERS': "🏆 ТОП лидеры",
         'LANGUAGE': "🌐 Язык",
+        'ENTER_PROMO_CODE': "🎟 Ввести промокод",
         
         # Баланс
         'BALANCE_INFO': "💰 Ваш текущий баланс: {points} баллов",
@@ -271,6 +274,7 @@ TRANSLATIONS = {
         'WEBAPP_STATUS_SENT': "Продукт передан в службу доставки",
         'WEBAPP_STATUS_REJECTED': "Запрос отменен (свяжитесь с администратором)",
         'WEBAPP_STATUS_COMPLETED': "Подтверждение получения продукта",
+        'WEBAPP_STATUS_NOT_RECEIVED': "Подарок не выдан",
         'WEBAPP_DELIVERY_PENDING': "Ожидает отправки",
         'WEBAPP_DELIVERY_SENT': "Отправлено",
         'WEBAPP_DELIVERY_DELIVERED': "Доставлено",

@@ -710,11 +710,11 @@ class GiftAdmin(admin.ModelAdmin):
 class GiftRedemptionAdmin(admin.ModelAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
-        'redemption_display', 'status_badge', 
+        'redemption_display', 'telegram_id_display', 'phone_number_display', 'status_badge', 
         'user_confirmed_badge', 'requested_at', 'processed_at'
     ]
     list_filter = ['status', 'user_confirmed', 'requested_at']
-    search_fields = ['user__username', 'user__first_name', 'gift__name']
+    search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name']
     readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
     list_per_page = 50
     date_hierarchy = 'requested_at'
@@ -730,6 +730,26 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
         )
     redemption_display.short_description = 'Заказ'
     redemption_display.admin_order_field = 'gift__name'
+    
+    def telegram_id_display(self, obj):
+        """Отображает Telegram ID пользователя."""
+        return format_html(
+            '<span style="font-family: monospace; color: #3b82f6; font-weight: 600;">{}</span>',
+            obj.user.telegram_id
+        )
+    telegram_id_display.short_description = 'Telegram ID'
+    telegram_id_display.admin_order_field = 'user__telegram_id'
+    
+    def phone_number_display(self, obj):
+        """Отображает номер телефона пользователя."""
+        if obj.user.phone_number:
+            return format_html(
+                '<span style="font-family: monospace; color: #10b981; font-weight: 600;">📞 {}</span>',
+                obj.user.phone_number
+            )
+        return format_html('<span style="color: #9ca3af;">-</span>')
+    phone_number_display.short_description = 'Телефон'
+    phone_number_display.admin_order_field = 'user__phone_number'
     
     def status_badge(self, obj):
         """Отображает статус заказа."""
@@ -752,12 +772,17 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
     
     def user_confirmed_badge(self, obj):
         """Отображает подтверждение пользователем."""
-        if obj.user_confirmed is True:
+        if obj.status == 'not_received':
+            return format_html(
+                '<span style="background: #fee2e2; color: #dc2626; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">❌ Подарок не выдан</span>'
+            )
+        elif obj.user_confirmed is True:
             return format_html(
                 '<span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; '
                 'font-size: 12px; font-weight: 600;">✅ Подтверждено</span>'
             )
-        elif obj.user_confirmed is False:
+        elif obj.user_confirmed is False and obj.status != 'not_received':
             return format_html(
                 '<span style="background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 12px; '
                 'font-size: 12px; font-weight: 600;">⚠️ Не подтверждено</span>'

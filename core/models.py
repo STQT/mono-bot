@@ -332,6 +332,7 @@ class GiftRedemption(models.Model):
         ('sent', 'Mahsulot yetkazib berish xizmatiga topshirildi'),  # Продукт передан в службу доставки
         ('completed', 'Mahsulotni qabul qilganingizni tasdiqlang'),  # Подтверждение получения продукта
         ('rejected', 'So\'rov bekor qilindi (administrator bilan bog\'laning)'),  # Запрос отменен
+        ('not_received', 'Sovg\'a berilmagan (foydalanuvchi olmadi)'),  # Подарок не выдан (пользователь не получил)
     ]
     
     user = models.ForeignKey(

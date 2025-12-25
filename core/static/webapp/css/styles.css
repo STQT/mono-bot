@@ -899,7 +899,11 @@ body {
 }
 
 .order-status.rejected {
-    color: #EAB208;
+    color: #E53E3E;
+}
+
+.order-status.not_received {
+    color: #DC2626;
 }
 
 .order-status.sent {
@@ -1069,6 +1073,7 @@ body {
     font-size: 0.8125rem; /* 13px */
     width: auto;
     min-width: auto;
+    margin-top: 5px;
 }
 
 .comment-input {
@@ -1336,8 +1341,13 @@ body {
 }
 
 .gift-status.rejected {
-    background: #FFF8E1;
-    color: #EAB208;
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.gift-status.not_received {
+    background: #FEE2E2;
+    color: #DC2626;
 }
 
 .gift-status.sent {
@@ -1622,8 +1632,13 @@ body {
 }
 
 .gift-status-badge.rejected {
-    background: #FFF8E1;
-    color: #EAB208;
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.gift-status-badge.not_received {
+    background: #FEE2E2;
+    color: #DC2626;
 }
 
 .gift-status-badge.sent {
@@ -1886,7 +1901,7 @@ body {
 
 .profile-gift-card {
     background: white;
-    border-radius: 16px;
+    border-radius: 20x;
     padding: 16px;
     display: flex;
     align-items: center;
@@ -1926,7 +1941,11 @@ body {
 }
 
 .profile-gift-status.rejected {
-    color: #EAB208;
+    color: #DC2626;
+}
+
+.profile-gift-status.not_received {
+    color: #DC2626;
 }
 
 .profile-gift-status.completed {
@@ -2578,6 +2597,11 @@ body {
 .redemption-status-btn.rejected {
     background: #F8D7DA;
     color: #721C24;
+}
+
+.redemption-status-btn.not_received {
+    background: #FEE2E2;
+    color: #DC2626;
 }
 
 .status-icon {

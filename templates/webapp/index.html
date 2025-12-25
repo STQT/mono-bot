@@ -583,6 +583,7 @@
             'WEBAPP_STATUS_SENT': '{% trans "WEBAPP_STATUS_SENT" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
             'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
+            'WEBAPP_STATUS_NOT_RECEIVED': '{% trans "WEBAPP_STATUS_NOT_RECEIVED" %}',
             'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
             'WEBAPP_REGISTER': '{% trans "WEBAPP_REGISTER" %}',
             'WEBAPP_PARTNER_TEXT': '{% trans "WEBAPP_PARTNER_TEXT" %}',
@@ -646,7 +647,8 @@
                 'approved': '✅',
                 'sent': '📦',
                 'rejected': '❌',
-                'completed': '✔️'
+                'completed': '✔️',
+                'not_received': '🚫'
             };
             return icons[status] || icons['pending'];
         }
@@ -885,14 +887,15 @@
                     const ordersList = document.getElementById('ordersList');
                     
                     if (redemptions && redemptions.length > 0) {
-                        // Сортируем заказы: сначала активные (pending, approved, sent), потом completed, потом rejected
+                        // Сортируем заказы: сначала активные (pending, approved, sent), потом completed, потом rejected, потом not_received
                         const sortedRedemptions = redemptions.sort((a, b) => {
                             const statusOrder = {
                                 'pending': 1,
                                 'approved': 2,
                                 'sent': 3,
                                 'completed': 4,
-                                'rejected': 5
+                                'rejected': 5,
+                                'not_received': 6
                             };
                             const orderA = statusOrder[a.status] || 999;
                             const orderB = statusOrder[b.status] || 999;
@@ -917,6 +920,9 @@
                             } else if (redemption.status === 'rejected') {
                                 statusText = t('WEBAPP_STATUS_REJECTED');
                                 statusClass = 'rejected';
+                            } else if (redemption.status === 'not_received') {
+                                statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
+                                statusClass = 'not_received';
                             } else if (redemption.status === 'completed') {
                                 statusText = t('WEBAPP_STATUS_COMPLETED');
                                 statusClass = 'completed';
@@ -1493,6 +1499,10 @@
                     statusText = t('WEBAPP_STATUS_REJECTED');
                     statusClass = 'rejected';
                     statusIcon = getStatusIcon('rejected');
+                } else if (redemption.status === 'not_received') {
+                    statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
+                    statusClass = 'not_received';
+                    statusIcon = getStatusIcon('not_received');
                 } else if (redemption.status === 'completed') {
                     statusText = t('WEBAPP_STATUS_COMPLETED');
                     statusClass = 'completed';
@@ -1652,6 +1662,9 @@
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
+                    } else if (redemption.status === 'not_received') {
+                        statusClass = 'not_received';
+                        statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
                     } else if (redemption.status === 'completed') {
                         statusClass = 'completed';
                         statusText = t('WEBAPP_STATUS_COMPLETED');
