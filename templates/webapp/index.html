@@ -1077,7 +1077,7 @@
                     } else {
                         // Уменьшаем визуальную ширину прогресс-бара (60% от фактического процента)
                         // Но минимум 15% для отображения текста
-                        const visualProgress = Math.max(displayProgress * 0.80git, 15);
+                        const visualProgress = Math.max(displayProgress * 0.80, 15);
                         statusHtml = `<div class="gift-progress-wrapper">
                             <div class="gift-progress-bar-bg"></div>
                             <div class="gift-progress-badge" style="width: ${visualProgress}%;">${Math.round(displayProgress)}%</div>
