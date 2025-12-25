@@ -294,34 +294,131 @@
             <h2 class="screen-title">{% trans "WEBAPP_PROFILE" %}</h2>
         </div>
         <div class="profile-container">
-            <div class="profile-menu">
-                <div class="menu-item" onclick="showLanguageModal()">
-                    <span class="menu-icon">🌐</span>
-                    <span class="menu-text">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</span>
-                    <span class="menu-value" id="currentLanguage">O'zbekcha</span>
-                    <span class="menu-arrow">›</span>
+            <!-- Карточка пользователя -->
+            <div class="redemption-user-card profile-user-card">
+                <div class="redemption-user-avatar">
+                    <div class="redemption-avatar-icon" id="profileUserAvatar">👤</div>
                 </div>
-                <div class="menu-item" onclick="showScreen('profileGifts')">
-                    <span class="menu-icon">🎁</span>
-                    <span class="menu-text">{% trans "WEBAPP_GIFTS" %}</span>
-                    <span class="menu-arrow">›</span>
+                <div class="redemption-user-info">
+                    <div class="redemption-user-name">
+                        <span id="profileUserName">{% trans "USER" %}</span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_110_61_profile)">
+                                <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_110_61_profile">
+                                    <rect width="16" height="16" fill="white"/>
+                                </clipPath>
+                            </defs>
+                        </svg>                                
+                    </div>
+                    <div class="redemption-user-id" id="profileUserId">ID: -</div>
                 </div>
-                <div class="menu-item" onclick="showScreen('qrHistory')">
-                    <span class="menu-icon">🕐</span>
-                    <span class="menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
-                    <span class="menu-arrow">›</span>
-                </div>
-                <div class="menu-item" onclick="showPrivacy()">
-                    <span class="menu-icon">🔒</span>
-                    <span class="menu-text">{% trans "WEBAPP_PRIVACY_POLICY" %}</span>
-                    <span class="menu-arrow">›</span>
+                <div class="points-badge">
+                    <div class="points-value" id="profilePoints">0</div>
+                    <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
                 </div>
             </div>
+            
+            <button class="profile-menu-button" onclick="showLanguageModal()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4049)">
+                        <path d="M4.1665 5.83332H9.99984M8.33317 4.16666V5.83332C8.33317 7.60143 7.89418 9.29713 7.11278 10.5474C6.33138 11.7976 5.27157 12.5 4.1665 12.5M4.99984 9.16666C4.99845 10.0265 5.5786 10.8534 6.61906 11.4746C7.65953 12.0957 9.07981 12.4631 10.5832 12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M9.1665 15.8333L12.4998 8.33334L15.8332 15.8333M15.0832 14.1667H9.9165" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4049">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</span>
+                <span class="profile-menu-value" id="currentLanguage">O'zbekcha</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_lang)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_lang">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+            </button>
+            
+            <button class="profile-menu-button" onclick="showScreen('profileGifts')">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4053)">
+                        <path d="M16.6667 6.66666H3.33333C2.8731 6.66666 2.5 7.03975 2.5 7.49999V9.16666C2.5 9.62689 2.8731 9.99999 3.33333 9.99999H16.6667C17.1269 9.99999 17.5 9.62689 17.5 9.16666V7.49999C17.5 7.03975 17.1269 6.66666 16.6667 6.66666Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 6.66666V17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M15.8332 10V15.8333C15.8332 16.2754 15.6576 16.6993 15.345 17.0118C15.0325 17.3244 14.6085 17.5 14.1665 17.5H5.83317C5.39114 17.5 4.96722 17.3244 4.65466 17.0118C4.3421 16.6993 4.1665 16.2754 4.1665 15.8333V10" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6.24984 6.66667C5.6973 6.66667 5.1674 6.44717 4.7767 6.05647C4.386 5.66577 4.1665 5.13587 4.1665 4.58333C4.1665 4.0308 4.386 3.50089 4.7767 3.11019C5.1674 2.71949 5.6973 2.5 6.24984 2.5C7.05374 2.48599 7.84153 2.87605 8.51045 3.6193C9.17938 4.36255 9.6984 5.4245 9.99984 6.66667C10.3013 5.4245 10.8203 4.36255 11.4892 3.6193C12.1581 2.87605 12.9459 2.48599 13.7498 2.5C14.3024 2.5 14.8323 2.71949 15.223 3.11019C15.6137 3.50089 15.8332 4.0308 15.8332 4.58333C15.8332 5.13587 15.6137 5.66577 15.223 6.05647C14.8323 6.44717 14.3024 6.66667 13.7498 6.66667" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4053">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_GIFTS" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_gifts)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_gifts">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+            </button>
+            
+            <button class="profile-menu-button" onclick="showScreen('qrHistory')">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4057)">
+                        <path d="M10 17.5C14.1421 17.5 17.5 14.1421 17.5 10C17.5 5.85786 14.1421 2.5 10 2.5C5.85786 2.5 2.5 5.85786 2.5 10C2.5 14.1421 5.85786 17.5 10 17.5Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 5.83331V9.99998L12.5 12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4057">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_qr)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_qr">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                
+            </button>
             <button class="contact-admin-btn" onclick="contactAdmin()">
-                <span class="contact-icon">🎧</span>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4073)">
+                    <path d="M5.8335 10.8333H5.00016C4.07969 10.8333 3.3335 11.5795 3.3335 12.5V15C3.3335 15.9205 4.07969 16.6666 5.00016 16.6666H5.8335C6.75397 16.6666 7.50016 15.9205 7.50016 15V12.5C7.50016 11.5795 6.75397 10.8333 5.8335 10.8333Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M15 10.8333H14.1667C13.2462 10.8333 12.5 11.5795 12.5 12.5V15C12.5 15.9205 13.2462 16.6666 14.1667 16.6666H15C15.9205 16.6666 16.6667 15.9205 16.6667 15V12.5C16.6667 11.5795 15.9205 10.8333 15 10.8333Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.3335 12.5V9.99998C3.3335 8.23187 4.03588 6.53618 5.28612 5.28593C6.53636 4.03569 8.23205 3.33331 10.0002 3.33331C11.7683 3.33331 13.464 4.03569 14.7142 5.28593C15.9645 6.53618 16.6668 8.23187 16.6668 9.99998V12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_11_4073">
+                    <rect width="20" height="20" fill="white"/>
+                    </clipPath>
+                    </defs>
+                </svg>       
                 <span>{% trans "WEBAPP_CONTACT_ADMIN" %}</span>
             </button>
+            
         </div>
+        
+        
     </div>
 
     <!-- ЭКРАН: Подарки в профиле -->
@@ -685,6 +782,13 @@
                 
                 if (currentUser.language) {
                     await loadTranslations(currentUser.language);
+                    // Обновляем отображение текущего языка в профиле
+                    const currentLanguageElement = document.getElementById('currentLanguage');
+                    if (currentLanguageElement) {
+                        currentLanguageElement.textContent = getLanguageName(currentUser.language);
+                    }
+                    // Обновляем галочки в модальном окне выбора языка
+                    updateLanguageChecks();
                 }
                 
                 await loadPromotions();
@@ -1733,6 +1837,29 @@
         // Обновляем функции для работы с экранами
         function showProfile() {
             showScreen('profile');
+            // Обновляем данные пользователя в карточке профиля
+            if (currentUser) {
+                const profileUserName = document.getElementById('profileUserName');
+                const profileUserId = document.getElementById('profileUserId');
+                const profilePoints = document.getElementById('profilePoints');
+                
+                if (profileUserName) profileUserName.textContent = currentUser.first_name || t('USER');
+                if (profileUserId) profileUserId.textContent = `ID: ${currentUser.telegram_id}`;
+                if (profilePoints) profilePoints.textContent = formatNumber(currentUser.points);
+                
+                // Копируем аватар из главной страницы
+                const mainAvatar = document.getElementById('userAvatar');
+                const profileAvatar = document.getElementById('profileUserAvatar');
+                if (mainAvatar && profileAvatar) {
+                    profileAvatar.style.backgroundImage = mainAvatar.style.backgroundImage;
+                    profileAvatar.style.backgroundSize = 'cover';
+                    profileAvatar.style.backgroundPosition = 'center';
+                    if (mainAvatar.style.backgroundImage) {
+                        profileAvatar.textContent = '';
+                        profileAvatar.style.color = 'transparent';
+                    }
+                }
+            }
         }
 
         function showQRHistory() {
@@ -2250,7 +2377,19 @@
                 }
             });
             
-            // Обновляем тексты в меню профиля
+            // Обновляем тексты в меню профиля (новые кнопки)
+            const profileMenuTexts = document.querySelectorAll('.profile-menu-text');
+            profileMenuTexts.forEach((textElement, index) => {
+                if (index === 0) {
+                    textElement.textContent = t('WEBAPP_INTERFACE_LANGUAGE');
+                } else if (index === 1) {
+                    textElement.textContent = t('WEBAPP_GIFTS');
+                } else if (index === 2) {
+                    textElement.textContent = t('WEBAPP_QR_HISTORY');
+                }
+            });
+            
+            // Обновляем тексты в меню профиля (старые элементы, если есть)
             const menuItems = document.querySelectorAll('.menu-item .menu-text');
             menuItems.forEach((item, index) => {
                 const menuItem = item.closest('.menu-item');

@@ -938,15 +938,18 @@ body {
     border: none;
     border-radius: 0.75rem; /* 12px */
     padding: 0.875rem; /* 14px */
-    color: #667eea;
-    font-size: 0.875rem; /* 14px */
+    color: #2064AE;
+    font-size: 14px; /* 14px */
     font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem; /* 8px */
-    margin-bottom: 0.5rem; /* 8px */
+    margin-top: auto;
+    margin-bottom: 10px;
+    height: 56px;
+    order: 5;
 }
 
 .contact-admin-btn:active {
@@ -961,7 +964,6 @@ body {
 .privacy-link {
     text-align: center;
     width: 100%;
-    margin-top: auto;
     padding-top: 1.25rem; /* 20px */
 }
 
@@ -1708,8 +1710,20 @@ body {
 .profile-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px;
+    gap: 0;
+    padding: 1rem;
+    min-height: calc(100vh - 80px);
+}
+
+/* Карточка пользователя в профиле */
+.profile-user-card {
+    cursor: default !important;
+    pointer-events: none;
+    margin-bottom: 12px;
+}
+
+.profile-points-badge {
+    margin-bottom: 16px;
 }
 
 .profile-menu {
@@ -1752,6 +1766,56 @@ body {
 .menu-arrow {
     font-size: 20px;
     color: #999999;
+}
+
+/* Новые стили для отдельных кнопок профиля */
+.profile-menu-button {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 12px;
+    width: 100%;
+    background: #FFFFFF;
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    margin-bottom: 12px;
+    transition: opacity 0.2s;
+    order: 1;
+}
+
+.profile-menu-button:active {
+    opacity: 0.7;
+}
+
+.profile-menu-button svg {
+    flex-shrink: 0;
+}
+
+.profile-menu-text {
+    flex: 1;
+    font-family: 'Funnel Sans', sans-serif;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 155%;
+    color: #1C1C1E;
+    text-align: left;
+}
+
+.profile-menu-value {
+    font-family: 'Funnel Sans', sans-serif;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 155%;
+    color: #2064AE;
+    margin-right: 8px;
+}
+
+.profile-menu-arrow {
+    font-size: 24px;
+    color: #C7C7CC;
 }
 
 /* Модалка выбора языка */
@@ -2324,7 +2388,7 @@ body {
     align-items: center;
     gap: 0.75rem;
     background: #FFFFFF;
-    border-radius: 1rem;
+    border-radius: 24px;
     padding: 0.75rem;
     box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
 }
