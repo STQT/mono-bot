@@ -968,13 +968,14 @@ body {
 .privacy-link {
     text-align: center;
     width: 100%;
-    padding-top: 1.25rem; /* 20px */
 }
 
 .privacy-link a {
     color: #999999;
-    font-size: 0.75rem; /* 12px */
-    text-decoration: none;
+    font-size: 14px; /* 12px */
+    text-decoration: underline;
+    padding: 20px;
+
 }
 
 .privacy-link a:active {
