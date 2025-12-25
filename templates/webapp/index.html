@@ -251,6 +251,17 @@
         </div>
     </div>
 
+    <!-- ЭКРАН: Детальная страница запрошенного товара (ожидание) -->
+    <div class="screen" id="redemptionDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('home')">‹</button>
+            <h2 class="screen-title" id="redemptionDetailTitle">{% trans "WEBAPP_GIFT_NAME" %}</h2>
+        </div>
+        <div class="redemption-detail-container" id="redemptionDetailContainer">
+            <!-- Контент будет загружен динамически -->
+        </div>
+    </div>
+
     <!-- ЭКРАН: Успешное получение подарка -->
     <div class="screen" id="successScreen" style="display: none;">
         <div class="success-container">
@@ -337,7 +348,7 @@
     <!-- ЭКРАН: Политика конфиденциальности -->
     <div class="screen" id="privacyScreen" style="display: none;">
         <div class="screen-header">
-            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <button class="back-btn" onclick="showScreen(getPreviousScreen())">‹</button>
             <h2 class="screen-title">{% trans "WEBAPP_PRIVACY_POLICY" %}</h2>
         </div>
         <div class="privacy-container" id="privacyContainer">
@@ -482,11 +493,27 @@
             return text;
         }
 
+        // Функция получения SVG-иконки статуса
+        function getStatusIcon(status) {
+            const icons = {
+                'pending': `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+                'approved': '✅',
+                'sent': '📦',
+                'rejected': '❌',
+                'completed': '✔️'
+            };
+            return icons[status] || icons['pending'];
+        }
+
         let currentUser = null;
         let currentRedemptionId = null;
         let promotions = [];
         let currentBannerIndex = 0;
         let currentDotColor = '#2064AE'; // Цвет по умолчанию для активной точки
+        let previousScreen = null; // Сохраняем предыдущий экран для возврата из политики конфиденциальности
         const API_BASE = '/api/webapp';
 
         // Функция для получения доминирующего цвета изображения
@@ -757,7 +784,7 @@
                             
                             const orderCard = document.createElement('div');
                             orderCard.className = 'order-card';
-                            orderCard.onclick = () => showProfileGifts();
+                            orderCard.onclick = () => showRedemptionDetail(redemption.id);
                             
                             let imageUrl = '/static/images/gift-box.png';
                             if (redemption.gift && redemption.gift.image) {
@@ -1121,6 +1148,133 @@
             }
         }
 
+        async function showRedemptionDetail(redemptionId) {
+            showScreen('redemptionDetail');
+            const container = document.getElementById('redemptionDetailContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                if (!currentUser || !currentUser.telegram_id) {
+                    throw new Error('User not loaded');
+                }
+                
+                // Загружаем данные о redemption
+                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load redemption');
+                }
+                
+                const redemptions = await response.json();
+                const redemption = redemptions.find(r => r.id === redemptionId);
+                
+                if (!redemption) {
+                    throw new Error('Redemption not found');
+                }
+                
+                // Устанавливаем заголовок
+                document.getElementById('redemptionDetailTitle').textContent = redemption.gift ? redemption.gift.name : t('WEBAPP_GIFT_NAME');
+                
+                // Определяем текст статуса и иконку
+                let statusText = t('WEBAPP_STATUS_PENDING');
+                let statusClass = 'waiting';
+                let statusIcon = getStatusIcon('pending');
+                if (redemption.status === 'approved') {
+                    statusText = t('WEBAPP_STATUS_APPROVED');
+                    statusClass = 'approved';
+                    statusIcon = getStatusIcon('approved');
+                } else if (redemption.status === 'sent') {
+                    statusText = t('WEBAPP_STATUS_SENT');
+                    statusClass = 'sent';
+                    statusIcon = getStatusIcon('sent');
+                } else if (redemption.status === 'rejected') {
+                    statusText = t('WEBAPP_STATUS_REJECTED');
+                    statusClass = 'rejected';
+                    statusIcon = getStatusIcon('rejected');
+                } else if (redemption.status === 'completed') {
+                    statusText = t('WEBAPP_STATUS_COMPLETED');
+                    statusClass = 'completed';
+                    statusIcon = getStatusIcon('completed');
+                }
+                
+                // Обрабатываем URL изображения
+                let imageUrl = '/static/images/gift-box.png';
+                if (redemption.gift && redemption.gift.image) {
+                    if (redemption.gift.image.startsWith('http://') || redemption.gift.image.startsWith('https://')) {
+                        imageUrl = redemption.gift.image;
+                    } else if (redemption.gift.image.startsWith('/')) {
+                        imageUrl = redemption.gift.image;
+                    } else {
+                        imageUrl = '/' + redemption.gift.image;
+                    }
+                }
+                
+                // Форматируем стоимость подарка
+                const giftPoints = redemption.gift ? redemption.gift.points_cost : 0;
+                
+                // HTML для страницы ожидания товара (дизайн по второму рисунку)
+                container.innerHTML = `
+                    <div class="redemption-detail-content">
+                        <!-- Карточка пользователя -->
+                        <div class="redemption-user-card" onclick="showProfile()" style="cursor: pointer;">
+                            <div class="redemption-user-avatar">
+                                <div class="redemption-avatar-icon">👤</div>
+                            </div>
+                            <div class="redemption-user-info">
+                                <div class="redemption-user-name">
+                                    ${currentUser.first_name || t('USER')}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <g clip-path="url(#clip0_110_61)">
+                                        <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </g>
+                                        <defs>
+                                        <clipPath id="clip0_110_61">
+                                        <rect width="16" height="16" fill="white"/>
+                                        </clipPath>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                <div class="redemption-user-id">ID: ${currentUser.telegram_id}</div>
+                            </div>
+                            <div class="points-badge" onclick="event.stopPropagation();">
+                                <div class="points-value">${formatNumber(currentUser.points || 0)}</div>
+                                <div class="points-label">${t('WEBAPP_TOTAL_POINTS')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопки статуса и связи -->
+                        <div class="redemption-actions">
+                            <button class="redemption-status-btn ${statusClass}">
+                                <span class="status-icon">${statusIcon}</span>
+                                ${statusText}
+                            </button>
+                            <button class="redemption-contact-btn" onclick="contactAdmin()">
+                                <span class="contact-icon">🎧</span>
+                                ${t('WEBAPP_CONTACT_ADMIN')}
+                            </button>
+                        </div>
+                        
+                        <!-- Карточка подарка -->
+                        <div class="redemption-gift-card">
+                            <div class="redemption-gift-image-wrapper">
+                                <img src="${imageUrl}" alt="${redemption.gift ? redemption.gift.name : ''}" class="redemption-gift-img" onerror="this.onerror=null; this.src='/static/images/gift-box.png';">
+                            </div>
+                            <div class="redemption-gift-name">${redemption.gift ? redemption.gift.name : t('WEBAPP_GIFT_NAME')}</div>
+                            <div class="redemption-gift-points">${formatNumber(giftPoints)} ${t('WEBAPP_BALL')}</div>
+                        </div>
+                        
+                        <!-- Политика конфиденциальности -->
+                        <div class="redemption-privacy-link">
+                            <a href="#" onclick="showPrivacy(); return false;">{% trans "WEBAPP_PRIVACY_POLICY" %}</a>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading redemption detail:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_ORDERS')) + '</div>';
+            }
+        }
+
         async function requestGift(giftId) {
             if (!confirm(t('WEBAPP_CONFIRM_REQUEST'))) return;
             
@@ -1420,8 +1574,38 @@
         }
 
         async function showPrivacy() {
+            // Определяем текущий экран перед открытием политики
+            const screens = [
+                'redemptionDetail', 'profileGifts', 'qrHistory', 'giftDetail', 
+                'giftsList', 'profile', 'promotionDetail', 'home'
+            ];
+            
+            // Проверяем все экраны
+            for (const screen of screens) {
+                const screenElement = document.getElementById(`${screen}Screen`);
+                if (screenElement && screenElement.style.display !== 'none') {
+                    previousScreen = screen;
+                    break;
+                }
+            }
+            
+            // Если ни один экран не найден, проверяем main-container
+            if (!previousScreen && document.querySelector('.main-container').style.display !== 'none') {
+                previousScreen = 'home';
+            }
+            
+            // Если все еще не определено, используем 'profile' по умолчанию
+            if (!previousScreen) {
+                previousScreen = 'profile';
+            }
+            
             showScreen('privacy');
             // loadPrivacyPolicy() вызывается автоматически в showScreen()
+        }
+        
+        function getPreviousScreen() {
+            // Возвращаем сохраненный экран или 'profile' по умолчанию
+            return previousScreen || 'profile';
         }
 
         async function loadPrivacyPolicy() {

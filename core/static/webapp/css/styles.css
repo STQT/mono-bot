@@ -1141,8 +1141,8 @@ body {
 }
 
 .back-btn {
-    width: 2rem; /* 32px */
-    height: 2rem; /* 32px */
+    width: 40px; /* 32px */
+    height: 40px; /* 32px */
     border-radius: 50%;
     background: white;
     border: none;
@@ -2072,5 +2072,280 @@ body {
     animation: skeleton-loading 1.5s ease-in-out infinite;
     border-radius: 1rem;
     margin-top: auto;
+}
+
+/* Стили для экрана деталей запрошенного товара (ожидание) */
+.redemption-detail-container {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 25.125rem;
+    margin: 0 auto;
+    background: #F1F2F4;
+    min-height: calc(100vh - 4rem);
+}
+
+.redemption-detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Карточка пользователя */
+.redemption-user-card {
+    order: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #FFFFFF;
+    border-radius: 1rem;
+    padding: 0.75rem;
+    box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
+}
+
+.redemption-user-avatar {
+    flex-shrink: 0;
+}
+
+.redemption-avatar-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    color: #9CA3AF;
+}
+
+.redemption-user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.redemption-user-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    color: #000000;
+}
+
+.redemption-user-id {
+    font-size: 0.875rem;
+    color: #447DBB;
+}
+
+.redemption-user-points {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    background: #FFD700;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    min-width: 5rem;
+}
+
+.redemption-points-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #000000;
+    line-height: 1.2;
+}
+
+.redemption-points-label {
+    font-size: 0.75rem;
+    color: #000000;
+    opacity: 0.8;
+}
+
+/* Карточка подарка */
+.redemption-gift-card {
+    /* Auto layout */
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 8px;
+    gap: 8px;
+    
+    /* max-width: 362px;
+    height: 436px; */
+    
+    /* Color/Neutral/White */
+    background: #FFFFFF;
+    border-radius: 24px;
+    
+    /* Inside auto layout */
+    flex: none;
+    order: 2;
+    align-self: stretch;
+    flex-grow: 0;
+}
+
+.redemption-gift-image-wrapper {
+    width: 100%;
+    height: auto;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: 0;
+    background-color: #F1F2F4;
+    border-radius: 16px;
+}
+
+.redemption-gift-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    border-radius: 16px;
+}
+
+.redemption-gift-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2064AE;
+    text-align: center;
+    width: 100%;
+}
+
+.redemption-gift-points {
+    font-size: 14px;
+    color: #718096;
+    text-align: center;
+    width: 100%;
+}
+
+/* Кнопки действий */
+.redemption-actions {
+    order: 3;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+}
+
+.redemption-status-btn {
+    /* Auto layout */
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 20px;
+    gap: 8px;
+    
+    width: 100%;
+    max-width: 362px;
+    height: 56px;
+    
+    /* Color/Brand/Tertiary/500 */
+    background: #FFD35C;
+    box-shadow: 0px 1px 2.1px rgba(32, 100, 174, 0.29);
+    border-radius: 16px;
+    border: none;
+    
+    /* Inside auto layout */
+    flex: none;
+    order: 3;
+    align-self: stretch;
+    flex-grow: 0;
+    
+    font-size: 14px;
+    color: #000000;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.redemption-status-btn.waiting {
+    background: #FFD35C;
+    color: #000000;
+}
+
+.redemption-status-btn.approved {
+    background: #D4EDDA;
+    color: #155724;
+}
+
+.redemption-status-btn.sent {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.redemption-status-btn.completed {
+    background: #D1ECF1;
+    color: #0C5460;
+}
+
+.redemption-status-btn.rejected {
+    background: #F8D7DA;
+    color: #721C24;
+}
+
+.status-icon {
+    font-size: 1.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+}
+
+.status-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.redemption-contact-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 16px 8px;
+    border-radius: 1rem;
+    border: none;
+    background: #FFFFFF;
+    color: #2064AE;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.redemption-contact-btn:active {
+    background: #F1F2F4;
+}
+
+.contact-icon {
+    font-size: 1.125rem;
+}
+
+/* Ссылка на политику конфиденциальности */
+.redemption-privacy-link {
+    order: 4;
+    text-align: center;
+    padding: 0.5rem 0;
+    text-decoration: underline;
+}
+
+.redemption-privacy-link a {
+    color: #718096;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.redemption-privacy-link a:active {
+    color: #2064AE;
 }
 
