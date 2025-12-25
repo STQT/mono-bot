@@ -5,9 +5,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Отключение кеша для Telegram Web App -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{% trans "WEBAPP_MY_GIFTS" %}</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}?v={{ app_version }}">
     <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
         (function(m,e,t,r,i,k,a){
@@ -388,6 +392,34 @@
                     </defs>
                 </svg>
                 <span class="profile-menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_qr)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_qr">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                
+            </button>
+            <button class="profile-menu-button" onclick="showPrivacy()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4065)">
+                    <path d="M15.75 5.83331C16.5037 7.0843 16.8258 8.54818 16.6667 9.99998V10.8333C16.6657 11.7107 16.8956 12.5729 17.3333 13.3333" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6.6665 9.16665C6.6665 8.28259 7.01769 7.43474 7.64281 6.80962C8.26794 6.1845 9.11578 5.83331 9.99984 5.83331C10.8839 5.83331 11.7317 6.1845 12.3569 6.80962C12.982 7.43474 13.3332 8.28259 13.3332 9.16665V9.99998C13.3332 11.8031 13.918 13.5575 14.9998 15" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10 9.16669V10.8334C9.99735 13.2162 10.7244 15.5427 12.0833 17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6.6665 12.5C6.87042 14.2415 7.37811 15.9338 8.1665 17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4.08336 15.8333C3.52107 13.9419 3.26781 11.9721 3.33336 9.99999V9.16666C3.33017 7.99487 3.63588 6.84295 4.2197 5.82695C4.80352 4.81096 5.64481 3.96679 6.65881 3.37952C7.67281 2.79224 8.82369 2.48261 9.99548 2.48181C11.1673 2.48102 12.3186 2.78909 13.3334 3.37499" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_11_4065">
+                    <rect width="20" height="20" fill="white"/>
+                    </clipPath>
+                    </defs>
+                    </svg>                    
+                <span class="profile-menu-text">{% trans "WEBAPP_PRIVACY_POLICY" %}</span>
                 <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g clip-path="url(#clip0_11_4055_qr)">
                         <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

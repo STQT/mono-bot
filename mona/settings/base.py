@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise для статических файлов
+    'core.middleware.NoCacheMiddleware',  # Отключение кеша для Telegram Web App
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Поддержка локализации
     'django.middleware.common.CommonMiddleware',

@@ -31,15 +31,27 @@ def webapp_view(request):
         except (TelegramUser.DoesNotExist, ValueError):
             pass
     
+    # Версия для cache busting (изменяйте при обновлении CSS/JS)
+    import time
+    app_version = str(int(time.time()))  # Используем timestamp для гарантии обновления
+    
     # Не используем Django i18n для кастомных языков, используем наш template tag
     # Просто передаем язык в контекст для использования в шаблоне
     context = {
         'user_language': user_language,
         'TELEGRAM_BOT_USERNAME': settings.TELEGRAM_BOT_USERNAME or '',
         'TELEGRAM_BOT_ADMIN_USERNAME': settings.TELEGRAM_BOT_ADMIN_USERNAME or '',
+        'app_version': app_version,
     }
     
-    return render(request, 'webapp/index.html', context)
+    response = render(request, 'webapp/index.html', context)
+    
+    # Добавляем заголовки для отключения кеширования
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
+    return response
 
 
 @api_view(['GET'])
