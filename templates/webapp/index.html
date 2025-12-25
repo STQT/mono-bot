@@ -1046,20 +1046,19 @@
                     // Всегда открываем страницу детальной информации о подарке
                     giftCard.onclick = () => getGiftDetail(gift.id);
                     
-                    // Всегда показываем прогресс-бар
-                    // Добавляем класс для прогресс-бара, если баллов достаточно
-                    const progressClass = hasEnoughPoints ? 'progress-filled' : '';
-                    let progressHtml = `<div class="gift-progress">
-                        <div class="progress-bar">
-                            <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
-                        </div>
-                        <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
-                    </div>`;
+                    // Определяем отображаемый процент прогресса согласно дизайну
+                    let displayProgress = progress;
+                    let showButton = false;
                     
-                    // Если достаточно баллов, добавляем кнопку "Получить подарок"
-                    let buttonHtml = '';
-                    if (hasEnoughPoints) {
-                        buttonHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">
+                    if (progress >= 100 || hasEnoughPoints) {
+                        // 100% - показываем кнопку
+                        showButton = true;
+                    }
+                    
+                    // Формируем HTML для прогресс-бара или кнопки
+                    let statusHtml = '';
+                    if (showButton) {
+                        statusHtml = `<button class="gift-get-btn-new" onclick="event.stopPropagation(); requestGift(${gift.id})">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <g clip-path="url(#clip0_130_146_${gift.id})">
                                     <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1075,9 +1074,15 @@
                             </svg>
                             <span>${t('WEBAPP_GET_GIFT')}</span>
                         </button>`;
+                    } else {
+                        // Уменьшаем визуальную ширину прогресс-бара (60% от фактического процента)
+                        // Но минимум 15% для отображения текста
+                        const visualProgress = Math.max(displayProgress * 0.80git, 15);
+                        statusHtml = `<div class="gift-progress-wrapper">
+                            <div class="gift-progress-bar-bg"></div>
+                            <div class="gift-progress-badge" style="width: ${visualProgress}%;">${Math.round(displayProgress)}%</div>
+                        </div>`;
                     }
-                    
-                    let statusHtml = progressHtml + buttonHtml;
                     
                     // Обрабатываем URL изображения
                     let imageUrl = '/static/images/gift-box.png';
@@ -1277,21 +1282,19 @@
                         <button class="get-gift-detail-get-btn ${hasEnoughPoints ? '' : 'disabled'}" 
                                 ${hasEnoughPoints ? `onclick="requestGift(${gift.id})"` : 'disabled'}
                                 ${hasEnoughPoints ? '' : 'style="opacity: 0.5; cursor: not-allowed;"'}>
-                            ${hasEnoughPoints ? `
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <g clip-path="url(#clip0_130_146_get_gift_${gift.id})">
-                                        <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                    <defs>
-                                        <clipPath id="clip0_130_146_get_gift_${gift.id}">
-                                            <rect width="20" height="20" fill="white"/>
-                                        </clipPath>
-                                    </defs>
-                                </svg>
-                            ` : ''}
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_146_get_gift_${gift.id})">
+                                    <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_146_get_gift_${gift.id}">
+                                        <rect width="20" height="20" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
                             <span>${t('WEBAPP_GET_GIFT')}</span>
                         </button>
                         
