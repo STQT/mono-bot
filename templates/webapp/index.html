@@ -262,6 +262,18 @@
         </div>
     </div>
 
+    <!-- ЭКРАН: Детальная страница подарка (новая верстка) -->
+    <div class="screen" id="getGiftDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('giftsList')">‹</button>
+            <h2 class="screen-title" id="getGiftDetailTitle">{% trans "WEBAPP_GIFT_NAME" %}</h2>
+            <span class="gift-badge" id="getGiftDetailBadge" style="display: none;">20</span>
+        </div>
+        <div class="get-gift-detail-container" id="getGiftDetailContainer">
+            <!-- Контент будет загружен динамически -->
+        </div>
+    </div>
+
     <!-- ЭКРАН: Успешное получение подарка -->
     <div class="screen" id="successScreen" style="display: none;">
         <div class="success-container">
@@ -396,6 +408,8 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+        // Устанавливаем цвет шапки Telegram
+        tg.setHeaderColor('#F1F2F4');
 
         // Переводы для JavaScript
         let translations = {
@@ -976,6 +990,8 @@
                         await loadQRHistory();
                     } else if (screenName === 'privacy') {
                         await loadPrivacyPolicy();
+                    } else if (screenName === 'getGiftDetail') {
+                        // Данные загружаются в функции getGiftDetail
                     }
                 }
             }
@@ -1020,38 +1036,48 @@
                 
                 container.innerHTML = '';
                 gifts.forEach(gift => {
-                    const redemption = redemptions.find(r => r.gift && r.gift.id === gift.id);
                     const userPoints = currentUser.points || 0;
                     const hasEnoughPoints = userPoints >= gift.points_cost;
                     const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
                     
                     const giftCard = document.createElement('div');
                     giftCard.className = 'gift-card';
-                    giftCard.onclick = () => showGiftDetail(gift.id);
                     
-                    let statusHtml = '';
-                    if (redemption) {
-                        if (redemption.status === 'pending') {
-                            statusHtml = `<div class="gift-status waiting">${t('WEBAPP_STATUS_PENDING')}</div>`;
-                        } else if (redemption.status === 'approved') {
-                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
-                        } else if (redemption.status === 'sent') {
-                            statusHtml = `<div class="gift-status sent">${t('WEBAPP_STATUS_SENT')}</div>`;
-                        } else if (redemption.status === 'rejected') {
-                            statusHtml = `<div class="gift-status rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
-                        } else if (redemption.status === 'completed') {
-                            statusHtml = `<div class="gift-status completed">${t('WEBAPP_STATUS_COMPLETED')}</div>`;
-                        }
-                    } else if (hasEnoughPoints) {
-                        statusHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">${t('WEBAPP_GET_GIFT')}</button>`;
-                    } else {
-                        statusHtml = `<div class="gift-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progress}%"></div>
-                            </div>
-                            <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
-                        </div>`;
+                    // Всегда открываем страницу детальной информации о подарке
+                    giftCard.onclick = () => getGiftDetail(gift.id);
+                    
+                    // Всегда показываем прогресс-бар
+                    // Добавляем класс для прогресс-бара, если баллов достаточно
+                    const progressClass = hasEnoughPoints ? 'progress-filled' : '';
+                    let progressHtml = `<div class="gift-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
+                    </div>`;
+                    
+                    // Если достаточно баллов, добавляем кнопку "Получить подарок"
+                    let buttonHtml = '';
+                    if (hasEnoughPoints) {
+                        buttonHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_146_${gift.id})">
+                                    <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_146_${gift.id}">
+                                        <rect width="20" height="20" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                            <span>${t('WEBAPP_GET_GIFT')}</span>
+                        </button>`;
                     }
+                    
+                    let statusHtml = progressHtml + buttonHtml;
                     
                     // Обрабатываем URL изображения
                     let imageUrl = '/static/images/gift-box.png';
@@ -1070,8 +1096,10 @@
                             <img src="${imageUrl}" alt="${gift.name || 'Gift'}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
                         </div>
                         ${statusHtml}
-                        <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
-                        <div class="gift-card-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-card-info">
+                            <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                            <div class="gift-card-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
+                        </div>
                     `;
                     container.appendChild(giftCard);
                 });
@@ -1142,6 +1170,142 @@
                         ${gift.description ? `<div class="gift-detail-description">${gift.description}</div>` : ''}
                     </div>
                     ${actionHtml}
+                `;
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
+            }
+        }
+
+        async function getGiftDetail(giftId) {
+            showScreen('getGiftDetail');
+            const container = document.getElementById('getGiftDetailContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                if (!currentUser || !currentUser.telegram_id) {
+                    throw new Error('User not loaded');
+                }
+                
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const giftsResponse = await fetch(giftsUrl);
+                const gifts = await giftsResponse.json();
+                const gift = gifts.find(g => g.id === giftId);
+                
+                if (!gift) throw new Error('Gift not found');
+                
+                const userPoints = currentUser.points || 0;
+                const hasEnoughPoints = userPoints >= gift.points_cost;
+                const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
+                
+                // Устанавливаем заголовок и бейдж
+                document.getElementById('getGiftDetailTitle').textContent = gift.name || t('WEBAPP_GIFT_NAME');
+                const badgeElement = document.getElementById('getGiftDetailBadge');
+                if (badgeElement && gift.quantity) {
+                    badgeElement.textContent = gift.quantity;
+                    badgeElement.style.display = 'inline-block';
+                } else if (badgeElement) {
+                    badgeElement.style.display = 'none';
+                }
+                
+                // Обрабатываем URL изображения
+                let detailImageUrl = '/static/images/gift-box.png';
+                if (gift.image) {
+                    if (gift.image.startsWith('http://') || gift.image.startsWith('https://')) {
+                        detailImageUrl = gift.image;
+                    } else {
+                        detailImageUrl = gift.image.startsWith('/') ? gift.image : `/${gift.image}`;
+                    }
+                }
+                
+                // Определяем класс для прогресс-бара
+                const progressClass = hasEnoughPoints ? 'progress-filled' : '';
+                
+                // HTML согласно дизайну
+                container.innerHTML = `
+                    <div class="get-gift-detail-content">
+                        <!-- Карточка пользователя -->
+                        <div class="get-gift-detail-user-card" onclick="showProfile()" style="cursor: pointer;">
+                            <div class="get-gift-detail-user-avatar">
+                                <div class="get-gift-detail-avatar-icon">👤</div>
+                            </div>
+                            <div class="get-gift-detail-user-info">
+                                <div class="get-gift-detail-user-name">
+                                    ${currentUser.first_name || t('USER')}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <g clip-path="url(#clip0_110_61_get_gift_detail)">
+                                        <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </g>
+                                        <defs>
+                                        <clipPath id="clip0_110_61_get_gift_detail">
+                                        <rect width="16" height="16" fill="white"/>
+                                        </clipPath>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                <div class="get-gift-detail-user-id">ID: ${currentUser.telegram_id}</div>
+                            </div>
+                            <div class="points-badge" onclick="event.stopPropagation();">
+                                <div class="points-value">${formatNumber(currentUser.points || 0)}</div>
+                                <div class="points-label">${t('WEBAPP_TOTAL_POINTS')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Изображение подарка в белом блоке с прогресс-баром и информацией -->
+                        <div class="get-gift-detail-image-wrapper">
+                            <img src="${detailImageUrl}" alt="${gift.name || 'Gift'}" class="get-gift-detail-main-image" onerror="this.src='/static/images/gift-box.png'">
+                            
+                            <!-- Прогресс-бар -->
+                            <div class="get-gift-detail-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
+                                </div>
+                                <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
+                            </div>
+                            
+                            <!-- Информация о подарке -->
+                            <div class="get-gift-detail-info">
+                                <div class="get-gift-detail-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                                <div class="get-gift-detail-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопка получения подарка -->
+                        <button class="get-gift-detail-get-btn ${hasEnoughPoints ? '' : 'disabled'}" 
+                                ${hasEnoughPoints ? `onclick="requestGift(${gift.id})"` : 'disabled'}
+                                ${hasEnoughPoints ? '' : 'style="opacity: 0.5; cursor: not-allowed;"'}>
+                            ${hasEnoughPoints ? `
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <g clip-path="url(#clip0_130_146_get_gift_${gift.id})">
+                                        <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </g>
+                                    <defs>
+                                        <clipPath id="clip0_130_146_get_gift_${gift.id}">
+                                            <rect width="20" height="20" fill="white"/>
+                                        </clipPath>
+                                    </defs>
+                                </svg>
+                            ` : ''}
+                            <span>${t('WEBAPP_GET_GIFT')}</span>
+                        </button>
+                        
+                        <!-- Кнопка связи с администратором -->
+                        <button class="get-gift-detail-contact-btn" onclick="contactAdmin()">
+                            <span class="get-gift-detail-contact-icon">🎧</span>
+                            ${t('WEBAPP_CONTACT_ADMIN')}
+                        </button>
+                        
+                        <!-- Ссылка на политику конфиденциальности -->
+                        <a href="javascript:void(0)" class="get-gift-detail-privacy-link" onclick="showPrivacy()">
+                            {% trans "WEBAPP_PRIVACY_POLICY" %}
+                        </a>
+                    </div>
                 `;
             } catch (error) {
                 container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
