@@ -221,8 +221,8 @@
         </div>
 
         <!-- Кнопка связи с админом -->
-        <button class="contact-admin-btn" onclick="contactAdmin()">
-            <span class="contact-icon" style="order: 0">🎧</span>
+        <button class="contact-admin-btn" onclick="contactAdmin()" style="order: 0">
+            <span class="contact-icon">🎧</span>
             <span>{% trans "WEBAPP_CONTACT_ADMIN" %}</span>
         </button>
 
@@ -578,6 +578,7 @@
             'WEBAPP_LOADING_GIFTS': '{% trans "WEBAPP_LOADING_GIFTS" %}',
             'WEBAPP_LOADING_ORDERS': '{% trans "WEBAPP_LOADING_ORDERS" %}',
             'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
+            'WEBAPP_NO_ORDERS_TEXT': '{% trans "WEBAPP_NO_ORDERS_TEXT" %}',
             'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
             'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
             'WEBAPP_STATUS_SENT': '{% trans "WEBAPP_STATUS_SENT" %}',
@@ -1639,7 +1640,13 @@
                 const redemptions = await response.json();
                 
                 if (redemptions.length === 0) {
-                    container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_ORDERS') + '</div>';
+                    container.innerHTML = `
+                        <div class="empty-orders-state">
+                            <img src="/static/images/notfoundredemption.png" alt="No orders" class="empty-orders-image">
+                            <div class="empty-orders-title">${t('WEBAPP_NO_ORDERS')}</div>
+                            <div class="empty-orders-text">${t('WEBAPP_NO_ORDERS_TEXT')}</div>
+                        </div>
+                    `;
                     return;
                 }
                 
