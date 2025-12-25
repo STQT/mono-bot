@@ -330,7 +330,7 @@ class QRCodeAdmin(admin.ModelAdmin):
     list_filter = ['code_type', 'is_scanned', 'generated_at']
     search_fields = ['code', 'hash_code', 'serial_number']
     readonly_fields = [
-        'code', 'code_type', 'hash_code', 'serial_number', 'image_path',
+        'code', 'code_type', 'hash_code', 'serial_number',
         'points', 'generated_at', 'scanned_at', 'scanned_by', 'is_scanned'
     ]
     ordering = ['-generated_at']
@@ -361,6 +361,10 @@ class QRCodeAdmin(admin.ModelAdmin):
     def get_fields(self, request, obj=None):
         """Возвращает список полей для отображения, скрывая code и hash_code для неиспользованных QR-кодов."""
         fields = list(super().get_fields(request, obj))
+        
+        # Всегда скрываем image_path
+        if 'image_path' in fields:
+            fields.remove('image_path')
         
         # Скрываем code и hash_code для неиспользованных QR-кодов (безопасность)
         if obj and not obj.is_scanned:
@@ -807,44 +811,63 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
     )
     
     def formfield_for_dbfield(self, db_field, request, **kwargs):
-        """Исключает статус 'completed' из списка выбора для Call Center."""
+        """Ограничивает выбор статусов в зависимости от роли пользователя."""
         if db_field.name == 'status':
+            # Проверяем, имеет ли пользователь пермишн агента
+            is_agent = request.user.has_perm('core.change_status_agent')
             # Проверяем, имеет ли пользователь пермишн call center
             is_call_center = request.user.has_perm('core.change_user_type_call_center')
             
-            if is_call_center and not request.user.is_superuser:
-                # Получаем текущие choices из модели
+            if not request.user.is_superuser:
                 choices = list(GiftRedemption.STATUS_CHOICES)
-                # Исключаем статус 'completed' (клиент подтвердил получение заказа)
-                filtered_choices = [choice for choice in choices if choice[0] != 'completed']
-                kwargs['choices'] = filtered_choices
+                
+                # Агенты видят только 'sent' и 'completed'
+                if is_agent:
+                    filtered_choices = [choice for choice in choices if choice[0] in ['sent', 'completed']]
+                    kwargs['choices'] = filtered_choices
+                # Call Center видит только 'pending', 'approved', 'sent'
+                elif is_call_center:
+                    filtered_choices = [choice for choice in choices if choice[0] in ['pending', 'approved', 'sent']]
+                    kwargs['choices'] = filtered_choices
             
         return super().formfield_for_dbfield(db_field, request, **kwargs)
     
     def get_readonly_fields(self, request, obj=None):
-        """Делает user_confirmed readonly для Call Center (они не могут подтверждать получение подарка)."""
+        """Управляет readonly полями в зависимости от роли пользователя."""
         readonly = list(super().get_readonly_fields(request, obj))
         
-        # Если пользователь не superuser и имеет только permission для изменения статуса (Call Center),
-        # делаем user_confirmed readonly (Call Center не может подтверждать получение подарка)
         if not request.user.is_superuser:
-            # Если пользователь имеет пермишн call center,
-            # делаем user_confirmed readonly
-            if request.user.has_perm('core.change_user_type_call_center') and 'user_confirmed' not in readonly:
-                readonly.append('user_confirmed')
+            # Агенты могут изменять только status
+            if request.user.has_perm('core.change_status_agent'):
+                # Получаем все поля модели
+                model_fields = [
+                    f.name for f in GiftRedemption._meta.get_fields() 
+                    if isinstance(f, models.Field) and hasattr(f, 'name')
+                ]
+                # Делаем все поля readonly кроме status
+                for field in model_fields:
+                    if field != 'status' and field not in readonly:
+                        readonly.append(field)
+            # Call Center не может подтверждать получение подарка
+            elif request.user.has_perm('core.change_user_type_call_center'):
+                if 'user_confirmed' not in readonly:
+                    readonly.append('user_confirmed')
         
         return readonly
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливает processed_at при изменении статуса и отправляет уведомления."""
-        # Проверяем, не пытается ли Call Center установить статус 'completed'
+        # Проверяем права доступа
+        is_agent = request.user.has_perm('core.change_status_agent')
         is_call_center = request.user.has_perm('core.change_user_type_call_center')
-        if is_call_center and not request.user.is_superuser:
+        
+        # Call Center не может устанавливать статус 'completed' (но агенты могут)
+        if is_call_center and not is_agent and not request.user.is_superuser:
             if obj.status == 'completed':
                 from django.core.exceptions import PermissionDenied
                 raise PermissionDenied(
                     "Сотрудники call center не могут устанавливать статус 'completed' "
-                    "(клиент подтвердил получение заказа). Этот статус может быть установлен только клиентом."
+                    "(клиент подтвердил получение заказа). Этот статус может быть установлен только клиентом или агентами."
                 )
         
         old_status = None
@@ -1165,13 +1188,17 @@ class QRCodeGenerationAdmin(admin.ModelAdmin):
         }),
     )
     
+    def has_module_permission(self, request):
+        """Только superuser может видеть этот модуль в меню."""
+        return request.user.is_superuser
+    
     def has_add_permission(self, request):
         """Отключаем добавление через админку."""
         return False
     
     def has_delete_permission(self, request, obj=None):
-        """Разрешаем удаление."""
-        return True
+        """Разрешаем удаление только для superuser."""
+        return request.user.is_superuser
 
 
 @admin.register(PrivacyPolicy)

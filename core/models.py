@@ -367,6 +367,7 @@ class GiftRedemption(models.Model):
         ordering = ['-requested_at']
         permissions = [
             ('change_status_call_center', 'Call Center: Can change redemption status'),
+            ('change_status_agent', 'Agent: Can change redemption status (sent/completed only)'),
         ]
     
     def __str__(self):

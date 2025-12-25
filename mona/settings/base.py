@@ -232,7 +232,7 @@ JAZZMIN_SETTINGS = {
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
-    "hide_models": [],
+    "hide_models": [],  # QRCodeGeneration скрыт через has_module_permission
     # Показывать приложения по пермишну
     "show_ui_builder": False,
     # Настройки для отображения моделей по правам доступа
