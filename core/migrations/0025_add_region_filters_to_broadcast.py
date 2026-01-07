@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0012_privacypolicy_pdf_fields'),
+        ('core', '0024_add_gift_user_type'),
     ]
 
     operations = [
