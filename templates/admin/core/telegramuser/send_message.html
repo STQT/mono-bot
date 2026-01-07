@@ -1,48 +1,337 @@
 {% extends "admin/base.html" %}
+{% load static %}
 
-{% block title %}Отправить сообщение{% endblock %}
+{% block title %}Отправить сообщение пользователям{% endblock %}
 
-{% block content %}
-<h1>Отправить сообщение пользователям</h1>
-
-<p>Выбрано пользователей: {{ users.count }}</p>
-
-<form method="post">
-    {% csrf_token %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .send-message-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
     
-    <div style="margin-bottom: 20px;">
-        <label for="id_message">Текст сообщения:</label>
-        {{ form.message }}
-        {% if form.message.errors %}
-            <div style="color: red;">{{ form.message.errors }}</div>
-        {% endif %}
-    </div>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
     
-    <div style="margin-bottom: 20px;">
-        <label for="id_parse_mode">Режим парсинга:</label>
-        {{ form.parse_mode }}
-        {% if form.parse_mode.errors %}
-            <div style="color: red;">{{ form.parse_mode.errors }}</div>
-        {% endif %}
-    </div>
+    .page-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
     
-    <div>
-        <button type="submit" style="padding: 10px 20px; background-color: #417690; color: white; border: none; cursor: pointer;">
-            Отправить
-        </button>
-        <a href="{% url 'admin:core_telegramuser_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background-color: #ba2121; color: white; text-decoration: none; display: inline-block;">
-            Отмена
-        </a>
-    </div>
-</form>
-
-<div style="margin-top: 30px; padding: 15px; background-color: #f0f0f0; border-radius: 5px;">
-    <h3>Список пользователей:</h3>
-    <ul>
-        {% for user in users %}
-        <li>{{ user.first_name }} (@{{ user.username|default:"N/A" }}) - ID: {{ user.telegram_id }}</li>
-        {% endfor %}
-    </ul>
-</div>
+    .page-header h1::before {
+        content: '📨';
+        font-size: 32px;
+    }
+    
+    .users-count {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        display: inline-block;
+        margin-top: 10px;
+    }
+    
+    .message-form {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-group textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: vertical;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-group select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .error-message {
+        color: #dc2626;
+        font-size: 13px;
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .error-message::before {
+        content: '⚠️';
+        font-size: 16px;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 30px;
+        padding-top: 24px;
+        border-top: 1px solid #e5e7eb;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-2px);
+    }
+    
+    .users-list {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .users-list h3 {
+        margin: 0 0 20px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .users-list h3::before {
+        content: '👥';
+        font-size: 20px;
+    }
+    
+    .users-list ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 12px;
+    }
+    
+    .users-list li {
+        background: #f9fafb;
+        padding: 16px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .users-list li:hover {
+        transform: translateX(4px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .user-icon {
+        font-size: 24px;
+    }
+    
+    .user-info {
+        flex: 1;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #374151;
+        font-size: 15px;
+    }
+    
+    .user-details {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    
+    .user-id {
+        font-family: 'Courier New', monospace;
+        background: #e5e7eb;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    @media (max-width: 768px) {
+        .send-message-container {
+            padding: 10px;
+        }
+        
+        .page-header {
+            padding: 20px;
+        }
+        
+        .page-header h1 {
+            font-size: 22px;
+        }
+        
+        .message-form {
+            padding: 20px;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
 {% endblock %}
 
+{% block content %}
+<div class="send-message-container">
+    <div class="page-header">
+        <h1>Отправить сообщение пользователям</h1>
+        <div class="users-count">
+            Выбрано пользователей: <strong>{{ users.count }}</strong>
+        </div>
+    </div>
+    
+    <form method="post" class="message-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="id_message">Текст сообщения:</label>
+            {{ form.message }}
+            {% if form.message.errors %}
+                <div class="error-message">
+                    {{ form.message.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="id_parse_mode">Режим парсинга:</label>
+            {{ form.parse_mode }}
+            {% if form.parse_mode.errors %}
+                <div class="error-message">
+                    {{ form.parse_mode.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span>📤</span>
+                Отправить
+            </button>
+            <a href="{% url 'admin:core_telegramuser_changelist' %}" class="btn btn-secondary">
+                <span>❌</span>
+                Отмена
+            </a>
+        </div>
+    </form>
+    
+    <div class="users-list">
+        <h3>Список пользователей</h3>
+        <ul>
+            {% for user in users %}
+            <li>
+                <span class="user-icon">
+                    {% if user.user_type == 'electrician' %}⚡{% else %}🛒{% endif %}
+                </span>
+                <div class="user-info">
+                    <div class="user-name">
+                        {{ user.first_name|default:"Пользователь" }}
+                        {% if user.username %}
+                            <span style="color: #6b7280;">(@{{ user.username }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="user-details">
+                        ID: <span class="user-id">{{ user.telegram_id }}</span>
+                        {% if user.phone_number %}
+                            • {{ user.phone_number }}
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% empty %}
+            <li style="text-align: center; color: #6b7280; padding: 20px;">
+                Пользователи не выбраны
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

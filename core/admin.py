@@ -243,11 +243,21 @@ class TelegramUserAdmin(admin.ModelAdmin):
         else:
             form = MessageForm()
         
-        return render(request, 'admin/core/telegramuser/send_message.html', {
+        from django.template.response import TemplateResponse
+        
+        context = {
+            **self.admin_site.each_context(request),
             'form': form,
             'users': queryset,
-            'title': 'Отправить сообщение пользователям'
-        })
+            'title': 'Отправить сообщение пользователям',
+            'opts': self.model._meta,
+            'has_view_permission': True,
+            'has_add_permission': False,
+            'has_change_permission': False,
+            'has_delete_permission': False,
+        }
+        
+        return TemplateResponse(request, 'admin/core/telegramuser/send_message.html', context)
     send_personal_message_action.short_description = 'Отправить персональное сообщение выбранным пользователям'
     
     def mark_as_active(self, request, queryset):
