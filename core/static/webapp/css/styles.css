@@ -293,11 +293,12 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 0.25rem 0.5rem; /* 4px 8px */
-    gap: 0.4375rem; /* 7px */
+    padding: 0.5rem 0.75rem; /* 8px 12px - увеличен padding */
+    gap: 0.5rem; /* 8px - увеличен gap */
     position: absolute;
-    width: 6.0625rem; /* 97px */
-    height: 1.5rem; /* 24px */
+    width: auto; /* изменено с фиксированной ширины на auto */
+    min-width: 7.5rem; /* 120px - минимальная ширина */
+    height: 2rem; /* 32px - увеличена высота */
     left: 1.25rem; /* 20px */
     bottom: 1.25rem; /* 20px */
     background: rgba(255, 255, 255, 0.18);
@@ -326,8 +327,8 @@ body {
 
 .banner-date-btn svg {
     /* calendar-event */
-    width: 1rem; /* 16px */
-    height: 1rem; /* 16px */
+    width: 1.125rem; /* 18px - увеличен размер иконки */
+    height: 1.125rem; /* 18px - увеличен размер иконки */
     /* Inside auto layout */
     flex: none;
     order: 0;
@@ -335,12 +336,12 @@ body {
 }
 
 .banner-date-btn span {
-    width: 3.625rem; /* 58px */
-    height: 0.875rem; /* 14px */
+    width: auto; /* изменено с фиксированной ширины на auto */
+    height: auto; /* изменено с фиксированной высоты на auto */
     font-family: 'Funnel Sans', sans-serif;
     font-style: normal;
     font-weight: 400;
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.875rem; /* 14px - увеличен размер шрифта */
     line-height: 120%;
     /* or 14px */
     letter-spacing: -0.01em;
@@ -349,6 +350,7 @@ body {
     flex: none;
     order: 1;
     flex-grow: 0;
+    white-space: nowrap; /* предотвращаем перенос текста */
 }
 
 .banner-image {
