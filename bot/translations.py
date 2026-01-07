@@ -66,6 +66,7 @@ TRANSLATIONS = {
         'GIFT_STATUS_COMPLETED': "🎉 Tabriklaymiz! Sizning '{gift_name}' sovg'angiz yetkazildi!\n\nMahsulotni qabul qilganingizni tasdiqlang.",
         'INSUFFICIENT_POINTS': "❌ Bu sovg'a uchun yetarli ball yo'q!",
         'GIFT_NOT_FOUND': "❌ Sovg'a topilmadi!",
+        'GIFT_NOT_AVAILABLE_FOR_USER_TYPE': "❌ Bu sovg'a sizning foydalanuvchi turingiz uchun mavjud emas!",
         'GIFT_REQUEST_ERROR': "❌ Xatolik yuz berdi. Keyinroq urinib ko'ring.",
         
         # ТОП лидеры
@@ -223,6 +224,7 @@ TRANSLATIONS = {
         'GIFT_STATUS_COMPLETED': "🎉 Поздравляем! Ваш подарок '{gift_name}' доставлен!\n\nПодтверждение получения продукта.",
         'INSUFFICIENT_POINTS': "❌ Недостаточно баллов для этого подарка!",
         'GIFT_NOT_FOUND': "❌ Подарок не найден!",
+        'GIFT_NOT_AVAILABLE_FOR_USER_TYPE': "❌ Этот подарок недоступен для вашего типа пользователя!",
         'GIFT_REQUEST_ERROR': "❌ Произошла ошибка. Попробуйте позже.",
         
         # ТОП лидеры
@@ -288,7 +290,7 @@ TRANSLATIONS = {
         'WEBAPP_PARTNER_TEXT': "Сотрудничайте с Mono Electric и получайте подарки",
         'WEBAPP_CONTACT_ADMIN': "Связаться с администратором",
         'WEBAPP_INFO_TEXT': "Баллы зачисляются на ваш счет сразу после сканирования промокода.\n\n\n\nЕсли баллы не зачислились, пожалуйста, обратитесь к администратору.",
-        'WEBAPP_REGISTER': "Отправить",
+        'WEBAPP_REGISTER': "Зарегистрировать",
         'WEBAPP_VIEW_GIFTS': "Посмотреть подарки",
         'WEBAPP_PRIVACY_POLICY': "Политика конфиденциальности",
         'WEBAPP_QR_ERROR': "Введен неверный промокод",

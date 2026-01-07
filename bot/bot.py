@@ -420,23 +420,42 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     def get_privacy_pdf():
         """Получает PDF файл политики конфиденциальности на языке пользователя."""
         policy = PrivacyPolicy.objects.filter(is_active=True).first()
-        logger.info(f"[get_privacy_pdf] Политика найдена: {policy is not None}")
+        logger.info(f"[get_privacy_pdf] Политика найдена: {policy is not None}, user.language={user.language}")
         if policy:
             logger.info(f"[get_privacy_pdf] pdf_uz_latin: {bool(policy.pdf_uz_latin)}, pdf_ru: {bool(policy.pdf_ru)}")
+            
+            # Определяем язык пользователя (если не установлен, используем дефолтный)
+            user_lang = user.language or 'uz_latin'
+            logger.info(f"[get_privacy_pdf] Используемый язык: {user_lang}")
+            
             # Узбекский язык может быть 'uz' или 'uz_latin'
-            if user.language in ['uz', 'uz_latin'] and policy.pdf_uz_latin:
-                logger.info(f"[get_privacy_pdf] Возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+            if user_lang in ['uz', 'uz_latin']:
+                # Сначала пробуем узбекский
+                if policy.pdf_uz_latin:
+                    logger.info(f"[get_privacy_pdf] Возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+                    return policy.pdf_uz_latin
+                # Если узбекского нет, пробуем русский
+                elif policy.pdf_ru:
+                    logger.info(f"[get_privacy_pdf] Нет uz_latin, возвращаем pdf_ru: {policy.pdf_ru.name}")
+                    return policy.pdf_ru
+            elif user_lang == 'ru':
+                # Сначала пробуем русский
+                if policy.pdf_ru:
+                    logger.info(f"[get_privacy_pdf] Возвращаем pdf_ru: {policy.pdf_ru.name}")
+                    return policy.pdf_ru
+                # Если русского нет, пробуем узбекский
+                elif policy.pdf_uz_latin:
+                    logger.info(f"[get_privacy_pdf] Нет ru, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+                    return policy.pdf_uz_latin
+            
+            # Если язык не определен, пробуем оба файла
+            if policy.pdf_uz_latin:
+                logger.info(f"[get_privacy_pdf] Язык не определен, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
                 return policy.pdf_uz_latin
-            elif user.language == 'ru' and policy.pdf_ru:
-                logger.info(f"[get_privacy_pdf] Возвращаем pdf_ru: {policy.pdf_ru.name}")
+            elif policy.pdf_ru:
+                logger.info(f"[get_privacy_pdf] Язык не определен, возвращаем pdf_ru: {policy.pdf_ru.name}")
                 return policy.pdf_ru
-            # Если для выбранного языка нет PDF, пробуем другой язык
-            elif user.language in ['uz', 'uz_latin'] and policy.pdf_ru:
-                logger.info(f"[get_privacy_pdf] Нет uz_latin, возвращаем pdf_ru: {policy.pdf_ru.name}")
-                return policy.pdf_ru
-            elif user.language == 'ru' and policy.pdf_uz_latin:
-                logger.info(f"[get_privacy_pdf] Нет ru, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
-                return policy.pdf_uz_latin
+                
         logger.info(f"[get_privacy_pdf] PDF не найден")
         return None
     
@@ -457,22 +476,38 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     
     # Отправляем PDF файл политики конфиденциальности
     if pdf_file:
-        # Получаем полный путь к файлу
-        pdf_path = pdf_file.path if hasattr(pdf_file, 'path') else os.path.join(settings.MEDIA_ROOT, pdf_file.name)
-        logger.info(f"[ask_privacy_acceptance] Путь к PDF: {pdf_path}")
-        
-        # Проверяем существование файла
-        if os.path.exists(pdf_path):
-            logger.info(f"[ask_privacy_acceptance] Файл существует, отправляем PDF")
-            # Отправляем PDF как документ
-            await message.answer_document(
-                types.FSInputFile(pdf_path),
-                caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
-                reply_markup=keyboard
-            )
-        else:
-            # Если файл не найден, отправляем сообщение об ошибке
-            logger.warning(f"[ask_privacy_acceptance] PDF файл не найден на диске: {pdf_path}")
+        try:
+            # Получаем полный путь к файлу через свойство .path Django FileField
+            pdf_path = pdf_file.path
+            logger.info(f"[ask_privacy_acceptance] Путь к PDF: {pdf_path}")
+            
+            # Проверяем существование файла
+            if os.path.exists(pdf_path):
+                logger.info(f"[ask_privacy_acceptance] Файл существует, отправляем PDF")
+                # Отправляем PDF как документ
+                await message.answer_document(
+                    types.FSInputFile(pdf_path),
+                    caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
+                    reply_markup=keyboard
+                )
+            else:
+                # Если файл не найден, пробуем альтернативный путь
+                alt_path = os.path.join(settings.MEDIA_ROOT, pdf_file.name)
+                logger.info(f"[ask_privacy_acceptance] Пробуем альтернативный путь: {alt_path}")
+                if os.path.exists(alt_path):
+                    logger.info(f"[ask_privacy_acceptance] Файл найден по альтернативному пути, отправляем PDF")
+                    await message.answer_document(
+                        types.FSInputFile(alt_path),
+                        caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
+                        reply_markup=keyboard
+                    )
+                else:
+                    # Если файл не найден, отправляем сообщение об ошибке
+                    logger.warning(f"[ask_privacy_acceptance] PDF файл не найден на диске. Путь: {pdf_path}, Альтернативный: {alt_path}")
+                    await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
+        except Exception as e:
+            logger.error(f"[ask_privacy_acceptance] Ошибка при отправке PDF: {e}")
+            # В случае ошибки отправляем текстовое сообщение
             await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
     else:
         # Если PDF файл не загружен, отправляем текстовое сообщение (fallback)
@@ -717,8 +752,10 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
                 )
         else:
             # Регистрация не завершена - продолжаем регистрацию
-            logger.info(f"[process_language_selection] Регистрация не завершена, переходим к ask_name")
-            await ask_name(callback.message, user, state)
+            logger.info(f"[process_language_selection] Регистрация не завершена, продолжаем процесс регистрации")
+            # Используем cmd_start логику для продолжения регистрации
+            # Это гарантирует правильную последовательность шагов
+            await cmd_start(callback.message, state)
     except Exception as e:
         logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
         await callback.answer("Произошла ошибка. Попробуйте еще раз.")
@@ -1088,11 +1125,23 @@ async def show_balance(message: Message, user: TelegramUser):
 
 
 async def show_gifts(message: Message, state: FSMContext):
-    """Показывает список доступных подарков."""
+    """Показывает список доступных подарков с фильтрацией по типу пользователя."""
     @sync_to_async
     def get_gifts_and_user():
+        from django.db.models import Q
         user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        gifts = list(Gift.objects.filter(is_active=True).order_by('points_cost'))
+        # Фильтруем подарки: для типа пользователя или без типа (для всех)
+        if user.user_type:
+            gifts_query = Gift.objects.filter(
+                is_active=True
+            ).filter(
+                Q(user_type=user.user_type) | Q(user_type__isnull=True)
+            )
+        else:
+            # Если у пользователя нет типа, показываем только подарки без типа
+            gifts_query = Gift.objects.filter(is_active=True, user_type__isnull=True)
+        
+        gifts = list(gifts_query.order_by('points_cost'))
         return user, gifts
     
     user, gifts = await get_gifts_and_user()
@@ -1137,6 +1186,10 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
             gift = Gift.objects.get(id=gift_id, is_active=True)
             user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
             
+            # Проверяем, доступен ли подарок для типа пользователя
+            if gift.user_type and gift.user_type != user.user_type:
+                return {'error': 'not_available_for_user_type'}
+            
             if user.points < gift.points_cost:
                 return {'error': 'insufficient_points'}
             
@@ -1172,6 +1225,8 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
             await callback.answer(get_text(user, 'INSUFFICIENT_POINTS'), show_alert=True)
         elif result.get('error') == 'not_found':
             await callback.answer(get_text(user, 'GIFT_NOT_FOUND'), show_alert=True)
+        elif result.get('error') == 'not_available_for_user_type':
+            await callback.answer(get_text(user, 'GIFT_NOT_AVAILABLE_FOR_USER_TYPE'), show_alert=True)
         elif result.get('success'):
             await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=format_number(result['remaining_points'])).split('!')[0] + "!", show_alert=True)
             await callback.message.answer(get_text(user, 'GIFT_REQUEST_SENT',

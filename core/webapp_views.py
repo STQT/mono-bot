@@ -8,6 +8,7 @@ from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
+from django.db import models
 from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
@@ -102,9 +103,33 @@ def get_translations(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_gifts(request):
-    """Получает список активных подарков."""
+    """Получает список активных подарков с фильтрацией по типу пользователя."""
     try:
-        gifts = Gift.objects.filter(is_active=True).order_by('points_cost')
+        telegram_id = request.GET.get('telegram_id')
+        
+        # Базовый запрос для активных подарков
+        gifts_query = Gift.objects.filter(is_active=True)
+        
+        # Если передан telegram_id, фильтруем по типу пользователя
+        if telegram_id:
+            try:
+                user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+                # Показываем подарки для типа пользователя или без типа (для всех)
+                if user.user_type:
+                    gifts_query = gifts_query.filter(
+                        models.Q(user_type=user.user_type) | models.Q(user_type__isnull=True)
+                    )
+                else:
+                    # Если у пользователя нет типа, показываем только подарки без типа
+                    gifts_query = gifts_query.filter(user_type__isnull=True)
+            except TelegramUser.DoesNotExist:
+                # Если пользователь не найден, показываем только подарки без типа
+                gifts_query = gifts_query.filter(user_type__isnull=True)
+        else:
+            # Если telegram_id не передан, показываем только подарки без типа
+            gifts_query = gifts_query.filter(user_type__isnull=True)
+        
+        gifts = gifts_query.order_by('points_cost')
         serializer = GiftSerializer(gifts, many=True, context={'request': request})
         return Response(serializer.data)
     except Exception as e:
@@ -154,6 +179,15 @@ def request_gift(request):
     try:
         user = TelegramUser.objects.get(telegram_id=int(telegram_id))
         gift = Gift.objects.get(id=gift_id, is_active=True)
+        
+        # Проверяем, доступен ли подарок для типа пользователя
+        if gift.user_type and gift.user_type != user.user_type:
+            from bot.translations import get_text
+            error_message = get_text(user, 'GIFT_NOT_AVAILABLE_FOR_USER_TYPE')
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         if user.points < gift.points_cost:
             # Получаем перевод ошибки

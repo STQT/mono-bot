@@ -644,8 +644,8 @@ class QRCodeAdmin(admin.ModelAdmin):
 @admin.register(Gift)
 class GiftAdmin(admin.ModelAdmin):
     """Админка для подарков."""
-    list_display = ['gift_display', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
-    list_filter = ['is_active', 'created_at']
+    list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
+    list_filter = ['is_active', 'user_type', 'created_at']
     search_fields = ['name', 'description_uz_latin', 'description_ru']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
     list_per_page = 25
@@ -658,6 +658,25 @@ class GiftAdmin(admin.ModelAdmin):
         )
     gift_display.short_description = 'Подарок'
     gift_display.admin_order_field = 'name'
+    
+    def user_type_badge(self, obj):
+        """Отображает тип пользователя с цветным badge."""
+        if obj.user_type == 'electrician':
+            return format_html(
+                '<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">⚡ Elektrik</span>'
+            )
+        elif obj.user_type == 'seller':
+            return format_html(
+                '<span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">🛒 Sotuvchi</span>'
+            )
+        return format_html(
+            '<span style="background: #f3f4f6; color: #6b7280; padding: 4px 12px; border-radius: 12px; '
+            'font-size: 12px; font-weight: 600;">🌐 Barcha</span>'
+        )
+    user_type_badge.short_description = 'Foydalanuvchi turi'
+    user_type_badge.admin_order_field = 'user_type'
     
     def points_cost_display(self, obj):
         """Отображает стоимость с цветом."""
@@ -702,7 +721,7 @@ class GiftAdmin(admin.ModelAdmin):
             'fields': ('description_uz_latin', 'description_ru')
         }),
         ('Настройки', {
-            'fields': ('points_cost', 'is_active')
+            'fields': ('user_type', 'points_cost', 'is_active')
         }),
         ('Даты', {
             'fields': ('created_at', 'updated_at')
@@ -828,7 +847,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
                 # Call Center видит только 'pending', 'approved', 'sent'
                 elif is_call_center:
                     filtered_choices = [choice for choice in choices if choice[0] in ['pending', 'approved', 'sent']]
-                    kwargs['choices'] = filtered_choices
+                kwargs['choices'] = filtered_choices
             
         return super().formfield_for_dbfield(db_field, request, **kwargs)
     
@@ -851,7 +870,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
             # Call Center не может подтверждать получение подарка
             elif request.user.has_perm('core.change_user_type_call_center'):
                 if 'user_confirmed' not in readonly:
-                    readonly.append('user_confirmed')
+                readonly.append('user_confirmed')
         
         return readonly
     

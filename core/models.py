@@ -303,6 +303,11 @@ class QRCodeScanAttempt(models.Model):
 
 class Gift(models.Model):
     """Модель подарка."""
+    USER_TYPE_CHOICES = [
+        ('electrician', 'Elektrik (E)'),
+        ('seller', 'Sotuvchi (D)'),
+    ]
+    
     name = models.CharField(max_length=255, verbose_name='Nomi')
     description_uz_latin = models.TextField(blank=True, verbose_name='Tavsif (O\'zbek lotin)')
     description_ru = models.TextField(blank=True, verbose_name='Tavsif (Ruscha)')
@@ -310,6 +315,14 @@ class Gift(models.Model):
     points_cost = models.IntegerField(
         validators=[MinValueValidator(1)],
         verbose_name='Ballar narxi'
+    )
+    user_type = models.CharField(
+        max_length=20,
+        choices=USER_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Foydalanuvchi turi',
+        help_text='Agar bo\'sh qoldirilsa, barcha foydalanuvchilar uchun ko\'rsatiladi'
     )
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -319,6 +332,9 @@ class Gift(models.Model):
         verbose_name = 'Sovg\'a'
         verbose_name_plural = 'Sovg\'alar'
         ordering = ['points_cost', 'name']
+        indexes = [
+            models.Index(fields=['user_type', 'is_active']),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.points_cost} ball)"
