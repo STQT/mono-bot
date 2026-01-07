@@ -9,9 +9,29 @@ from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
 from django.db import models
+from functools import wraps
 from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
+
+
+def no_cache_response(func):
+    """Декоратор для добавления заголовков отключения кеша к ответам API."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        response = func(*args, **kwargs)
+        if isinstance(response, Response):
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0, private'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            response['X-Accel-Expires'] = '0'
+            # Удаляем заголовки кеширования, если они есть
+            if 'ETag' in response:
+                del response['ETag']
+            if 'Last-Modified' in response:
+                del response['Last-Modified']
+        return response
+    return wrapper
 
 
 def webapp_view(request):
@@ -48,15 +68,22 @@ def webapp_view(request):
     response = render(request, 'webapp/index.html', context)
     
     # Добавляем заголовки для отключения кеширования
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0, private'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
+    response['X-Accel-Expires'] = '0'  # Для nginx
+    # Удаляем заголовки кеширования, если они есть
+    if 'ETag' in response:
+        del response['ETag']
+    if 'Last-Modified' in response:
+        del response['Last-Modified']
     
     return response
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_user_data(request):
     """Получает данные пользователя по telegram_id из initData."""
     telegram_id = request.GET.get('telegram_id')
@@ -88,6 +115,7 @@ def get_user_data(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_translations(request):
     """Получает переводы для Web App на указанном языке."""
     from bot.translations import TRANSLATIONS
@@ -102,6 +130,7 @@ def get_translations(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_gifts(request):
     """Получает список активных подарков с фильтрацией по типу пользователя."""
     try:
@@ -141,6 +170,7 @@ def get_gifts(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_user_redemptions(request):
     """Получает список запросов на подарки пользователя."""
     telegram_id = request.GET.get('telegram_id')
@@ -165,6 +195,7 @@ def get_user_redemptions(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@no_cache_response
 def request_gift(request):
     """Создает запрос на получение подарка."""
     telegram_id = request.data.get('telegram_id')
@@ -226,6 +257,7 @@ def request_gift(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@no_cache_response
 def confirm_delivery(request):
     """Подтверждает получение заказа или оставляет комментарий."""
     redemption_id = request.data.get('redemption_id')
@@ -270,6 +302,7 @@ def confirm_delivery(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_qr_history(request):
     """Получает историю отсканированных QR-кодов пользователя."""
     telegram_id = request.GET.get('telegram_id')
@@ -308,6 +341,7 @@ def get_qr_history(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_promotions(request):
     """Получает список активных акций для слайдера."""
     try:
@@ -332,6 +366,7 @@ def get_promotions(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_promotion_detail(request, promotion_id):
     """Получает детальную информацию об акции."""
     try:
@@ -359,6 +394,7 @@ def get_promotion_detail(request, promotion_id):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@no_cache_response
 def get_privacy_policy(request):
     """Получает политику конфиденциальности на указанном языке."""
     language = request.GET.get('lang', 'uz_latin')
@@ -398,6 +434,7 @@ def get_privacy_policy(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@no_cache_response
 def update_user_language(request):
     """Обновляет язык пользователя."""
     telegram_id = request.data.get('telegram_id')
@@ -433,6 +470,7 @@ def update_user_language(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@no_cache_response
 def register_qr_code(request):
     """Регистрирует QR-код для пользователя."""
     from django.utils import timezone

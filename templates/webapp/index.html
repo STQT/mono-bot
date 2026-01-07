@@ -607,7 +607,7 @@
         async function loadTranslations(language) {
             try {
                 const url = `${API_BASE}/translations/?lang=${language}`;
-                const response = await fetch(url);
+                const response = await fetchNoCache(url);
                 if (response.ok) {
                     const data = await response.json();
                     Object.keys(data).forEach(key => {
@@ -661,6 +661,35 @@
         let currentDotColor = '#2064AE'; // Цвет по умолчанию для активной точки
         let previousScreen = null; // Сохраняем предыдущий экран для возврата из политики конфиденциальности
         const API_BASE = '/api/webapp';
+        
+        // Функция-обертка для fetch с заголовками отключения кеша
+        async function fetchNoCache(url, options = {}) {
+            // Добавляем timestamp к URL для обхода кеша
+            const separator = url.includes('?') ? '&' : '?';
+            const urlWithTimestamp = url + separator + '_t=' + Date.now();
+            
+            const defaultOptions = {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    ...(options.headers || {})
+                }
+            };
+            
+            // Объединяем опции, сохраняя пользовательские заголовки
+            const mergedOptions = {
+                ...options,
+                cache: 'no-store',
+                headers: {
+                    ...defaultOptions.headers,
+                    ...(options.headers || {})
+                }
+            };
+            
+            return fetch(urlWithTimestamp, mergedOptions);
+        }
 
         // Функция для получения доминирующего цвета изображения
         function getDominantColor(imageUrl, callback) {
@@ -777,7 +806,7 @@
                     return;
                 }
 
-                const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${user.id}`);
+                const userResponse = await fetchNoCache(`${API_BASE}/user/?telegram_id=${user.id}`);
                 if (!userResponse.ok) {
                     throw new Error(t('WEBAPP_ERROR_LOADING_USER'));
                 }
@@ -841,7 +870,7 @@
                 const giftsUrl = currentUser && currentUser.telegram_id 
                     ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
                     : `${API_BASE}/gifts/`;
-                const response = await fetch(giftsUrl);
+                const response = await fetchNoCache(giftsUrl);
                 if (response.ok) {
                     const gifts = await response.json();
                     const countElement = document.getElementById('giftsCount');
@@ -881,7 +910,7 @@
             if (!currentUser) return;
             
             try {
-                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                const response = await fetchNoCache(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (response.ok) {
                     const redemptions = await response.json();
                     const ordersSection = document.getElementById('ordersSection');
@@ -1025,7 +1054,7 @@
             
             try {
                 // Отправляем запрос на регистрацию QR кода
-                const response = await fetch(`${API_BASE}/register-qr/`, {
+                const response = await fetchNoCache(`${API_BASE}/register-qr/`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -1111,7 +1140,7 @@
                 // Обновляем данные пользователя (баллы)
                 if (currentUser && currentUser.telegram_id) {
                     try {
-                        const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${currentUser.telegram_id}`);
+                        const userResponse = await fetchNoCache(`${API_BASE}/user/?telegram_id=${currentUser.telegram_id}`);
                         if (userResponse.ok) {
                             const userData = await userResponse.json();
                             currentUser.points = userData.points;
@@ -1153,7 +1182,7 @@
                 
                 // Передаем telegram_id для получения описания на правильном языке
                 const giftsUrl = `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`;
-                const response = await fetch(giftsUrl);
+                const response = await fetchNoCache(giftsUrl);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -1164,7 +1193,7 @@
                 // Загружаем redemptions отдельно, если не удалось - продолжаем без них
                 let redemptions = [];
                 try {
-                    const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                    const redemptionsResponse = await fetchNoCache(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                     if (redemptionsResponse.ok) {
                         redemptions = await redemptionsResponse.json();
                     }
@@ -1267,7 +1296,7 @@
                 const giftsUrl = currentUser && currentUser.telegram_id 
                     ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
                     : `${API_BASE}/gifts/`;
-                const giftsResponse = await fetch(giftsUrl);
+                const giftsResponse = await fetchNoCache(giftsUrl);
                 const gifts = await giftsResponse.json();
                 const gift = gifts.find(g => g.id === giftId);
                 
@@ -1338,7 +1367,7 @@
                 const giftsUrl = currentUser && currentUser.telegram_id 
                     ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
                     : `${API_BASE}/gifts/`;
-                const giftsResponse = await fetch(giftsUrl);
+                const giftsResponse = await fetchNoCache(giftsUrl);
                 const gifts = await giftsResponse.json();
                 const gift = gifts.find(g => g.id === giftId);
                 
@@ -1469,7 +1498,7 @@
                 }
                 
                 // Загружаем данные о redemption
-                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                const response = await fetchNoCache(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (!response.ok) {
                     throw new Error('Failed to load redemption');
                 }
@@ -1593,7 +1622,7 @@
             if (!confirm(t('WEBAPP_CONFIRM_REQUEST'))) return;
             
             try {
-                const response = await fetch(`${API_BASE}/request-gift/`, {
+                const response = await fetchNoCache(`${API_BASE}/request-gift/`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -1631,7 +1660,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                const response = await fetchNoCache(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -1738,7 +1767,7 @@
             try {
                 const comment = document.getElementById('commentInput') ? document.getElementById('commentInput').value.trim() : '';
 
-                const response = await fetch(`${API_BASE}/confirm-delivery/`, {
+                const response = await fetchNoCache(`${API_BASE}/confirm-delivery/`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -1774,7 +1803,7 @@
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_QR_HISTORY') + '</div>';
             
             try {
-                const response = await fetch(`${API_BASE}/qr-history/?telegram_id=${currentUser.telegram_id}`);
+                const response = await fetchNoCache(`${API_BASE}/qr-history/?telegram_id=${currentUser.telegram_id}`);
                 if (!response.ok) throw new Error();
                 
                 const history = await response.json();
@@ -1856,7 +1885,7 @@
             
             try {
                 // Отправляем запрос на сервер для изменения языка
-                const response = await fetch(`${API_BASE}/update-language/`, {
+                const response = await fetchNoCache(`${API_BASE}/update-language/`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -1988,7 +2017,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/privacy-policy/?lang=${currentUser.language}`);
+                const response = await fetchNoCache(`${API_BASE}/privacy-policy/?lang=${currentUser.language}`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -2037,7 +2066,7 @@
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
             
             try {
-                const response = await fetch(`${API_BASE}/promotions/${promotionId}/`);
+                const response = await fetchNoCache(`${API_BASE}/promotions/${promotionId}/`);
                 if (!response.ok) throw new Error();
                 
                 const promotion = await response.json();
@@ -2076,7 +2105,7 @@
                 if (bannerSection) bannerSection.style.display = 'block';
                 if (skeletonBanner) skeletonBanner.style.display = 'block';
                 
-                const response = await fetch(`${API_BASE}/promotions/`);
+                const response = await fetchNoCache(`${API_BASE}/promotions/`);
                 if (response.ok) {
                     promotions = await response.json();
                     const bannerCard = document.getElementById('bannerCard');
