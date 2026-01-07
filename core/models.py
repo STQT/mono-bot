@@ -437,7 +437,6 @@ class BroadcastMessage(models.Model):
     # Фильтр по языку
     LANGUAGE_CHOICES = [
         ('uz_latin', 'O\'zbek (Lotin)'),
-        ('uz_cyrillic', 'O\'zbek (Kirill)'),
         ('ru', 'Русский'),
     ]
     language_filter = models.CharField(

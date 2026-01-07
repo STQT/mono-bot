@@ -1027,22 +1027,52 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
                 )
                 continue
             
-            # Запускаем команду отправки в фоне
-            try:
-                subprocess.Popen([
-                    'python', 'manage.py', 'send_broadcast', str(broadcast.id)
-                ])
-                self.message_user(
-                    request,
-                    f'Рассылка "{broadcast.title}" запущена',
-                    level=messages.SUCCESS
-                )
-            except Exception as e:
-                self.message_user(
-                    request,
-                    f'Ошибка при запуске рассылки: {e}',
-                    level=messages.ERROR
-                )
+            # Определяем, использовать ли Celery для больших рассылок
+            LARGE_BROADCAST_THRESHOLD = 20000  # Порог для использования Celery
+            
+            # Предварительно оцениваем количество пользователей
+            from core.models import TelegramUser
+            users_query = TelegramUser.objects.filter(is_active=True)
+            if broadcast.user_type_filter:
+                users_query = users_query.filter(user_type=broadcast.user_type_filter)
+            if broadcast.language_filter:
+                users_query = users_query.filter(language=broadcast.language_filter)
+            
+            estimated_users = users_query.count()
+            
+            # Если пользователей много, используем Celery
+            if estimated_users >= LARGE_BROADCAST_THRESHOLD:
+                try:
+                    from core.tasks import send_broadcast_chained
+                    send_broadcast_chained.delay(broadcast.id)
+                    self.message_user(
+                        request,
+                        f'Рассылка "{broadcast.title}" запущена через Celery ({estimated_users} пользователей)',
+                        level=messages.SUCCESS
+                    )
+                except Exception as e:
+                    self.message_user(
+                        request,
+                        f'Ошибка при запуске рассылки через Celery: {e}',
+                        level=messages.ERROR
+                    )
+            else:
+                # Для небольших рассылок используем обычную команду
+                try:
+                    subprocess.Popen([
+                        'python', 'manage.py', 'send_broadcast', str(broadcast.id)
+                    ])
+                    self.message_user(
+                        request,
+                        f'Рассылка "{broadcast.title}" запущена',
+                        level=messages.SUCCESS
+                    )
+                except Exception as e:
+                    self.message_user(
+                        request,
+                        f'Ошибка при запуске рассылки: {e}',
+                        level=messages.ERROR
+                    )
     send_broadcast_action.short_description = 'Отправить выбранные рассылки'
 
 

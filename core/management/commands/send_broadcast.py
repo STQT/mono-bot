@@ -44,25 +44,50 @@ class Command(BaseCommand):
             )
             return
         
-        async def run_broadcast():
-            bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            try:
-                result = await send_broadcast_message(
-                    broadcast=broadcast,
-                    bot=bot,
-                    user_type_filter=broadcast.user_type_filter
-                )
-                
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'Рассылка завершена!\n'
-                        f'Всего: {result["total"]}\n'
-                        f'Отправлено: {result["sent"]}\n'
-                        f'Ошибок: {result["failed"]}'
-                    )
-                )
-            finally:
-                await bot.session.close()
+        # Определяем, использовать ли Celery для больших рассылок
+        LARGE_BROADCAST_THRESHOLD = 20000  # Порог для использования Celery
         
-        asyncio.run(run_broadcast())
+        # Предварительно оцениваем количество пользователей
+        from core.models import TelegramUser
+        users_query = TelegramUser.objects.filter(is_active=True)
+        if broadcast.user_type_filter:
+            users_query = users_query.filter(user_type=broadcast.user_type_filter)
+        if broadcast.language_filter:
+            users_query = users_query.filter(language=broadcast.language_filter)
+        
+        estimated_users = users_query.count()
+        
+        # Если пользователей много, используем Celery
+        if estimated_users >= LARGE_BROADCAST_THRESHOLD:
+            from core.tasks import send_broadcast_chained
+            send_broadcast_chained.delay(broadcast.id)
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Рассылка запущена через Celery ({estimated_users} пользователей). '
+                    f'Проверьте статус в админке.'
+                )
+            )
+        else:
+            # Для небольших рассылок используем обычный метод
+            async def run_broadcast():
+                bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+                try:
+                    result = await send_broadcast_message(
+                        broadcast=broadcast,
+                        bot=bot,
+                        user_type_filter=broadcast.user_type_filter
+                    )
+                    
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'Рассылка завершена!\n'
+                            f'Всего: {result["total"]}\n'
+                            f'Отправлено: {result["sent"]}\n'
+                            f'Ошибок: {result["failed"]}'
+                        )
+                    )
+                finally:
+                    await bot.session.close()
+            
+            asyncio.run(run_broadcast())
 
