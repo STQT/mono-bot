@@ -984,7 +984,7 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
         'title', 'status', 'user_type_filter', 'total_users',
         'sent_count', 'failed_count', 'created_at', 'completed_at'
     ]
-    list_filter = ['status', 'user_type_filter', 'language_filter', 'created_at']
+    list_filter = ['status', 'user_type_filter', 'region_filter', 'language_filter', 'created_at']
     search_fields = ['title', 'message_text']
     readonly_fields = [
         'status', 'total_users', 'sent_count', 'failed_count',
@@ -996,12 +996,8 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
             'fields': ('title', 'message_text', 'user_type_filter')
         }),
         ('Фильтрация по региону', {
-            'fields': (
-                'region_min_latitude', 'region_max_latitude',
-                'region_min_longitude', 'region_max_longitude'
-            ),
-            'classes': ('collapse',),
-            'description': 'Укажите границы региона для фильтрации пользователей по геолокации. Оставьте пустым, чтобы не применять фильтр.'
+            'fields': ('region_filter',),
+            'description': 'Выберите область для фильтрации пользователей. Если не выбрано, сообщение будет отправлено всем пользователям.'
         }),
         ('Дополнительные фильтры', {
             'fields': ('language_filter',),

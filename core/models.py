@@ -408,30 +408,31 @@ class BroadcastMessage(models.Model):
         blank=True,
         verbose_name='Foydalanuvchi turi bo\'yicha filtr'
     )
-    # Фильтрация по региону (геолокации)
-    region_min_latitude = models.FloatField(
+    # Фильтрация по региону
+    REGION_CHOICES = [
+        ('', 'Barcha viloyatlar'),  # Все области
+        ('tashkent_city', 'Toshkent shahri'),
+        ('tashkent_region', 'Toshkent viloyati'),
+        ('andijan', 'Andijon viloyati'),
+        ('bukhara', 'Buxoro viloyati'),
+        ('jizzakh', 'Jizzax viloyati'),
+        ('kashkadarya', 'Qashqadaryo viloyati'),
+        ('navoi', 'Navoiy viloyati'),
+        ('namangan', 'Namangan viloyati'),
+        ('samarkand', 'Samarqand viloyati'),
+        ('surkhandarya', 'Surxondaryo viloyati'),
+        ('syrdarya', 'Sirdaryo viloyati'),
+        ('fergana', 'Farg\'ona viloyati'),
+        ('khorezm', 'Xorazm viloyati'),
+        ('karakalpakstan', 'Qoraqalpog\'iston Respublikasi'),
+    ]
+    region_filter = models.CharField(
+        max_length=50,
+        choices=REGION_CHOICES,
         null=True,
         blank=True,
-        verbose_name='Min kenglik',
-        help_text='Minimal kenglik (latitude) filtri'
-    )
-    region_max_latitude = models.FloatField(
-        null=True,
-        blank=True,
-        verbose_name='Max kenglik',
-        help_text='Maksimal kenglik (latitude) filtri'
-    )
-    region_min_longitude = models.FloatField(
-        null=True,
-        blank=True,
-        verbose_name='Min uzunlik',
-        help_text='Minimal uzunlik (longitude) filtri'
-    )
-    region_max_longitude = models.FloatField(
-        null=True,
-        blank=True,
-        verbose_name='Max uzunlik',
-        help_text='Maksimal uzunlik (longitude) filtri'
+        verbose_name='Viloyat bo\'yicha filtr',
+        help_text='Tanlangan viloyatdagi foydalanuvchilarga xabar yuborish uchun viloyatni tanlang. Bo\'sh qoldirilsa, barcha viloyatlarga yuboriladi.'
     )
     # Фильтр по языку
     LANGUAGE_CHOICES = [

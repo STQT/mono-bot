@@ -126,25 +126,29 @@ async def send_broadcast_message(
         if broadcast.language_filter:
             users_query = users_query.filter(language=broadcast.language_filter)
         
-        # Фильтр по региону (геолокации)
-        if broadcast.region_min_latitude is not None:
-            users_query = users_query.filter(latitude__gte=broadcast.region_min_latitude)
-        if broadcast.region_max_latitude is not None:
-            users_query = users_query.filter(latitude__lte=broadcast.region_max_latitude)
-        if broadcast.region_min_longitude is not None:
-            users_query = users_query.filter(longitude__gte=broadcast.region_min_longitude)
-        if broadcast.region_max_longitude is not None:
-            users_query = users_query.filter(longitude__lte=broadcast.region_max_longitude)
-        
-        # Фильтр: только пользователи с геолокацией (если указаны границы региона)
-        if (broadcast.region_min_latitude is not None or 
-            broadcast.region_max_latitude is not None or
-            broadcast.region_min_longitude is not None or
-            broadcast.region_max_longitude is not None):
-            users_query = users_query.filter(
+        # Фильтр по региону
+        if broadcast.region_filter:
+            from core.regions import get_region_by_coordinates
+            
+            # Получаем всех пользователей с геолокацией
+            users_with_location = list(users_query.filter(
                 latitude__isnull=False,
                 longitude__isnull=False
-            )
+            ))
+            
+            # Фильтруем по выбранному региону
+            filtered_user_ids = []
+            for user in users_with_location:
+                user_region = get_region_by_coordinates(user.latitude, user.longitude)
+                if user_region == broadcast.region_filter:
+                    filtered_user_ids.append(user.id)
+            
+            # Применяем фильтр по ID
+            if filtered_user_ids:
+                users_query = users_query.filter(id__in=filtered_user_ids)
+            else:
+                # Если никого не найдено, возвращаем пустой queryset
+                users_query = users_query.none()
         
         return list(users_query)
     
