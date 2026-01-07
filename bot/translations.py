@@ -290,7 +290,7 @@ TRANSLATIONS = {
         'WEBAPP_PARTNER_TEXT': "Сотрудничайте с Mono Electric и получайте подарки",
         'WEBAPP_CONTACT_ADMIN': "Связаться с администратором",
         'WEBAPP_INFO_TEXT': "Баллы зачисляются на ваш счет сразу после сканирования промокода.\n\n\n\nЕсли баллы не зачислились, пожалуйста, обратитесь к администратору.",
-        'WEBAPP_REGISTER': "Отправить"
+        'WEBAPP_REGISTER': "Отправить",
         'WEBAPP_VIEW_GIFTS': "Посмотреть подарки",
         'WEBAPP_PRIVACY_POLICY': "Политика конфиденциальности",
         'WEBAPP_QR_ERROR': "Введен неверный промокод",
