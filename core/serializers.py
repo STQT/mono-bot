@@ -33,6 +33,7 @@ class QRCodeSerializer(serializers.ModelSerializer):
 
 class GiftSerializer(serializers.ModelSerializer):
     """Сериализатор для подарка."""
+    name = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     
@@ -44,22 +45,11 @@ class GiftSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at']
     
-    def get_image(self, obj):
-        """Возвращает полный URL изображения."""
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-    
-    def get_description(self, obj):
-        """Возвращает описание на языке пользователя."""
-        # Пытаемся получить язык из контекста (если передан из родительского сериализатора)
+    def get_language(self):
+        """Определяет язык пользователя."""
         language = self.context.get('language')
         
         if not language:
-            # Пытаемся получить язык пользователя из запроса
             request = self.context.get('request')
             if request:
                 telegram_id = request.GET.get('telegram_id') or request.data.get('telegram_id')
@@ -74,6 +64,26 @@ class GiftSerializer(serializers.ModelSerializer):
                     language = 'uz_latin'
             else:
                 language = 'uz_latin'
+        
+        return language
+    
+    def get_name(self, obj):
+        """Возвращает название подарка на языке пользователя."""
+        language = self.get_language()
+        return obj.get_name(language)
+    
+    def get_image(self, obj):
+        """Возвращает полный URL изображения."""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+    
+    def get_description(self, obj):
+        """Возвращает описание на языке пользователя."""
+        language = self.get_language()
         
         # Возвращаем описание на нужном языке
         if language == 'ru' and obj.description_ru:

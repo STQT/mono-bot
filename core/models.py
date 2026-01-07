@@ -308,7 +308,8 @@ class Gift(models.Model):
         ('seller', 'Sotuvchi (D)'),
     ]
     
-    name = models.CharField(max_length=255, verbose_name='Nomi')
+    name_uz_latin = models.CharField(max_length=255, verbose_name='Nomi (O\'zbek lotin)')
+    name_ru = models.CharField(max_length=255, blank=True, verbose_name='Nomi (Ruscha)')
     description_uz_latin = models.TextField(blank=True, verbose_name='Tavsif (O\'zbek lotin)')
     description_ru = models.TextField(blank=True, verbose_name='Tavsif (Ruscha)')
     image = models.ImageField(upload_to='gifts/', verbose_name='Rasm')
@@ -331,13 +332,27 @@ class Gift(models.Model):
     class Meta:
         verbose_name = 'Sovg\'a'
         verbose_name_plural = 'Sovg\'alar'
-        ordering = ['points_cost', 'name']
+        ordering = ['points_cost', 'name_uz_latin']
         indexes = [
             models.Index(fields=['user_type', 'is_active']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.points_cost} ball)"
+        return f"{self.name_uz_latin} ({self.points_cost} ball)"
+    
+    def get_name(self, language='uz_latin'):
+        """
+        Возвращает название подарка на указанном языке.
+        
+        Args:
+            language: Язык ('uz_latin' или 'ru')
+        
+        Returns:
+            str: Название подарка на указанном языке
+        """
+        if language == 'ru' and self.name_ru:
+            return self.name_ru
+        return self.name_uz_latin or self.name_ru or ''
 
 
 class GiftRedemption(models.Model):
@@ -387,7 +402,8 @@ class GiftRedemption(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.user} - {self.gift.name} ({self.get_status_display()})"
+        gift_name = self.gift.name_uz_latin or self.gift.name_ru or 'Подарок'
+        return f"{self.user} - {gift_name} ({self.get_status_display()})"
 
 
 class BroadcastMessage(models.Model):

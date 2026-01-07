@@ -656,18 +656,19 @@ class GiftAdmin(admin.ModelAdmin):
     """Админка для подарков."""
     list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
     list_filter = ['is_active', 'user_type', 'created_at']
-    search_fields = ['name', 'description_uz_latin', 'description_ru']
+    search_fields = ['name_uz_latin', 'name_ru', 'description_uz_latin', 'description_ru']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
     list_per_page = 25
     
     def gift_display(self, obj):
         """Отображает подарок с иконкой."""
+        name = obj.name_uz_latin or obj.name_ru or 'Без названия'
         return format_html(
             '<span style="font-size: 20px;">🎁</span> <strong style="font-size: 16px;">{}</strong>',
-            obj.name
+            name
         )
     gift_display.short_description = 'Подарок'
-    gift_display.admin_order_field = 'name'
+    gift_display.admin_order_field = 'name_uz_latin'
     
     def user_type_badge(self, obj):
         """Отображает тип пользователя с цветным badge."""
@@ -725,7 +726,7 @@ class GiftAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('name', 'image', 'image_preview')
+            'fields': ('name_uz_latin', 'name_ru', 'image', 'image_preview')
         }),
         ('Описание', {
             'fields': ('description_uz_latin', 'description_ru')
@@ -754,15 +755,16 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
     
     def redemption_display(self, obj):
         """Отображает информацию о заказе."""
+        gift_name = obj.gift.name_uz_latin or obj.gift.name_ru or 'Подарок'
         return format_html(
             '<div style="line-height: 1.6;">'
             '<strong style="font-size: 16px;">🎁 {}</strong><br>'
             '<span style="color: #718096; font-size: 14px;">👤 {}</span>',
-            obj.gift.name,
+            gift_name,
             obj.user.first_name or f"ID: {obj.user.telegram_id}"
         )
     redemption_display.short_description = 'Заказ'
-    redemption_display.admin_order_field = 'gift__name'
+    redemption_display.admin_order_field = 'gift__name_uz_latin'
     
     def telegram_id_display(self, obj):
         """Отображает Telegram ID пользователя."""
@@ -925,7 +927,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
                 try:
                     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
                     user = obj.user
-                    gift_name = obj.gift.name
+                    gift_name = obj.gift.get_name(user.language if user else 'uz_latin')
                     
                     # Уведомление об изменении статуса
                     if 'status' in form.changed_data and old_status != obj.status:
