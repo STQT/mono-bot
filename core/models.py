@@ -24,6 +24,8 @@ class TelegramUser(models.Model):
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
+    region = models.CharField(max_length=50, null=True, blank=True, db_index=True, verbose_name='Viloyat')
+    district = models.CharField(max_length=100, null=True, blank=True, db_index=True, verbose_name='Tuman')
     user_type = models.CharField(
         max_length=20,
         choices=USER_TYPE_CHOICES,
@@ -36,7 +38,6 @@ class TelegramUser(models.Model):
         max_length=15,
         choices=[
             ('uz_latin', 'O\'zbek (Lotin)'),
-            ('uz_cyrillic', 'O\'zbek (Kirill)'),
             ('ru', 'Русский'),
         ],
         default='uz_latin',
@@ -51,7 +52,77 @@ class TelegramUser(models.Model):
     class Meta:
         verbose_name = 'Telegram foydalanuvchi'
         verbose_name_plural = 'Telegram foydalanuvchilar'
-        ordering = ['-created_at']
+        ordering = ['region', 'district', '-created_at']
+        permissions = [
+            ('send_region_messages', 'Can send messages to users by region'),
+            ('change_user_type_call_center', 'Call Center: Can change user type'),
+        ]
+    
+    def update_location(self):
+        """Автоматически определяет и сохраняет область и район по координатам."""
+        if self.latitude is None or self.longitude is None:
+            self.region = None
+            self.district = None
+            return
+        
+        from core.regions import get_region_by_coordinates, get_district_by_coordinates
+        
+        # Определяем область
+        region_code = get_region_by_coordinates(self.latitude, self.longitude)
+        self.region = region_code
+        
+        # Определяем район
+        if region_code:
+            district_code, district_name = get_district_by_coordinates(
+                self.latitude, self.longitude, region_code
+            )
+            self.district = district_code if district_code else None
+        else:
+            self.district = None
+    
+    def save(self, *args, **kwargs):
+        """Переопределяем save для автоматического определения локации."""
+        # Обновляем локацию при сохранении, если есть координаты
+        if self.latitude is not None and self.longitude is not None:
+            self.update_location()
+        super().save(*args, **kwargs)
+    
+    def get_region(self):
+        """Возвращает код области пользователя (из кэша или вычисляет)."""
+        if self.region:
+            return self.region
+        # Если нет в кэше, вычисляем и сохраняем
+        if self.latitude is not None and self.longitude is not None:
+            self.update_location()
+            self.save(update_fields=['region', 'district'])
+        return self.region
+    
+    def get_region_display(self, language='ru'):
+        """Возвращает название области пользователя."""
+        region_code = self.get_region()
+        if region_code is None:
+            return None
+        from core.regions import get_region_name
+        return get_region_name(region_code, language)
+    
+    def get_district(self):
+        """Возвращает код района пользователя (из кэша или вычисляет)."""
+        if self.district:
+            return self.district
+        # Если нет в кэше, вычисляем и сохраняем
+        if self.latitude is not None and self.longitude is not None:
+            self.update_location()
+            self.save(update_fields=['region', 'district'])
+        return self.district
+    
+    def get_district_display(self, language='ru'):
+        """Возвращает название района пользователя."""
+        district_code = self.get_district()
+        region_code = self.get_region()
+        if district_code is None or region_code is None:
+            return None
+        from core.regions import get_district_name
+        return get_district_name(district_code, region_code, language)
     
     def __str__(self):
         return f"{self.first_name or 'Unknown'} (@{self.username or 'no_username'})"
@@ -60,8 +131,8 @@ class TelegramUser(models.Model):
 class QRCode(models.Model):
     """Модель QR-кода (скретч-карты)."""
     CODE_TYPE_CHOICES = [
-        ('electrician', 'Elektrik (E-)'),
-        ('seller', 'Sotuvchi (D-)'),
+        ('electrician', 'Elektrik (E)'),
+        ('seller', 'Sotuvchi (D)'),
     ]
     
     code = models.CharField(max_length=255, unique=True, db_index=True)
@@ -96,12 +167,12 @@ class QRCode(models.Model):
         ]
     
     def __str__(self):
-        """Маскирует код для отображения (E-ABC123 -> E-AB***3)."""
+        """Маскирует код для отображения (EABC123 -> EA***3)."""
         if len(self.code) > 5:
-            # Для коротких кодов показываем первые 3 символа, маскируем середину, последний символ
-            prefix = self.code[:3]  # E- или D- + первый символ
+            # Для коротких кодов показываем первые 2 символа, маскируем середину, последний символ
+            prefix = self.code[:2]  # E или D + первый символ
             suffix = self.code[-1]   # Последний символ
-            masked = '*' * max(1, len(self.code) - 4)
+            masked = '*' * max(1, len(self.code) - 3)
             masked_code = f"{prefix}{masked}{suffix}"
         else:
             masked_code = self.code
@@ -187,7 +258,7 @@ class QRCode(models.Model):
         
         hash_code = cls.generate_hash()
         serial_number = cls.generate_serial_number(code_type)
-        prefix = 'E-' if code_type == 'electrician' else 'D-'
+        prefix = 'E' if code_type == 'electrician' else 'D'
         code = f"{prefix}{hash_code}"
         
         if points is None:
@@ -232,12 +303,26 @@ class QRCodeScanAttempt(models.Model):
 
 class Gift(models.Model):
     """Модель подарка."""
+    USER_TYPE_CHOICES = [
+        ('electrician', 'Elektrik (E)'),
+        ('seller', 'Sotuvchi (D)'),
+    ]
+    
     name = models.CharField(max_length=255, verbose_name='Nomi')
-    description = models.TextField(blank=True, verbose_name='Tavsif')
+    description_uz_latin = models.TextField(blank=True, verbose_name='Tavsif (O\'zbek lotin)')
+    description_ru = models.TextField(blank=True, verbose_name='Tavsif (Ruscha)')
     image = models.ImageField(upload_to='gifts/', verbose_name='Rasm')
     points_cost = models.IntegerField(
         validators=[MinValueValidator(1)],
         verbose_name='Ballar narxi'
+    )
+    user_type = models.CharField(
+        max_length=20,
+        choices=USER_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Foydalanuvchi turi',
+        help_text='Agar bo\'sh qoldirilsa, barcha foydalanuvchilar uchun ko\'rsatiladi'
     )
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -247,6 +332,9 @@ class Gift(models.Model):
         verbose_name = 'Sovg\'a'
         verbose_name_plural = 'Sovg\'alar'
         ordering = ['points_cost', 'name']
+        indexes = [
+            models.Index(fields=['user_type', 'is_active']),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.points_cost} ball)"
@@ -255,10 +343,12 @@ class Gift(models.Model):
 class GiftRedemption(models.Model):
     """Модель получения подарка пользователем."""
     STATUS_CHOICES = [
-        ('pending', 'Kutilmoqda'),
-        ('approved', 'Tasdiqlandi'),
-        ('rejected', 'Rad etildi'),
-        ('completed', 'Bajarildi'),
+        ('pending', 'So\'rov qabul qilindi'),  # Запрос принят к обработке
+        ('approved', 'Mahsulot tayyorlash bosqichida'),  # Продукт находится в стадии подготовки
+        ('sent', 'Mahsulot yetkazib berish xizmatiga topshirildi'),  # Продукт передан в службу доставки
+        ('completed', 'Mahsulotni qabul qilganingizni tasdiqlang'),  # Подтверждение получения продукта
+        ('rejected', 'So\'rov bekor qilindi (administrator bilan bog\'laning)'),  # Запрос отменен
+        ('not_received', 'Sovg\'a berilmagan (foydalanuvchi olmadi)'),  # Подарок не выдан (пользователь не получил)
     ]
     
     user = models.ForeignKey(
@@ -282,16 +372,7 @@ class GiftRedemption(models.Model):
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name='So\'ralgan vaqt')
     processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Qayta ishlangan vaqt')
     admin_notes = models.TextField(blank=True, verbose_name='Administrator eslatmalari')
-    delivery_status = models.CharField(
-        max_length=20,
-        choices=[
-            ('pending', 'Yuborish kutilmoqda'),
-            ('sent', 'Yuborildi'),
-            ('delivered', 'Yetkazildi'),
-        ],
-        default='pending',
-        verbose_name='Yetkazib berish holati'
-    )
+    # Поле delivery_status удалено - теперь используется только status
     user_confirmed = models.BooleanField(default=False, verbose_name='Foydalanuvchi tomonidan tasdiqlandi')
     user_comment = models.TextField(blank=True, verbose_name='Foydalanuvchi sharhi')
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name='Tasdiqlangan vaqt')
@@ -300,6 +381,10 @@ class GiftRedemption(models.Model):
         verbose_name = 'Sovg\'a olish'
         verbose_name_plural = 'Sovg\'a olishlar'
         ordering = ['-requested_at']
+        permissions = [
+            ('change_status_call_center', 'Call Center: Can change redemption status'),
+            ('change_status_agent', 'Agent: Can change redemption status (sent/completed only)'),
+        ]
     
     def __str__(self):
         return f"{self.user} - {self.gift.name} ({self.get_status_display()})"
@@ -411,33 +496,8 @@ class Promotion(models.Model):
 
 class PrivacyPolicy(models.Model):
     """Модель для политики конфиденциальности."""
-    content_uz_latin = models.TextField(verbose_name='Kontent (O\'zbek lotin)', blank=True, help_text='Текстовый контент для узбекского языка (латиница). Если загружен PDF, текст будет использован как подпись.')
-    content_uz_cyrillic = models.TextField(verbose_name='Kontent (O\'zbek kirill)', blank=True, help_text='Текстовый контент для узбекского языка (кириллица). Если загружен PDF, текст будет использован как подпись.')
-    content_ru = models.TextField(verbose_name='Kontent (Ruscha)', blank=True, help_text='Текстовый контент для русского языка. Если загружен PDF, текст будет использован как подпись.')
-    
-    # PDF файлы для каждого языка
-    pdf_uz_latin = models.FileField(
-        upload_to='privacy_policy/',
-        null=True,
-        blank=True,
-        verbose_name='PDF файл (O\'zbek lotin)',
-        help_text='PDF файл политики конфиденциальности для узбекского языка (латиница)'
-    )
-    pdf_uz_cyrillic = models.FileField(
-        upload_to='privacy_policy/',
-        null=True,
-        blank=True,
-        verbose_name='PDF файл (O\'zbek kirill)',
-        help_text='PDF файл политики конфиденциальности для узбекского языка (кириллица)'
-    )
-    pdf_ru = models.FileField(
-        upload_to='privacy_policy/',
-        null=True,
-        blank=True,
-        verbose_name='PDF файл (Ruscha)',
-        help_text='PDF файл политики конфиденциальности для русского языка'
-    )
-    
+    pdf_uz_latin = models.FileField(blank=True, null=True, upload_to='privacy_policy/', verbose_name='PDF файл (O\'zbek lotin)', help_text='PDF файл политики конфиденциальности для узбекского языка (латиница)')
+    pdf_ru = models.FileField(blank=True, null=True, upload_to='privacy_policy/', verbose_name='PDF файл (Ruscha)', help_text='PDF файл политики конфиденциальности для русского языка')
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')

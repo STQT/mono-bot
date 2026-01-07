@@ -38,6 +38,7 @@ else:
 class RegistrationStates(StatesGroup):
     """Состояния для регистрации пользователя."""
     waiting_for_language = State()
+    waiting_for_name = State()
     waiting_for_user_type = State()
     waiting_for_privacy = State()
     waiting_for_phone = State()
@@ -84,38 +85,72 @@ def get_web_app_url():
     return None
 
 
+def format_number(number):
+    """
+    Форматирует число с разделителями тысяч (пробелами).
+    Пример: 1000000 -> "1 000 000"
+    """
+    try:
+        num = int(float(number))
+        return f"{num:,}".replace(",", " ")
+    except (ValueError, TypeError):
+        return str(number)
+
+
 @sync_to_async
 def get_or_create_user(telegram_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получает или создает пользователя Telegram."""
+    logger.info(f"[get_or_create_user] Получение/создание пользователя: telegram_id={telegram_id}, username={username}")
+    
+    # Не сохраняем имя автоматически - пользователь должен ввести его сам
     user, created = TelegramUser.objects.get_or_create(
         telegram_id=telegram_id,
         defaults={
             'username': username,
-            'first_name': first_name,
-            'last_name': last_name,
+            # first_name и last_name не сохраняем автоматически
         }
     )
+    
+    logger.info(f"[get_or_create_user] Пользователь {'создан' if created else 'получен'}: id={user.id}, language={user.language}")
+    
+    # Обновляем username если он изменился
+    if username and user.username != username:
+        user.username = username
+        user.save(update_fields=['username'])
+        logger.info(f"[get_or_create_user] Username обновлен на: {username}")
+    
     return user, created
 
 
 @sync_to_async
 def is_registration_complete(user):
     """Проверяет, завершена ли регистрация пользователя."""
-    return (
+    result = (
         user.language and
+        user.first_name and  # Добавляем проверку имени
         user.user_type and
         user.privacy_accepted and
         user.phone_number and
         user.latitude is not None and
         user.longitude is not None
     )
+    
+    logger.info(f"[is_registration_complete] Проверка регистрации для user_id={user.id}: "
+                f"language={bool(user.language)}, first_name={bool(user.first_name)}, "
+                f"user_type={bool(user.user_type)}, privacy_accepted={user.privacy_accepted}, "
+                f"phone_number={bool(user.phone_number)}, location={user.latitude is not None and user.longitude is not None}, "
+                f"result={result}")
+    
+    return result
 
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
+    logger.info(f"[cmd_start] Получена команда /start от пользователя {message.from_user.id}")
+    
     # Парсим аргументы команды /start
-    # Формат может быть: /start qr_ABC123 или /start E-ABC123
+    # Формат может быть: /start qr_ABC123 или /start EABC123
     args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
     qr_code_str = None
     
@@ -128,6 +163,7 @@ async def cmd_start(message: Message, state: FSMContext):
         else:
             # Если формат без префикса, нормализуем регистр
             qr_code_str = arg.upper().strip()
+        logger.info(f"[cmd_start] Обнаружен QR-код в аргументе: {qr_code_str}")
     
     user, is_new_user = await get_or_create_user(
         telegram_id=message.from_user.id,
@@ -136,64 +172,93 @@ async def cmd_start(message: Message, state: FSMContext):
         last_name=message.from_user.last_name
     )
     
+    logger.info(f"[cmd_start] Пользователь получен/создан: id={user.id}, telegram_id={user.telegram_id}, "
+                f"is_new_user={is_new_user}, language={user.language}, first_name={user.first_name}, "
+                f"user_type={user.user_type}, privacy_accepted={user.privacy_accepted}, "
+                f"phone_number={user.phone_number}, latitude={user.latitude}, longitude={user.longitude}")
+    
     # Проверяем, завершена ли регистрация
     registration_complete = await is_registration_complete(user)
+    logger.info(f"[cmd_start] Регистрация завершена: {registration_complete}")
     
     # Если передан QR-код в аргументе
     if qr_code_str:
         if registration_complete:
             # Пользователь зарегистрирован - обрабатываем QR-код сразу
+            logger.info(f"[cmd_start] Пользователь зарегистрирован, обрабатываем QR-код")
             await handle_qr_code_scan(message, user, qr_code_str, state)
             return
         else:
             # Пользователь не зарегистрирован - сохраняем QR-код в state для обработки после регистрации
+            logger.info(f"[cmd_start] Пользователь не зарегистрирован, сохраняем QR-код в state")
             await state.update_data(pending_qr_code=qr_code_str)
     
     if registration_complete:
         # Пользователь уже зарегистрирован - показываем меню
+        logger.info(f"[cmd_start] Пользователь уже зарегистрирован, показываем меню")
         await show_main_menu(message, user)
         await state.clear()
         return
     
     # Очищаем state для новой сессии регистрации
     await state.clear()
+    logger.info(f"[cmd_start] Начинаем процесс регистрации")
     
     # Начинаем процесс регистрации с первого шага
     # Шаг 1: Выбор языка - всегда показываем приветствие если:
-    # - это новый пользователь (только что создан) - даже если язык установлен по умолчанию
+    # - это новый пользователь (только что создан) - даже если у него есть default язык
     # - или язык не выбран или пустой
-    if is_new_user:
-        # Новый пользователь - всегда показываем выбор языка
+    # ВАЖНО: Новые пользователи всегда должны выбрать язык, даже если в модели есть default
+    if is_new_user or not user.language:
+        logger.info(f"[cmd_start] Новый пользователь или язык не выбран (is_new_user={is_new_user}, user.language={user.language}), вызываем ask_language")
         await ask_language(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Язык уже выбран: {user.language}, пропускаем ask_language")
     
-    if not user.language or user.language == '':
-        await ask_language(message, user, state)
+    # Шаг 2: Ввод имени - спрашиваем только после выбора языка
+    if not user.first_name:
+        logger.info(f"[cmd_start] Имя не указано, вызываем ask_name")
+        await ask_name(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Имя указано: {user.first_name}, пропускаем ask_name")
     
-    # Если язык уже выбран, но регистрация не завершена - продолжаем с текущего шага
-    # Шаг 2: Выбор типа пользователя
+    # Шаг 3: Выбор типа пользователя
     if not user.user_type:
+        logger.info(f"[cmd_start] Тип пользователя не выбран, вызываем ask_user_type")
         await ask_user_type(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Тип пользователя выбран: {user.user_type}, пропускаем ask_user_type")
     
     # Шаг 3: Согласие на политику конфиденциальности
     if not user.privacy_accepted:
+        logger.info(f"[cmd_start] Политика конфиденциальности не принята, вызываем ask_privacy_acceptance")
         await ask_privacy_acceptance(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Политика конфиденциальности принята, пропускаем ask_privacy_acceptance")
     
     # Шаг 4: Телефонный номер
     if not user.phone_number:
+        logger.info(f"[cmd_start] Телефонный номер не указан, вызываем ask_phone")
         await ask_phone(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Телефонный номер указан, пропускаем ask_phone")
     
     # Шаг 5: Локация
     if user.latitude is None or user.longitude is None:
+        logger.info(f"[cmd_start] Локация не указана, вызываем ask_location")
         await ask_location(message, user, state)
         return
+    else:
+        logger.info(f"[cmd_start] Локация указана, пропускаем ask_location")
     
     # Шаг 6: Промокод (если еще не введен)
     # Промокод не обязателен, поэтому просто завершаем регистрацию
+    logger.info(f"[cmd_start] Все шаги регистрации пройдены, показываем главное меню")
     await state.clear()
     await show_main_menu(message, user)
 
@@ -243,10 +308,15 @@ async def process_location(message: Message, state: FSMContext):
         
         # Убираем клавиатуру с кнопкой геолокации
         remove_keyboard = types.ReplyKeyboardRemove()
-        await message.answer(get_text(user, 'LOCATION_SAVED'), reply_markup=remove_keyboard)
         
-        # Переходим к следующему шагу - промокод
-        await ask_promo_code(message, user, state)
+        # Сообщение об успешной регистрации
+        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_keyboard)
+        
+        # Очищаем состояние и показываем главное меню
+        await state.clear()
+        await show_main_menu(message, user)
+        # Затем обычным текстом просим ввести промокод (без установки состояния)
+        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
     else:
         @sync_to_async
         def get_user_for_location():
@@ -257,25 +327,63 @@ async def process_location(message: Message, state: FSMContext):
 
 async def ask_language(message: Message, user, state: FSMContext):
     """Спрашивает у пользователя язык интерфейса."""
+    logger.info(f"[ask_language] Вызывается для пользователя {user.telegram_id}, текущий язык: {user.language}")
+    
     # Показываем приветствие на всех языках
-    welcome_text = "👋 Salom! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:\n\n👋 Салом! «Mono Electric» бонус дастурига хуш келибсиз!\nИлтимос, тилни танланг:\n\n👋 Салом! «Mono Electric» bonus dasturiga xush kelibsiz!\nIltimos, tilni tanlang:"
+    welcome_text = "Assalomu alaykum!\n«Mono Electric» aksiyasiga xush kelibsiz.\nIltimos, qulay bo‘lgan tilni tanlang:\n\nДобрый день!\nДобро пожаловать в акцию «Mono Electric».\nПожалуйста, выберите удобный для вас язык:"
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
-            text="🌐 O'zbekcha (Lat)",
+            text="🇺🇿 O‘zbekcha ",
             callback_data='lang_uz_latin'
         )],
         [types.InlineKeyboardButton(
-            text="🌐 Ўзбекча (Kir)",
-            callback_data='lang_uz_cyrillic'
-        )],
-        [types.InlineKeyboardButton(
-            text="🌐 Русча",
+            text="🇷🇺 Русский",
             callback_data='lang_ru'
         )],
     ])
+    
+    logger.info(f"[ask_language] Отправляем сообщение с выбором языка пользователю {user.telegram_id}")
     await message.answer(welcome_text, reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_language)
+    logger.info(f"[ask_language] Состояние установлено в waiting_for_language")
+
+
+async def ask_name(message: Message, user, state: FSMContext):
+    """Спрашивает у пользователя его имя."""
+    await message.answer(get_text(user, 'ASK_NAME'))
+    await state.set_state(RegistrationStates.waiting_for_name)
+
+
+@dp.message(RegistrationStates.waiting_for_name)
+async def process_name(message: Message, state: FSMContext):
+    """Обработчик получения имени пользователя."""
+    name = message.text.strip()
+    
+    # Проверяем, что имя не пустое и не слишком длинное
+    if not name or len(name) < 2:
+        @sync_to_async
+        def get_user():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user = await get_user()
+        await message.answer(get_text(user, 'NAME_TOO_SHORT'))
+        return
+    
+    if len(name) > 255:
+        name = name[:255]
+    
+    @sync_to_async
+    def update_name():
+        user = TelegramUser.objects.get(telegram_id=message.from_user.id)
+        user.first_name = name
+        user.save(update_fields=['first_name'])
+        return user
+    
+    user = await update_name()
+    await message.answer(get_text(user, 'NAME_SAVED'))
+    
+    # Переходим к следующему шагу - выбор типа пользователя
+    await ask_user_type(message, user, state)
 
 
 async def ask_user_type(message: Message, user, state: FSMContext):
@@ -296,33 +404,64 @@ async def ask_user_type(message: Message, user, state: FSMContext):
 
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
     """Спрашивает согласие на политику конфиденциальности."""
-    from pathlib import Path
-    from aiogram.types import FSInputFile, InputMediaPhoto
-    from django.contrib.staticfiles import finders
-    import tempfile
     from core.models import PrivacyPolicy
+    from django.conf import settings
+    import os
+    
+    logger.info(f"[ask_privacy_acceptance] Запрос политики для user_id={user.id}, language={user.language}")
     
     # Получаем активную политику конфиденциальности из базы данных
     @sync_to_async
     def get_privacy_policy():
+        """Получает активную политику конфиденциальности."""
         return PrivacyPolicy.objects.filter(is_active=True).first()
     
-    policy = await get_privacy_policy()
+    @sync_to_async
+    def get_privacy_pdf():
+        """Получает PDF файл политики конфиденциальности на языке пользователя."""
+        policy = PrivacyPolicy.objects.filter(is_active=True).first()
+        logger.info(f"[get_privacy_pdf] Политика найдена: {policy is not None}, user.language={user.language}")
+        if policy:
+            logger.info(f"[get_privacy_pdf] pdf_uz_latin: {bool(policy.pdf_uz_latin)}, pdf_ru: {bool(policy.pdf_ru)}")
+            
+            # Определяем язык пользователя (если не установлен, используем дефолтный)
+            user_lang = user.language or 'uz_latin'
+            logger.info(f"[get_privacy_pdf] Используемый язык: {user_lang}")
+            
+            # Узбекский язык может быть 'uz' или 'uz_latin'
+            if user_lang in ['uz', 'uz_latin']:
+                # Сначала пробуем узбекский
+                if policy.pdf_uz_latin:
+                    logger.info(f"[get_privacy_pdf] Возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+                    return policy.pdf_uz_latin
+                # Если узбекского нет, пробуем русский
+                elif policy.pdf_ru:
+                    logger.info(f"[get_privacy_pdf] Нет uz_latin, возвращаем pdf_ru: {policy.pdf_ru.name}")
+                    return policy.pdf_ru
+            elif user_lang == 'ru':
+                # Сначала пробуем русский
+                if policy.pdf_ru:
+                    logger.info(f"[get_privacy_pdf] Возвращаем pdf_ru: {policy.pdf_ru.name}")
+                    return policy.pdf_ru
+                # Если русского нет, пробуем узбекский
+                elif policy.pdf_uz_latin:
+                    logger.info(f"[get_privacy_pdf] Нет ru, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+                    return policy.pdf_uz_latin
+            
+            # Если язык не определен, пробуем оба файла
+            if policy.pdf_uz_latin:
+                logger.info(f"[get_privacy_pdf] Язык не определен, возвращаем pdf_uz_latin: {policy.pdf_uz_latin.name}")
+                return policy.pdf_uz_latin
+            elif policy.pdf_ru:
+                logger.info(f"[get_privacy_pdf] Язык не определен, возвращаем pdf_ru: {policy.pdf_ru.name}")
+                return policy.pdf_ru
+                
+        logger.info(f"[get_privacy_pdf] PDF не найден")
+        return None
     
-    # Определяем какой PDF файл использовать в зависимости от языка пользователя
-    pdf_file = None
-    privacy_text = get_text(user, 'PRIVACY_POLICY_TEXT')
-    
-    if policy:
-        if user.language == 'uz_latin' and policy.pdf_uz_latin:
-            pdf_file = policy.pdf_uz_latin
-            privacy_text = policy.content_uz_latin or privacy_text
-        elif user.language == 'uz_cyrillic' and policy.pdf_uz_cyrillic:
-            pdf_file = policy.pdf_uz_cyrillic
-            privacy_text = policy.content_uz_cyrillic or policy.content_uz_latin or privacy_text
-        elif user.language == 'ru' and policy.pdf_ru:
-            pdf_file = policy.pdf_ru
-            privacy_text = policy.content_ru or privacy_text
+    # Получаем PDF файл политики конфиденциальности
+    pdf_file = await get_privacy_pdf()
+    logger.info(f"[ask_privacy_acceptance] PDF файл получен: {pdf_file is not None}")
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
@@ -335,39 +474,45 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
         )],
     ])
     
-    # Если PDF файл не найден в модели, пробуем статический файл как fallback
-    pdf_path = None
-    if pdf_file and pdf_file.path:
-        pdf_path = pdf_file.path
+    # Отправляем PDF файл политики конфиденциальности
+    if pdf_file:
+        try:
+            # Получаем полный путь к файлу через свойство .path Django FileField
+            pdf_path = pdf_file.path
+            logger.info(f"[ask_privacy_acceptance] Путь к PDF: {pdf_path}")
+            
+            # Проверяем существование файла
+            if os.path.exists(pdf_path):
+                logger.info(f"[ask_privacy_acceptance] Файл существует, отправляем PDF")
+                # Отправляем PDF как документ
+                await message.answer_document(
+                    types.FSInputFile(pdf_path),
+                    caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
+                    reply_markup=keyboard
+                )
+            else:
+                # Если файл не найден, пробуем альтернативный путь
+                alt_path = os.path.join(settings.MEDIA_ROOT, pdf_file.name)
+                logger.info(f"[ask_privacy_acceptance] Пробуем альтернативный путь: {alt_path}")
+                if os.path.exists(alt_path):
+                    logger.info(f"[ask_privacy_acceptance] Файл найден по альтернативному пути, отправляем PDF")
+                    await message.answer_document(
+                        types.FSInputFile(alt_path),
+                        caption=get_text(user, 'PRIVACY_POLICY_TEXT'),
+                        reply_markup=keyboard
+                    )
+                else:
+                    # Если файл не найден, отправляем сообщение об ошибке
+                    logger.warning(f"[ask_privacy_acceptance] PDF файл не найден на диске. Путь: {pdf_path}, Альтернативный: {alt_path}")
+                    await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
+        except Exception as e:
+            logger.error(f"[ask_privacy_acceptance] Ошибка при отправке PDF: {e}")
+            # В случае ошибки отправляем текстовое сообщение
+            await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
     else:
-        # Fallback: пытаемся найти статический файл
-        pdf_path = finders.find('confidencial.pdf')
-        if not pdf_path:
-            static_dirs = getattr(settings, 'STATICFILES_DIRS', [])
-            for static_dir in static_dirs:
-                potential_path = Path(static_dir) / 'confidencial.pdf'
-                if potential_path.exists():
-                    pdf_path = str(potential_path)
-                    break
-        if not pdf_path:
-            static_root = getattr(settings, 'STATIC_ROOT', None)
-            if static_root:
-                potential_path = Path(static_root) / 'confidencial.pdf'
-                if potential_path.exists():
-                    pdf_path = str(potential_path)
-    
-    # Если файл не найден, отправляем только текст
-    if not pdf_path or not Path(pdf_path).exists():
-        logger.warning("PDF файл политики конфиденциальности не найден. Используется текстовая версия.")
-        await message.answer(privacy_text, reply_markup=keyboard)
-    else:
-        # ВРЕМЕННО: отправляем только PDF как документ, с одной клавиатурой для принятия
-        document = FSInputFile(pdf_path)
-        await message.answer_document(
-            document,
-            caption=privacy_text,
-            reply_markup=keyboard
-        )
+        # Если PDF файл не загружен, отправляем текстовое сообщение (fallback)
+        logger.warning(f"[ask_privacy_acceptance] PDF файл не загружен в базу данных для языка {user.language}")
+        await message.answer(get_text(user, 'PRIVACY_POLICY_TEXT'), reply_markup=keyboard)
     
     await state.set_state(RegistrationStates.waiting_for_privacy)
 
@@ -412,6 +557,26 @@ async def process_promo_code(message: Message, state: FSMContext):
         return TelegramUser.objects.get(telegram_id=message.from_user.id)
     
     user = await get_user()
+    
+    # Проверяем, не является ли это командой меню
+    all_menu_commands = [
+        TRANSLATIONS['uz_latin']['MY_BALANCE'],
+        TRANSLATIONS['ru']['MY_BALANCE'],
+        TRANSLATIONS['uz_latin']['GIFTS'],
+        TRANSLATIONS['ru']['GIFTS'],
+        TRANSLATIONS['uz_latin']['TOP_LEADERS'],
+        TRANSLATIONS['ru']['TOP_LEADERS'],
+        TRANSLATIONS['uz_latin']['LANGUAGE'],
+        TRANSLATIONS['ru']['LANGUAGE'],
+        TRANSLATIONS['uz_latin']['ENTER_PROMO_CODE'],
+        TRANSLATIONS['ru']['ENTER_PROMO_CODE'],
+    ]
+    
+    # Если это команда меню, выходим из состояния и обрабатываем как обычное сообщение
+    if message.text in all_menu_commands:
+        await state.clear()
+        await handle_message(message, state)
+        return
     
     # Проверяем, есть ли ожидающий QR-код из state (передан при /start)
     state_data = await state.get_data()
@@ -494,22 +659,106 @@ async def process_promo_code(message: Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
 async def process_language_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор языка."""
-    language = callback.data.split('_')[1]  # uz_latin, uz_cyrillic или ru
+    logger.info(f"[process_language_selection] Получен callback: {callback.data} от пользователя {callback.from_user.id}")
     
-    @sync_to_async
-    def update_language():
-        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        user.language = language
-        user.save(update_fields=['language'])
-        return user
-    
-    user = await update_language()
-    
-    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
-    await callback.message.delete()
-    
-    # Переходим к следующему шагу - выбор типа пользователя
-    await ask_user_type(callback.message, user, state)
+    try:
+        language = callback.data.split('_', 1)[1]  # uz_latin или ru (берем всё после 'lang_')
+        logger.info(f"[process_language_selection] Выбранный язык: {language}")
+        
+        @sync_to_async
+        def update_language_and_check_registration():
+            user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+            logger.info(f"[process_language_selection] Текущий язык пользователя до обновления: {user.language}")
+            user.language = language
+            user.save(update_fields=['language'])
+            logger.info(f"[process_language_selection] Язык пользователя обновлен на: {user.language}")
+            # Проверяем, завершена ли регистрация
+            is_registered = (
+                user.language and
+                user.first_name and
+                user.user_type and
+                user.privacy_accepted and
+                user.phone_number and
+                user.latitude is not None and
+                user.longitude is not None
+            )
+            return user, is_registered
+        
+        user, is_registered = await update_language_and_check_registration()
+        logger.info(f"[process_language_selection] Регистрация завершена: {is_registered}")
+        
+        await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
+        await callback.message.delete()
+        
+        if is_registered:
+            # Пользователь уже зарегистрирован - показываем обновленное меню
+            logger.info(f"[process_language_selection] Пользователь зарегистрирован, показываем меню")
+            await state.clear()
+            
+            # Получаем баллы пользователя
+            @sync_to_async
+            def get_user_points():
+                user_obj = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+                return user_obj.points
+            
+            points = await get_user_points()
+            
+            # Создаем reply keyboard кнопки
+            keyboard_buttons = []
+            
+            # Определяем URL для Web App
+            web_app_url = get_web_app_url()
+            
+            # Добавляем кнопки меню
+            keyboard_buttons.extend([
+                [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
+                [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+                [types.KeyboardButton(text=get_text(user, 'ENTER_PROMO_CODE'))],
+                [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
+            ])
+            
+            keyboard = types.ReplyKeyboardMarkup(
+                keyboard=keyboard_buttons,
+                resize_keyboard=True
+            )
+            
+            # Создаем inline кнопку для Web App
+            inline_keyboard = None
+            if web_app_url:
+                try:
+                    web_app_button = types.InlineKeyboardButton(
+                        text=get_text(user, 'MY_GIFTS'),
+                        web_app=types.WebAppInfo(url=web_app_url)
+                    )
+                    inline_keyboard = types.InlineKeyboardMarkup(
+                        inline_keyboard=[[web_app_button]]
+                    )
+                except Exception as e:
+                    logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
+            
+            # Отправляем сообщение с обновленной клавиатурой
+            await bot.send_message(
+                chat_id=callback.from_user.id,
+                text=get_text(user, 'MAIN_MENU', points=format_number(points)),
+                reply_markup=keyboard
+            )
+            
+            # Отправляем отдельное сообщение с inline кнопкой для Web App
+            if inline_keyboard:
+                await bot.send_message(
+                    chat_id=callback.from_user.id,
+                    text=get_text(user, 'OPEN_WEB_APP'),
+                    reply_markup=inline_keyboard
+                )
+        else:
+            # Регистрация не завершена - продолжаем регистрацию
+            logger.info(f"[process_language_selection] Регистрация не завершена, продолжаем процесс регистрации")
+            # Используем cmd_start логику для продолжения регистрации
+            # Это гарантирует правильную последовательность шагов
+            await cmd_start(callback.message, state)
+    except Exception as e:
+        logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
+        await callback.answer("Произошла ошибка. Попробуйте еще раз.")
 
 
 @dp.callback_query(lambda c: c.data.startswith('user_type_'))
@@ -589,6 +838,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             try:
                 # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
                 qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
+                # Сначала ищем по полному коду (EABC123 или DABC123)
+                qr_code = QRCode.objects.get(code=qr_code_str)
             except QRCode.DoesNotExist:
                 # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
                 try:
@@ -723,8 +974,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                 await ask_promo_code(message, user, state)
         elif result.get('success'):
             await message.answer(get_text(user, 'QR_ACTIVATED',
-                points=result['points'],
-                total_points=result['total_points']
+                points=format_number(result['points']),
+                total_points=format_number(result['total_points'])
             ))
             # Если пользователь еще не зарегистрирован, продолжаем регистрацию
             if not user.phone_number or not user.latitude:
@@ -763,6 +1014,7 @@ async def show_main_menu(message: Message, user: TelegramUser):
     keyboard_buttons.extend([
         [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
         [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
+        [types.KeyboardButton(text=get_text(user, 'ENTER_PROMO_CODE'))],
         [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
     ])
     
@@ -786,7 +1038,7 @@ async def show_main_menu(message: Message, user: TelegramUser):
             logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
     
     await message.answer(
-        get_text(user, 'MAIN_MENU', points=points),
+        get_text(user, 'MAIN_MENU', points=format_number(points)),
         reply_markup=keyboard
     )
     
@@ -817,26 +1069,27 @@ async def handle_message(message: Message, state: FSMContext = None):
     # Получаем все возможные варианты текстов кнопок
     all_balance_texts = [
         TRANSLATIONS['uz_latin']['MY_BALANCE'],
-        TRANSLATIONS['uz_cyrillic']['MY_BALANCE'],
         TRANSLATIONS['ru']['MY_BALANCE'],
     ]
     
     all_gifts_texts = [
         TRANSLATIONS['uz_latin']['GIFTS'],
-        TRANSLATIONS['uz_cyrillic']['GIFTS'],
         TRANSLATIONS['ru']['GIFTS'],
     ]
     
     all_leaders_texts = [
         TRANSLATIONS['uz_latin']['TOP_LEADERS'],
-        TRANSLATIONS['uz_cyrillic']['TOP_LEADERS'],
         TRANSLATIONS['ru']['TOP_LEADERS'],
     ]
     
     all_language_texts = [
         TRANSLATIONS['uz_latin']['LANGUAGE'],
-        TRANSLATIONS['uz_cyrillic']['LANGUAGE'],
         TRANSLATIONS['ru']['LANGUAGE'],
+    ]
+    
+    all_promo_code_texts = [
+        TRANSLATIONS['uz_latin']['ENTER_PROMO_CODE'],
+        TRANSLATIONS['ru']['ENTER_PROMO_CODE'],
     ]
     
     # Обрабатываем в зависимости от текста
@@ -848,6 +1101,10 @@ async def handle_message(message: Message, state: FSMContext = None):
         await show_leaders(message)
     elif message.text in all_language_texts:
         await show_language_selection(message)
+    elif message.text in all_promo_code_texts:
+        # Отправляем просьбу ввести промокод
+        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+        await state.set_state(RegistrationStates.waiting_for_promo_code)
     else:
         # Если это не команда меню, пытаемся обработать как QR-код
         # Пользователь может ввести QR-код вручную
@@ -862,17 +1119,29 @@ async def handle_message(message: Message, state: FSMContext = None):
 
 async def show_balance(message: Message, user: TelegramUser):
     """Показывает баланс пользователя."""
-    await message.answer(get_text(user, 'BALANCE_INFO', points=user.points))
+    await message.answer(get_text(user, 'BALANCE_INFO', points=format_number(user.points)))
 
 
 
 
 async def show_gifts(message: Message, state: FSMContext):
-    """Показывает список доступных подарков."""
+    """Показывает список доступных подарков с фильтрацией по типу пользователя."""
     @sync_to_async
     def get_gifts_and_user():
+        from django.db.models import Q
         user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        gifts = list(Gift.objects.filter(is_active=True).order_by('points_cost'))
+        # Фильтруем подарки: для типа пользователя или без типа (для всех)
+        if user.user_type:
+            gifts_query = Gift.objects.filter(
+                is_active=True
+            ).filter(
+                Q(user_type=user.user_type) | Q(user_type__isnull=True)
+            )
+        else:
+            # Если у пользователя нет типа, показываем только подарки без типа
+            gifts_query = Gift.objects.filter(is_active=True, user_type__isnull=True)
+        
+        gifts = list(gifts_query.order_by('points_cost'))
         return user, gifts
     
     user, gifts = await get_gifts_and_user()
@@ -894,9 +1163,9 @@ async def show_gifts(message: Message, state: FSMContext):
             ball_word = 'балл'
         else:
             ball_word = 'ball'
-        text += f"{can_afford} {gift.name} - {gift.points_cost} {ball_word}\n"
+        text += f"{can_afford} {gift.name} - {format_number(gift.points_cost)} {ball_word}\n"
         buttons.append([types.InlineKeyboardButton(
-            text=f"{gift.name} ({gift.points_cost} {ball_word})",
+            text=f"{gift.name} ({format_number(gift.points_cost)} {ball_word})",
             callback_data=f"gift_{gift.id}"
         )])
     
@@ -916,6 +1185,10 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
         try:
             gift = Gift.objects.get(id=gift_id, is_active=True)
             user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+            
+            # Проверяем, доступен ли подарок для типа пользователя
+            if gift.user_type and gift.user_type != user.user_type:
+                return {'error': 'not_available_for_user_type'}
             
             if user.points < gift.points_cost:
                 return {'error': 'insufficient_points'}
@@ -952,11 +1225,13 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
             await callback.answer(get_text(user, 'INSUFFICIENT_POINTS'), show_alert=True)
         elif result.get('error') == 'not_found':
             await callback.answer(get_text(user, 'GIFT_NOT_FOUND'), show_alert=True)
+        elif result.get('error') == 'not_available_for_user_type':
+            await callback.answer(get_text(user, 'GIFT_NOT_AVAILABLE_FOR_USER_TYPE'), show_alert=True)
         elif result.get('success'):
-            await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=result['remaining_points']).split('!')[0] + "!", show_alert=True)
+            await callback.answer(get_text(user, 'GIFT_REQUEST_SENT', gift_name=result['gift_name'], remaining_points=format_number(result['remaining_points'])).split('!')[0] + "!", show_alert=True)
             await callback.message.answer(get_text(user, 'GIFT_REQUEST_SENT',
                 gift_name=result['gift_name'],
-                remaining_points=result['remaining_points']
+                remaining_points=format_number(result['remaining_points'])
             ))
             if state:
                 await state.clear()
@@ -1010,10 +1285,6 @@ async def show_language_selection(message: Message):
             callback_data='lang_uz_latin'
         )],
         [types.InlineKeyboardButton(
-            text=TRANSLATIONS['uz_latin']['UZBEK_CYRILLIC'],
-            callback_data='lang_uz_cyrillic'
-        )],
-        [types.InlineKeyboardButton(
             text=TRANSLATIONS['uz_latin']['RUSSIAN'],
             callback_data='lang_ru'
         )],
@@ -1022,84 +1293,7 @@ async def show_language_selection(message: Message):
     await message.answer(get_text(user, 'SELECT_LANGUAGE'), reply_markup=keyboard)
 
 
-@dp.callback_query(lambda c: c.data.startswith('lang_'))
-async def change_language(callback: CallbackQuery):
-    """Обрабатывает смену языка."""
-    language_code = callback.data.split('_', 1)[1]  # uz_latin, uz_cyrillic, ru
-    
-    @sync_to_async
-    def update_language():
-        user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        user.language = language_code
-        user.save(update_fields=['language'])
-        return user
-    
-    user = await update_language()
-    
-    # Показываем уведомление о смене языка
-    await callback.answer(get_text(user, 'LANGUAGE_CHANGED'), show_alert=True)
-    
-    # Удаляем сообщение с выбором языка
-    try:
-        await callback.message.delete()
-    except Exception as e:
-        logger.warning(f"Не удалось удалить сообщение: {e}")
-    
-    # Отправляем новое сообщение с обновленной клавиатурой через бота напрямую
-    # Это гарантирует обновление ReplyKeyboard с новыми текстами кнопок
-    @sync_to_async
-    def get_user_points():
-        user_obj = TelegramUser.objects.get(telegram_id=callback.from_user.id)
-        return user_obj.points
-    
-    points = await get_user_points()
-    
-    # Создаем reply keyboard кнопки
-    keyboard_buttons = []
-    
-    # Определяем URL для Web App
-    web_app_url = get_web_app_url()
-    
-    # Добавляем остальные кнопки (без Web App кнопки в reply keyboard)
-    keyboard_buttons.extend([
-        [types.KeyboardButton(text=get_text(user, 'GIFTS'))],
-        [types.KeyboardButton(text=get_text(user, 'MY_BALANCE')), types.KeyboardButton(text=get_text(user, 'TOP_LEADERS'))],
-        [types.KeyboardButton(text=get_text(user, 'LANGUAGE'))],
-    ])
-    
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=keyboard_buttons,
-        resize_keyboard=True
-    )
-    
-    # Создаем inline кнопку для Web App
-    inline_keyboard = None
-    if web_app_url:
-        try:
-            web_app_button = types.InlineKeyboardButton(
-                text=get_text(user, 'MY_GIFTS'),
-                web_app=types.WebAppInfo(url=web_app_url)
-            )
-            inline_keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[[web_app_button]]
-            )
-        except Exception as e:
-            logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
-    
-    # Отправляем сообщение через бота напрямую, чтобы обновить клавиатуру
-    await bot.send_message(
-        chat_id=callback.from_user.id,
-        text=get_text(user, 'MAIN_MENU', points=points),
-        reply_markup=keyboard
-    )
-    
-    # Отправляем отдельное сообщение с inline кнопкой для Web App
-    if inline_keyboard:
-        await bot.send_message(
-            chat_id=callback.from_user.id,
-            text=get_text(user, 'OPEN_WEB_APP'),
-            reply_markup=inline_keyboard
-        )
+# Этот обработчик удален - теперь смена языка обрабатывается в process_language_selection выше
 
 
 async def handle_unknown_message(message: Message):

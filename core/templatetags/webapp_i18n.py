@@ -9,6 +9,19 @@ from bot.translations import TRANSLATIONS
 register = template.Library()
 
 
+@register.filter(name='format_number')
+def format_number(value):
+    """
+    Форматирует число с разделителями тысяч (пробелами).
+    Пример: 1000000 -> "1 000 000"
+    """
+    try:
+        num = int(float(value))
+        return f"{num:,}".replace(",", " ")
+    except (ValueError, TypeError):
+        return value
+
+
 @register.simple_tag(takes_context=True)
 def trans(context, key, **kwargs):
     """
@@ -41,7 +54,7 @@ def trans(context, key, **kwargs):
     
     # Если текст не найден, пробуем найти в других языках как fallback
     if text is None:
-        for lang in ['uz_latin', 'uz_cyrillic', 'ru']:
+        for lang in ['uz_latin', 'ru']:
             if lang in TRANSLATIONS and key in TRANSLATIONS[lang]:
                 text = TRANSLATIONS[lang][key]
                 break

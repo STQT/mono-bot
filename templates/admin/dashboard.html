@@ -1,5 +1,6 @@
 {% extends "admin/base.html" %}
 {% load static %}
+{% load webapp_i18n %}
 
 {% block title %}Дашборд{% endblock %}
 
@@ -259,6 +260,79 @@
     .filter-button.seller:hover {
         box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
     }
+    
+    .reports-section {
+        margin-top: 30px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 24px;
+    }
+    
+    .report-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .report-table thead {
+        background: #f8f9fa;
+    }
+    
+    .report-table th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #4a5568;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .report-table th:last-child {
+        text-align: right;
+    }
+    
+    .report-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        color: #2d3748;
+    }
+    
+    .report-table td:last-child {
+        text-align: right;
+        font-weight: 600;
+        color: #667eea;
+    }
+    
+    .report-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .report-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .report-period {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
+        margin-top: 5px;
+        font-weight: 400;
+    }
 </style>
 {% endblock %}
 
@@ -317,15 +391,15 @@
     <div class="dashboard-card points">
         <span class="card-icon">💰</span>
         <div class="card-title">Баллы</div>
-        <div class="stat-value">{{ total_points_electricians|add:total_points_sellers|floatformat:0 }}</div>
+        <div class="stat-value">{{ total_points_electricians|add:total_points_sellers|format_number }}</div>
         <div class="stat-details">
             <div class="stat-detail-item">
                 <span class="stat-detail-label">⚡ Электрики:</span>
-                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_electricians|floatformat:0 }}</span>
+                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_electricians|format_number }}</span>
             </div>
             <div class="stat-detail-item">
                 <span class="stat-detail-label">🛒 Продавцы:</span>
-                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_sellers|floatformat:0 }}</span>
+                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_sellers|format_number }}</span>
             </div>
         </div>
     </div>
@@ -373,7 +447,7 @@
                         {{ leader.first_name|default:"Пользователь" }}
                         <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
                     </td>
-                    <td class="leader-points">{{ leader.points|floatformat:0 }}</td>
+                    <td class="leader-points">{{ leader.points|format_number }}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -412,13 +486,141 @@
                         {{ leader.first_name|default:"Пользователь" }}
                         <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
                     </td>
-                    <td class="leader-points">{{ leader.points|floatformat:0 }}</td>
+                    <td class="leader-points">{{ leader.points|format_number }}</td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="3" class="empty-state">
                         <span class="empty-state-icon">😔</span>
                         <div>Нет данных</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="reports-section">
+    <div class="report-card">
+        <div class="report-header">
+            📍 Статистика по вилоятам (месяц)
+            <div class="report-period">{{ current_month }}</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, points in regions_month %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот месяц</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="report-card">
+        <div class="report-header">
+            📍 Статистика по вилоятам (год)
+            <div class="report-period">{{ current_year }} год</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, points in regions_year %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот год</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="reports-section">
+    <div class="report-card">
+        <div class="report-header">
+            🏘️ Статистика по районам (месяц)
+            <div class="report-period">{{ current_month }}</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th>Район</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, district_name, points in districts_month %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ district_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот месяц</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="report-card">
+        <div class="report-header">
+            🏘️ Статистика по районам (год)
+            <div class="report-period">{{ current_year }} год</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th>Район</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, district_name, points in districts_year %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ district_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот год</div>
                     </td>
                 </tr>
                 {% endfor %}

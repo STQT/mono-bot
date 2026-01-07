@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise для статических файлов
+    'core.middleware.NoCacheMiddleware',  # Отключение кеша для Telegram Web App
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Поддержка локализации
     'django.middleware.common.CommonMiddleware',
@@ -127,7 +128,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # Django использует стандартные ISO 639 коды, но мы храним кастомные коды в БД
-# Маппинг: uz_latin -> uz, uz_cyrillic -> uz, ru -> ru
+# Маппинг: uz_latin -> uz, ru -> ru
 LANGUAGE_CODE = 'uz'  # Стандартный код для узбекского (Django требует стандартные коды)
 LANGUAGES = [
     ('uz', 'O\'zbek (Lotin)'),  # Маппится на uz_latin в БД
@@ -168,6 +169,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Telegram Bot Token
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_BOT_USERNAME = env('TELEGRAM_BOT_USERNAME', default='')  # @username бота (без @)
+TELEGRAM_BOT_ADMIN_USERNAME = env('TELEGRAM_BOT_ADMIN_USERNAME', default='')  # @username администратора (без @)
 
 # Webhook Settings (для production)
 WEBHOOK_URL = env('WEBHOOK_URL', default='')
@@ -230,7 +232,7 @@ JAZZMIN_SETTINGS = {
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
-    "hide_models": [],
+    "hide_models": [],  # QRCodeGeneration скрыт через has_module_permission
     # Показывать приложения по пермишну
     "show_ui_builder": False,
     # Настройки для отображения моделей по правам доступа
@@ -268,6 +270,12 @@ JAZZMIN_SETTINGS = {
                 "url": "/admin/core/qrcode/generate/",
                 "icon": "fas fa-qrcode",
                 "permissions": ["core.generate_qrcodes"]
+            },
+            {
+                "name": "Отправка по областям",
+                "url": "/admin/send-region-message/",
+                "icon": "fas fa-map-marked-alt",
+                "permissions": ["core.send_region_messages"]
             }
         ]
     },

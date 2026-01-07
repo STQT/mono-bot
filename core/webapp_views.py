@@ -8,6 +8,7 @@ from rest_framework import status
 from django.shortcuts import render
 from django.conf import settings
 from django.utils import translation
+from django.db import models
 from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
@@ -31,14 +32,27 @@ def webapp_view(request):
         except (TelegramUser.DoesNotExist, ValueError):
             pass
     
+    # Версия для cache busting (изменяйте при обновлении CSS/JS)
+    import time
+    app_version = str(int(time.time()))  # Используем timestamp для гарантии обновления
+    
     # Не используем Django i18n для кастомных языков, используем наш template tag
     # Просто передаем язык в контекст для использования в шаблоне
     context = {
         'user_language': user_language,
         'TELEGRAM_BOT_USERNAME': settings.TELEGRAM_BOT_USERNAME or '',
+        'TELEGRAM_BOT_ADMIN_USERNAME': settings.TELEGRAM_BOT_ADMIN_USERNAME or '',
+        'app_version': app_version,
     }
     
-    return render(request, 'webapp/index.html', context)
+    response = render(request, 'webapp/index.html', context)
+    
+    # Добавляем заголовки для отключения кеширования
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
+    return response
 
 
 @api_view(['GET'])
@@ -89,9 +103,33 @@ def get_translations(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_gifts(request):
-    """Получает список активных подарков."""
+    """Получает список активных подарков с фильтрацией по типу пользователя."""
     try:
-        gifts = Gift.objects.filter(is_active=True).order_by('points_cost')
+        telegram_id = request.GET.get('telegram_id')
+        
+        # Базовый запрос для активных подарков
+        gifts_query = Gift.objects.filter(is_active=True)
+        
+        # Если передан telegram_id, фильтруем по типу пользователя
+        if telegram_id:
+            try:
+                user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+                # Показываем подарки для типа пользователя или без типа (для всех)
+                if user.user_type:
+                    gifts_query = gifts_query.filter(
+                        models.Q(user_type=user.user_type) | models.Q(user_type__isnull=True)
+                    )
+                else:
+                    # Если у пользователя нет типа, показываем только подарки без типа
+                    gifts_query = gifts_query.filter(user_type__isnull=True)
+            except TelegramUser.DoesNotExist:
+                # Если пользователь не найден, показываем только подарки без типа
+                gifts_query = gifts_query.filter(user_type__isnull=True)
+        else:
+            # Если telegram_id не передан, показываем только подарки без типа
+            gifts_query = gifts_query.filter(user_type__isnull=True)
+        
+        gifts = gifts_query.order_by('points_cost')
         serializer = GiftSerializer(gifts, many=True, context={'request': request})
         return Response(serializer.data)
     except Exception as e:
@@ -141,6 +179,15 @@ def request_gift(request):
     try:
         user = TelegramUser.objects.get(telegram_id=int(telegram_id))
         gift = Gift.objects.get(id=gift_id, is_active=True)
+        
+        # Проверяем, доступен ли подарок для типа пользователя
+        if gift.user_type and gift.user_type != user.user_type:
+            from bot.translations import get_text
+            error_message = get_text(user, 'GIFT_NOT_AVAILABLE_FOR_USER_TYPE')
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         if user.points < gift.points_cost:
             # Получаем перевод ошибки
@@ -202,13 +249,12 @@ def confirm_delivery(request):
             # Пользователь подтвердил получение подарка
             redemption.confirmed_at = timezone.now()
             redemption.status = 'completed'
-            redemption.delivery_status = 'delivered'
-            update_fields.extend(['confirmed_at', 'status', 'delivery_status'])
+            update_fields.extend(['confirmed_at', 'status'])
         else:
             # Пользователь указал, что подарок не получил
-            redemption.confirmed_at = None
-            # Статусы оставляем как есть, но сохраняем изменение комментария
-            update_fields.append('confirmed_at')
+            redemption.confirmed_at = timezone.now()
+            redemption.status = 'not_received'
+            update_fields.extend(['confirmed_at', 'status'])
 
         redemption.save(update_fields=update_fields)
         
@@ -326,18 +372,21 @@ def get_privacy_policy(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Выбираем контент в зависимости от языка
+        # Выбираем PDF в зависимости от языка
         if language == 'uz_latin':
-            content = policy.content_uz_latin
-        elif language == 'uz_cyrillic':
-            content = policy.content_uz_cyrillic or policy.content_uz_latin
+            pdf_file = policy.pdf_uz_latin
         elif language == 'ru':
-            content = policy.content_ru or policy.content_uz_latin
+            pdf_file = policy.pdf_ru
         else:
-            content = policy.content_uz_latin
+            pdf_file = policy.pdf_uz_latin
+        
+        # Формируем URL для PDF файла, если он существует
+        pdf_url = None
+        if pdf_file:
+            pdf_url = request.build_absolute_uri(pdf_file.url)
         
         return Response({
-            'content': content,
+            'pdf_url': pdf_url,
             'updated_at': policy.updated_at.strftime('%d.%m.%Y %H:%M') if policy.updated_at else None
         })
     except Exception as e:
@@ -360,7 +409,7 @@ def update_user_language(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if language not in ['uz_latin', 'uz_cyrillic', 'ru']:
+    if language not in ['uz_latin', 'ru']:
         return Response(
             {'error': 'Invalid language'},
             status=status.HTTP_400_BAD_REQUEST
@@ -428,7 +477,7 @@ def register_qr_code(request):
         
         # Ищем QR-код по коду или hash_code
         try:
-            # Сначала ищем по полному коду (E-ABC123 или D-ABC123)
+            # Сначала ищем по полному коду (EABC123 или DABC123)
             qr_code = QRCode.objects.get(code=qr_code_str)
         except QRCode.DoesNotExist:
             # Если не нашли, пробуем найти по hash_code (без префикса)

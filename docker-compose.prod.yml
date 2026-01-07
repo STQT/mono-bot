@@ -68,6 +68,8 @@ services:
     command: python run_webhook.py
     volumes:
       - .:/app
+      - media_data:/app/media       # доступ к загружаемым файлам (PDF политики)
+      - static_data:/app/staticfiles # доступ к собранной статике при необходимости
     ports:
       - "5982:8443"
     env_file:

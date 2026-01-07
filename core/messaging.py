@@ -7,6 +7,7 @@ from typing import List, Optional
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramAPIError
 from aiogram.types import Message
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.utils import timezone
 from .models import TelegramUser, BroadcastMessage
@@ -48,26 +49,40 @@ async def send_message_to_user(
         )
         
         # Обновляем время последнего сообщения
-        user.last_message_sent_at = timezone.now()
-        user.is_active = True
-        user.blocked_bot_at = None
-        user.save(update_fields=['last_message_sent_at', 'is_active', 'blocked_bot_at'])
+        @sync_to_async
+        def update_user_success():
+            user.last_message_sent_at = timezone.now()
+            user.is_active = True
+            user.blocked_bot_at = None
+            user.save(update_fields=['last_message_sent_at', 'is_active', 'blocked_bot_at'])
+        
+        await update_user_success()
         
         return True, None
         
     except TelegramForbiddenError as e:
         # Пользователь заблокировал бота
         logger.warning(f"Пользователь {user.telegram_id} заблокировал бота: {e}")
-        user.is_active = False
-        user.blocked_bot_at = timezone.now()
-        user.save(update_fields=['is_active', 'blocked_bot_at'])
+        
+        @sync_to_async
+        def update_user_blocked():
+            user.is_active = False
+            user.blocked_bot_at = timezone.now()
+            user.save(update_fields=['is_active', 'blocked_bot_at'])
+        
+        await update_user_blocked()
         return False, "Пользователь заблокировал бота"
         
     except TelegramBadRequest as e:
         # Неверный запрос (пользователь не найден и т.д.)
         logger.warning(f"Ошибка при отправке пользователю {user.telegram_id}: {e}")
-        user.is_active = False
-        user.save(update_fields=['is_active'])
+        
+        @sync_to_async
+        def update_user_inactive():
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+        
+        await update_user_inactive()
         return False, f"Ошибка запроса: {str(e)}"
         
     except TelegramAPIError as e:
@@ -98,45 +113,53 @@ async def send_broadcast_message(
         dict: Статистика отправки
     """
     # Получаем активных пользователей
-    users_query = TelegramUser.objects.filter(is_active=True)
+    @sync_to_async
+    def get_users():
+        users_query = TelegramUser.objects.filter(is_active=True)
+        
+        # Фильтр по типу пользователя
+        filter_user_type = user_type_filter or broadcast.user_type_filter
+        if filter_user_type:
+            users_query = users_query.filter(user_type=filter_user_type)
+        
+        # Фильтр по языку
+        if broadcast.language_filter:
+            users_query = users_query.filter(language=broadcast.language_filter)
+        
+        # Фильтр по региону (геолокации)
+        if broadcast.region_min_latitude is not None:
+            users_query = users_query.filter(latitude__gte=broadcast.region_min_latitude)
+        if broadcast.region_max_latitude is not None:
+            users_query = users_query.filter(latitude__lte=broadcast.region_max_latitude)
+        if broadcast.region_min_longitude is not None:
+            users_query = users_query.filter(longitude__gte=broadcast.region_min_longitude)
+        if broadcast.region_max_longitude is not None:
+            users_query = users_query.filter(longitude__lte=broadcast.region_max_longitude)
+        
+        # Фильтр: только пользователи с геолокацией (если указаны границы региона)
+        if (broadcast.region_min_latitude is not None or 
+            broadcast.region_max_latitude is not None or
+            broadcast.region_min_longitude is not None or
+            broadcast.region_max_longitude is not None):
+            users_query = users_query.filter(
+                latitude__isnull=False,
+                longitude__isnull=False
+            )
+        
+        return list(users_query)
     
-    # Фильтр по типу пользователя
-    filter_user_type = user_type_filter or broadcast.user_type_filter
-    if filter_user_type:
-        users_query = users_query.filter(user_type=filter_user_type)
-    
-    # Фильтр по языку
-    if broadcast.language_filter:
-        users_query = users_query.filter(language=broadcast.language_filter)
-    
-    # Фильтр по региону (геолокации)
-    if broadcast.region_min_latitude is not None:
-        users_query = users_query.filter(latitude__gte=broadcast.region_min_latitude)
-    if broadcast.region_max_latitude is not None:
-        users_query = users_query.filter(latitude__lte=broadcast.region_max_latitude)
-    if broadcast.region_min_longitude is not None:
-        users_query = users_query.filter(longitude__gte=broadcast.region_min_longitude)
-    if broadcast.region_max_longitude is not None:
-        users_query = users_query.filter(longitude__lte=broadcast.region_max_longitude)
-    
-    # Фильтр: только пользователи с геолокацией (если указаны границы региона)
-    if (broadcast.region_min_latitude is not None or 
-        broadcast.region_max_latitude is not None or
-        broadcast.region_min_longitude is not None or
-        broadcast.region_max_longitude is not None):
-        users_query = users_query.filter(
-            latitude__isnull=False,
-            longitude__isnull=False
-        )
-    
-    users = list(users_query)
+    users = await get_users()
     total_users = len(users)
     
     # Обновляем статистику рассылки
-    broadcast.total_users = total_users
-    broadcast.status = 'sending'
-    broadcast.started_at = timezone.now()
-    broadcast.save(update_fields=['total_users', 'status', 'started_at'])
+    @sync_to_async
+    def update_broadcast_start():
+        broadcast.total_users = total_users
+        broadcast.status = 'sending'
+        broadcast.started_at = timezone.now()
+        broadcast.save(update_fields=['total_users', 'status', 'started_at'])
+    
+    await update_broadcast_start()
     
     sent_count = 0
     failed_count = 0
@@ -161,9 +184,13 @@ async def send_broadcast_message(
             
             # Обновляем статистику каждые 10 сообщений
             if (i + 1) % 10 == 0:
-                broadcast.sent_count = sent_count
-                broadcast.failed_count = failed_count
-                broadcast.save(update_fields=['sent_count', 'failed_count'])
+                @sync_to_async
+                def update_broadcast_progress():
+                    broadcast.sent_count = sent_count
+                    broadcast.failed_count = failed_count
+                    broadcast.save(update_fields=['sent_count', 'failed_count'])
+                
+                await update_broadcast_progress()
             
             # Соблюдаем лимит Telegram API (30 сообщений в секунду)
             # Добавляем небольшую задержку между сообщениями
@@ -174,15 +201,23 @@ async def send_broadcast_message(
             logger.error(f"Критическая ошибка при отправке пользователю {user.telegram_id}: {e}")
             failed_count += 1
             # Помечаем пользователя как неактивного при критической ошибке
-            user.is_active = False
-            user.save(update_fields=['is_active'])
+            @sync_to_async
+            def mark_user_inactive():
+                user.is_active = False
+                user.save(update_fields=['is_active'])
+            
+            await mark_user_inactive()
     
     # Завершаем рассылку
-    broadcast.sent_count = sent_count
-    broadcast.failed_count = failed_count
-    broadcast.status = 'completed'
-    broadcast.completed_at = timezone.now()
-    broadcast.save(update_fields=['sent_count', 'failed_count', 'status', 'completed_at'])
+    @sync_to_async
+    def update_broadcast_complete():
+        broadcast.sent_count = sent_count
+        broadcast.failed_count = failed_count
+        broadcast.status = 'completed'
+        broadcast.completed_at = timezone.now()
+        broadcast.save(update_fields=['sent_count', 'failed_count', 'status', 'completed_at'])
+    
+    await update_broadcast_complete()
     
     logger.info(
         f"Рассылка '{broadcast.title}' завершена: "
@@ -214,9 +249,15 @@ async def send_personal_message(
     Returns:
         tuple: (успешно ли отправлено, сообщение об ошибке если есть)
     """
-    try:
-        user = TelegramUser.objects.get(telegram_id=telegram_id)
-    except TelegramUser.DoesNotExist:
+    @sync_to_async
+    def get_user():
+        try:
+            return TelegramUser.objects.get(telegram_id=telegram_id)
+        except TelegramUser.DoesNotExist:
+            return None
+    
+    user = await get_user()
+    if user is None:
         return False, "Пользователь не найден"
     
     return await send_message_to_user(

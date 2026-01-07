@@ -5,9 +5,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Отключение кеша для Telegram Web App -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{% trans "WEBAPP_MY_GIFTS" %}</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'webapp/css/styles.css' %}?v={{ app_version }}">
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+        (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=105967279', 'ym');
+
+        ym(105967279, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/105967279" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
     <script>
         // Автоматический обход страницы предупреждения ngrok
         (function() {
@@ -143,7 +160,7 @@
         <!-- Поле ввода QR кода -->
         <div class="qr-input-section">
             <div class="qr-input-wrapper" id="qrInputWrapper">
-                <input type="text" class="qr-input" id="qrInput" placeholder="E-XXXXXX" maxlength="10">
+                <input type="text" class="qr-input" id="qrInput" placeholder="EXXXXXX" maxlength="9">
                 <button class="register-btn" onclick="registerQRCode()">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_110_763)">
@@ -190,17 +207,12 @@
             </button>
         </div>
 
-        <!-- Карточка статуса продукта -->
-        <div class="product-status-card" id="productStatusCard" style="display: none;">
-            <div class="product-image" onclick="showProfileGifts()">
-                <img src="" alt="" id="productImage" onerror="this.style.display='none'">
+        <!-- Список заказов -->
+        <div class="orders-section" id="ordersSection" style="display: none;">
+            <!-- <h3 class="orders-title">{% trans "WEBAPP_MY_ORDERS" %}</h3> -->
+            <div class="orders-list" id="ordersList">
+                <!-- Заказы будут загружены динамически -->
             </div>
-            <div class="product-info" onclick="showProfileGifts()">
-                <div class="product-name" id="productName"></div>
-                <div class="product-status" id="productStatus"></div>
-                <div id="productStatusButton" style="margin-top: 0.5rem;"></div>
-            </div>
-            <div class="product-arrow" onclick="showProfileGifts()">›</div>
         </div>
 
         <!-- Информационный текст -->
@@ -209,7 +221,7 @@
         </div>
 
         <!-- Кнопка связи с админом -->
-        <button class="contact-admin-btn" onclick="contactAdmin()">
+        <button class="contact-admin-btn" onclick="contactAdmin()" style="order: 0">
             <span class="contact-icon">🎧</span>
             <span>{% trans "WEBAPP_CONTACT_ADMIN" %}</span>
         </button>
@@ -243,6 +255,29 @@
         </div>
     </div>
 
+    <!-- ЭКРАН: Детальная страница запрошенного товара (ожидание) -->
+    <div class="screen" id="redemptionDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('home')">‹</button>
+            <h2 class="screen-title" id="redemptionDetailTitle">{% trans "WEBAPP_GIFT_NAME" %}</h2>
+        </div>
+        <div class="redemption-detail-container" id="redemptionDetailContainer">
+            <!-- Контент будет загружен динамически -->
+        </div>
+    </div>
+
+    <!-- ЭКРАН: Детальная страница подарка (новая верстка) -->
+    <div class="screen" id="getGiftDetailScreen" style="display: none;">
+        <div class="screen-header">
+            <button class="back-btn" onclick="showScreen('giftsList')">‹</button>
+            <h2 class="screen-title" id="getGiftDetailTitle">{% trans "WEBAPP_GIFT_NAME" %}</h2>
+            <span class="gift-badge" id="getGiftDetailBadge" style="display: none;">20</span>
+        </div>
+        <div class="get-gift-detail-container" id="getGiftDetailContainer">
+            <!-- Контент будет загружен динамически -->
+        </div>
+    </div>
+
     <!-- ЭКРАН: Успешное получение подарка -->
     <div class="screen" id="successScreen" style="display: none;">
         <div class="success-container">
@@ -263,34 +298,159 @@
             <h2 class="screen-title">{% trans "WEBAPP_PROFILE" %}</h2>
         </div>
         <div class="profile-container">
-            <div class="profile-menu">
-                <div class="menu-item" onclick="showLanguageModal()">
-                    <span class="menu-icon">🌐</span>
-                    <span class="menu-text">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</span>
-                    <span class="menu-value" id="currentLanguage">O'zbekcha</span>
-                    <span class="menu-arrow">›</span>
+            <!-- Карточка пользователя -->
+            <div class="redemption-user-card profile-user-card">
+                <div class="redemption-user-avatar">
+                    <div class="redemption-avatar-icon" id="profileUserAvatar">👤</div>
                 </div>
-                <div class="menu-item" onclick="showScreen('profileGifts')">
-                    <span class="menu-icon">🎁</span>
-                    <span class="menu-text">{% trans "WEBAPP_GIFTS" %}</span>
-                    <span class="menu-arrow">›</span>
+                <div class="redemption-user-info">
+                    <div class="redemption-user-name">
+                        <span id="profileUserName">{% trans "USER" %}</span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_110_61_profile)">
+                                <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_110_61_profile">
+                                    <rect width="16" height="16" fill="white"/>
+                                </clipPath>
+                            </defs>
+                        </svg>                                
+                    </div>
+                    <div class="redemption-user-id" id="profileUserId">ID: -</div>
                 </div>
-                <div class="menu-item" onclick="showScreen('qrHistory')">
-                    <span class="menu-icon">🕐</span>
-                    <span class="menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
-                    <span class="menu-arrow">›</span>
-                </div>
-                <div class="menu-item" onclick="showPrivacy()">
-                    <span class="menu-icon">🔒</span>
-                    <span class="menu-text">{% trans "WEBAPP_PRIVACY_POLICY" %}</span>
-                    <span class="menu-arrow">›</span>
+                <div class="points-badge">
+                    <div class="points-value" id="profilePoints">0</div>
+                    <div class="points-label">{% trans "WEBAPP_TOTAL_POINTS" %}</div>
                 </div>
             </div>
+            
+            <button class="profile-menu-button" onclick="showLanguageModal()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4049)">
+                        <path d="M4.1665 5.83332H9.99984M8.33317 4.16666V5.83332C8.33317 7.60143 7.89418 9.29713 7.11278 10.5474C6.33138 11.7976 5.27157 12.5 4.1665 12.5M4.99984 9.16666C4.99845 10.0265 5.5786 10.8534 6.61906 11.4746C7.65953 12.0957 9.07981 12.4631 10.5832 12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M9.1665 15.8333L12.4998 8.33334L15.8332 15.8333M15.0832 14.1667H9.9165" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4049">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_INTERFACE_LANGUAGE" %}</span>
+                <span class="profile-menu-value" id="currentLanguage">O'zbekcha</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_lang)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_lang">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+            </button>
+            
+            <button class="profile-menu-button" onclick="showScreen('profileGifts')">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4053)">
+                        <path d="M16.6667 6.66666H3.33333C2.8731 6.66666 2.5 7.03975 2.5 7.49999V9.16666C2.5 9.62689 2.8731 9.99999 3.33333 9.99999H16.6667C17.1269 9.99999 17.5 9.62689 17.5 9.16666V7.49999C17.5 7.03975 17.1269 6.66666 16.6667 6.66666Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 6.66666V17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M15.8332 10V15.8333C15.8332 16.2754 15.6576 16.6993 15.345 17.0118C15.0325 17.3244 14.6085 17.5 14.1665 17.5H5.83317C5.39114 17.5 4.96722 17.3244 4.65466 17.0118C4.3421 16.6993 4.1665 16.2754 4.1665 15.8333V10" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6.24984 6.66667C5.6973 6.66667 5.1674 6.44717 4.7767 6.05647C4.386 5.66577 4.1665 5.13587 4.1665 4.58333C4.1665 4.0308 4.386 3.50089 4.7767 3.11019C5.1674 2.71949 5.6973 2.5 6.24984 2.5C7.05374 2.48599 7.84153 2.87605 8.51045 3.6193C9.17938 4.36255 9.6984 5.4245 9.99984 6.66667C10.3013 5.4245 10.8203 4.36255 11.4892 3.6193C12.1581 2.87605 12.9459 2.48599 13.7498 2.5C14.3024 2.5 14.8323 2.71949 15.223 3.11019C15.6137 3.50089 15.8332 4.0308 15.8332 4.58333C15.8332 5.13587 15.6137 5.66577 15.223 6.05647C14.8323 6.44717 14.3024 6.66667 13.7498 6.66667" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4053">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_GIFTS" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_gifts)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_gifts">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+            </button>
+            
+            <button class="profile-menu-button" onclick="showScreen('qrHistory')">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4057)">
+                        <path d="M10 17.5C14.1421 17.5 17.5 14.1421 17.5 10C17.5 5.85786 14.1421 2.5 10 2.5C5.85786 2.5 2.5 5.85786 2.5 10C2.5 14.1421 5.85786 17.5 10 17.5Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 5.83331V9.99998L12.5 12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4057">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                <span class="profile-menu-text">{% trans "WEBAPP_QR_HISTORY" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_qr)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_qr">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                
+            </button>
+            <button class="profile-menu-button" onclick="showPrivacy()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4065)">
+                    <path d="M15.75 5.83331C16.5037 7.0843 16.8258 8.54818 16.6667 9.99998V10.8333C16.6657 11.7107 16.8956 12.5729 17.3333 13.3333" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6.6665 9.16665C6.6665 8.28259 7.01769 7.43474 7.64281 6.80962C8.26794 6.1845 9.11578 5.83331 9.99984 5.83331C10.8839 5.83331 11.7317 6.1845 12.3569 6.80962C12.982 7.43474 13.3332 8.28259 13.3332 9.16665V9.99998C13.3332 11.8031 13.918 13.5575 14.9998 15" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10 9.16669V10.8334C9.99735 13.2162 10.7244 15.5427 12.0833 17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6.6665 12.5C6.87042 14.2415 7.37811 15.9338 8.1665 17.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4.08336 15.8333C3.52107 13.9419 3.26781 11.9721 3.33336 9.99999V9.16666C3.33017 7.99487 3.63588 6.84295 4.2197 5.82695C4.80352 4.81096 5.64481 3.96679 6.65881 3.37952C7.67281 2.79224 8.82369 2.48261 9.99548 2.48181C11.1673 2.48102 12.3186 2.78909 13.3334 3.37499" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_11_4065">
+                    <rect width="20" height="20" fill="white"/>
+                    </clipPath>
+                    </defs>
+                    </svg>                    
+                <span class="profile-menu-text">{% trans "WEBAPP_PRIVACY_POLICY" %}</span>
+                <svg class="profile-menu-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4055_qr)">
+                        <path d="M7.5 5L12.5 10L7.5 15" stroke="#8D94A5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                        <clipPath id="clip0_11_4055_qr">
+                            <rect width="20" height="20" fill="white"/>
+                        </clipPath>
+                    </defs>
+                </svg>
+                
+            </button>
             <button class="contact-admin-btn" onclick="contactAdmin()">
-                <span class="contact-icon">🎧</span>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_11_4073)">
+                    <path d="M5.8335 10.8333H5.00016C4.07969 10.8333 3.3335 11.5795 3.3335 12.5V15C3.3335 15.9205 4.07969 16.6666 5.00016 16.6666H5.8335C6.75397 16.6666 7.50016 15.9205 7.50016 15V12.5C7.50016 11.5795 6.75397 10.8333 5.8335 10.8333Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M15 10.8333H14.1667C13.2462 10.8333 12.5 11.5795 12.5 12.5V15C12.5 15.9205 13.2462 16.6666 14.1667 16.6666H15C15.9205 16.6666 16.6667 15.9205 16.6667 15V12.5C16.6667 11.5795 15.9205 10.8333 15 10.8333Z" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.3335 12.5V9.99998C3.3335 8.23187 4.03588 6.53618 5.28612 5.28593C6.53636 4.03569 8.23205 3.33331 10.0002 3.33331C11.7683 3.33331 13.464 4.03569 14.7142 5.28593C15.9645 6.53618 16.6668 8.23187 16.6668 9.99998V12.5" stroke="#2064AE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_11_4073">
+                    <rect width="20" height="20" fill="white"/>
+                    </clipPath>
+                    </defs>
+                </svg>       
                 <span>{% trans "WEBAPP_CONTACT_ADMIN" %}</span>
             </button>
+            
         </div>
+        
+        
     </div>
 
     <!-- ЭКРАН: Подарки в профиле -->
@@ -329,7 +489,7 @@
     <!-- ЭКРАН: Политика конфиденциальности -->
     <div class="screen" id="privacyScreen" style="display: none;">
         <div class="screen-header">
-            <button class="back-btn" onclick="showScreen('profile')">‹</button>
+            <button class="back-btn" onclick="showScreen(getPreviousScreen())">‹</button>
             <h2 class="screen-title">{% trans "WEBAPP_PRIVACY_POLICY" %}</h2>
         </div>
         <div class="privacy-container" id="privacyContainer">
@@ -349,11 +509,6 @@
                     <span class="language-flag">🇺🇿</span>
                     <span class="language-name">{% trans "WEBAPP_UZBEK" %}</span>
                     <span class="language-check" id="checkUzLatin" style="display: none;">✓</span>
-                </div>
-                <div class="language-option" onclick="changeLanguage('uz_cyrillic')">
-                    <span class="language-flag">🇺🇿</span>
-                    <span class="language-name">{% trans "WEBAPP_UZBEK_CYRILLIC" %}</span>
-                    <span class="language-check" id="checkUzCyrillic" style="display: none;">✓</span>
                 </div>
                 <div class="language-option" onclick="changeLanguage('ru')">
                     <span class="language-flag">🇷🇺</span>
@@ -382,6 +537,8 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+        // Устанавливаем цвет шапки Telegram
+        tg.setHeaderColor('#F1F2F4');
 
         // Переводы для JavaScript
         let translations = {
@@ -413,7 +570,6 @@
             'WEBAPP_GIFTS': '{% trans "WEBAPP_GIFTS" %}',
             'WEBAPP_QR_HISTORY': '{% trans "WEBAPP_QR_HISTORY" %}',
             'WEBAPP_UZBEK': '{% trans "WEBAPP_UZBEK" %}',
-            'WEBAPP_UZBEK_CYRILLIC': '{% trans "WEBAPP_UZBEK_CYRILLIC" %}',
             'WEBAPP_RUSSIAN': '{% trans "WEBAPP_RUSSIAN" %}',
             'WEBAPP_CLOSE': '{% trans "WEBAPP_CLOSE" %}',
             'WEBAPP_BALL': '{% trans "WEBAPP_BALL" %}',
@@ -422,10 +578,13 @@
             'WEBAPP_LOADING_GIFTS': '{% trans "WEBAPP_LOADING_GIFTS" %}',
             'WEBAPP_LOADING_ORDERS': '{% trans "WEBAPP_LOADING_ORDERS" %}',
             'WEBAPP_NO_ORDERS': '{% trans "WEBAPP_NO_ORDERS" %}',
+            'WEBAPP_NO_ORDERS_TEXT': '{% trans "WEBAPP_NO_ORDERS_TEXT" %}',
             'WEBAPP_STATUS_PENDING': '{% trans "WEBAPP_STATUS_PENDING" %}',
             'WEBAPP_STATUS_APPROVED': '{% trans "WEBAPP_STATUS_APPROVED" %}',
+            'WEBAPP_STATUS_SENT': '{% trans "WEBAPP_STATUS_SENT" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
             'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
+            'WEBAPP_STATUS_NOT_RECEIVED': '{% trans "WEBAPP_STATUS_NOT_RECEIVED" %}',
             'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
             'WEBAPP_REGISTER': '{% trans "WEBAPP_REGISTER" %}',
             'WEBAPP_PARTNER_TEXT': '{% trans "WEBAPP_PARTNER_TEXT" %}',
@@ -441,6 +600,8 @@
             'WEBAPP_CANCEL': '{% trans "WEBAPP_CANCEL" %}',
             'WEBAPP_UPDATED': '{% trans "WEBAPP_UPDATED" %}',
             'WEBAPP_QR_MAX_ATTEMPTS': '{% trans "WEBAPP_QR_MAX_ATTEMPTS" %}',
+            'WEBAPP_PRIVACY_PDF_DESCRIPTION': '{% trans "WEBAPP_PRIVACY_PDF_DESCRIPTION" %}',
+            'WEBAPP_OPEN_PDF': '{% trans "WEBAPP_OPEN_PDF" %}',
         };
 
         async function loadTranslations(language) {
@@ -462,6 +623,11 @@
             }
         }
 
+        // Функция форматирования чисел с разделителями тысяч (пробелами)
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
+        
         function t(key, params = {}) {
             let text = translations[key] || key;
             if (Object.keys(params).length > 0) {
@@ -472,11 +638,28 @@
             return text;
         }
 
+        // Функция получения SVG-иконки статуса
+        function getStatusIcon(status) {
+            const icons = {
+                'pending': `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+                'approved': '✅',
+                'sent': '📦',
+                'rejected': '❌',
+                'completed': '✔️',
+                'not_received': '🚫'
+            };
+            return icons[status] || icons['pending'];
+        }
+
         let currentUser = null;
         let currentRedemptionId = null;
         let promotions = [];
         let currentBannerIndex = 0;
         let currentDotColor = '#2064AE'; // Цвет по умолчанию для активной точки
+        let previousScreen = null; // Сохраняем предыдущий экран для возврата из политики конфиденциальности
         const API_BASE = '/api/webapp';
 
         // Функция для получения доминирующего цвета изображения
@@ -550,19 +733,19 @@
             if (!qrInput) return;
             
             if (currentUser && currentUser.user_type) {
-                // Если Продавец (seller) -> D-XXXXXX
-                // Если Покупатель/Электрик (electrician) -> E-XXXXXX
+                // Если Продавец (seller) -> DXXXXXX
+                // Если Покупатель/Электрик (electrician) -> EXXXXXX
                 if (currentUser.user_type === 'seller') {
-                    qrInput.placeholder = 'D-XXXXXX';
+                    qrInput.placeholder = 'DXXXXXX';
                 } else if (currentUser.user_type === 'electrician') {
-                    qrInput.placeholder = 'E-XXXXXX';
+                    qrInput.placeholder = 'EXXXXXX';
                 } else {
-                    // По умолчанию E-XXXXXX
-                    qrInput.placeholder = 'E-XXXXXX';
+                    // По умолчанию EXXXXXX
+                    qrInput.placeholder = 'EXXXXXX';
                 }
             } else {
-                // Если тип пользователя не определен, используем E-XXXXXX по умолчанию
-                qrInput.placeholder = 'E-XXXXXX';
+                // Если тип пользователя не определен, используем EXXXXXX по умолчанию
+                qrInput.placeholder = 'EXXXXXX';
             }
         }
 
@@ -611,7 +794,7 @@
                 if (userInfo) userInfo.style.display = 'flex';
                 if (pointsBadge) pointsBadge.style.display = 'flex';
                 
-                document.getElementById('points').textContent = currentUser.points.toLocaleString();
+                document.getElementById('points').textContent = formatNumber(currentUser.points);
                 
                 // Показываем информацию о пользователе
                 if (currentUser.first_name || currentUser.telegram_id) {
@@ -634,6 +817,13 @@
                 
                 if (currentUser.language) {
                     await loadTranslations(currentUser.language);
+                    // Обновляем отображение текущего языка в профиле
+                    const currentLanguageElement = document.getElementById('currentLanguage');
+                    if (currentLanguageElement) {
+                        currentLanguageElement.textContent = getLanguageName(currentUser.language);
+                    }
+                    // Обновляем галочки в модальном окне выбора языка
+                    updateLanguageChecks();
                 }
                 
                 await loadPromotions();
@@ -647,7 +837,11 @@
 
         async function loadGiftsCount() {
             try {
-                const response = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке (если пользователь загружен)
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const response = await fetch(giftsUrl);
                 if (response.ok) {
                     const gifts = await response.json();
                     const countElement = document.getElementById('giftsCount');
@@ -690,46 +884,100 @@
                 const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
                 if (response.ok) {
                     const redemptions = await response.json();
-                    // Ищем первый redemption со статусом pending, approved или completed, который еще не подтвержден пользователем
-                    const activeRedemption = redemptions.find(r => 
-                        (r.status === 'pending' || r.status === 'approved' || r.status === 'completed') && 
-                        !r.user_confirmed
-                    );
+                    const ordersSection = document.getElementById('ordersSection');
+                    const ordersList = document.getElementById('ordersList');
                     
-                    if (activeRedemption) {
-                        const productCard = document.getElementById('productStatusCard');
-                        const productStatusButton = document.getElementById('productStatusButton');
-                        productCard.style.display = 'flex';
-                        document.getElementById('productName').textContent = activeRedemption.gift.name;
+                    if (redemptions && redemptions.length > 0) {
+                        // Сортируем заказы: сначала активные (pending, approved, sent), потом completed, потом rejected, потом not_received
+                        const sortedRedemptions = redemptions.sort((a, b) => {
+                            const statusOrder = {
+                                'pending': 1,
+                                'approved': 2,
+                                'sent': 3,
+                                'completed': 4,
+                                'rejected': 5,
+                                'not_received': 6
+                            };
+                            const orderA = statusOrder[a.status] || 999;
+                            const orderB = statusOrder[b.status] || 999;
+                            if (orderA !== orderB) {
+                                return orderA - orderB;
+                            }
+                            // Если статусы одинаковые, сортируем по дате (новые сверху)
+                            return new Date(b.requested_at) - new Date(a.requested_at);
+                        });
                         
-                        // Определяем текст статуса
-                        let statusText = t('WEBAPP_STATUS_PENDING');
-                        if (activeRedemption.status === 'approved') {
-                            statusText = t('WEBAPP_STATUS_APPROVED');
-                        } else if (activeRedemption.status === 'completed') {
-                            statusText = t('WEBAPP_STATUS_COMPLETED');
-                        }
-                        document.getElementById('productStatus').textContent = statusText;
-                        
-                        // Добавляем кнопку "Получил подарок" если еще не подтверждено
-                        if (!activeRedemption.user_confirmed) {
-                            productStatusButton.innerHTML = `
-                                <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${activeRedemption.id});">
-                                    ${t('WEBAPP_YES_RECEIVED')}
-                                </button>
+                        ordersList.innerHTML = '';
+                        sortedRedemptions.forEach(redemption => {
+                            // Определяем текст статуса
+                            let statusText = t('WEBAPP_STATUS_PENDING');
+                            let statusClass = 'waiting';
+                            if (redemption.status === 'approved') {
+                                statusText = t('WEBAPP_STATUS_APPROVED');
+                                statusClass = 'approved';
+                            } else if (redemption.status === 'sent') {
+                                statusText = t('WEBAPP_STATUS_SENT');
+                                statusClass = 'sent';
+                            } else if (redemption.status === 'rejected') {
+                                statusText = t('WEBAPP_STATUS_REJECTED');
+                                statusClass = 'rejected';
+                            } else if (redemption.status === 'not_received') {
+                                statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
+                                statusClass = 'not_received';
+                            } else if (redemption.status === 'completed') {
+                                statusText = t('WEBAPP_STATUS_COMPLETED');
+                                statusClass = 'completed';
+                            }
+                            
+                            // Форматируем дату
+                            const date = new Date(redemption.requested_at);
+                            const dateStr = date.toLocaleDateString('ru-RU', { 
+                                year: 'numeric', 
+                                month: '2-digit', 
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            const orderCard = document.createElement('div');
+                            orderCard.className = 'order-card';
+                            orderCard.onclick = () => showRedemptionDetail(redemption.id);
+                            
+                            let imageUrl = '/static/images/gift-box.png';
+                            if (redemption.gift && redemption.gift.image) {
+                                imageUrl = redemption.gift.image.startsWith('http') 
+                                    ? redemption.gift.image 
+                                    : redemption.gift.image;
+                            }
+                            
+                            let confirmButtonHtml = '';
+                            if (!redemption.user_confirmed && redemption.status === 'completed') {
+                                confirmButtonHtml = `
+                                    <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
+                                        ${t('WEBAPP_YES_RECEIVED')}
+                                    </button>
+                                `;
+                            }
+                            
+                            orderCard.innerHTML = `
+                                <div class="order-image">
+                                    <img src="${imageUrl}" alt="" onerror="this.src='/static/images/gift-box.png'">
+                                </div>
+                                <div class="order-info">
+                                    <div class="order-name">${redemption.gift ? redemption.gift.name : 'N/A'}</div>
+                                    <div class="order-status ${statusClass}">${statusText}</div>
+                                    <div class="order-date">${dateStr}</div>
+                                    ${confirmButtonHtml ? `<div style="margin-top: 0.5rem;">${confirmButtonHtml}</div>` : ''}
+                                </div>
+                                <div class="order-arrow">›</div>
                             `;
-                        } else {
-                            productStatusButton.innerHTML = '';
-                        }
+                            
+                            ordersList.appendChild(orderCard);
+                        });
                         
-                        if (activeRedemption.gift.image) {
-                            document.getElementById('productImage').src = activeRedemption.gift.image;
-                            document.getElementById('productImage').style.display = 'block';
-                        }
+                        ordersSection.style.display = 'block';
                     } else {
-                        // Скрываем карточку, если нет активных redemption
-                        const productCard = document.getElementById('productStatusCard');
-                        productCard.style.display = 'none';
+                        ordersSection.style.display = 'none';
                     }
                 }
             } catch (error) {
@@ -752,8 +1000,8 @@
                 return;
             }
             
-            // Валидация формата QR кода (E-XXXXXX или D-XXXXXX)
-            const qrPattern = /^[ED]-\w{6,}$/;
+            // Валидация формата QR кода (EXXXXXX или DXXXXXX)
+            const qrPattern = /^[ED]\w{6,}$/;
             if (!qrPattern.test(qrCode)) {
                 showQRError(t('WEBAPP_QR_ERROR'));
                 return;
@@ -761,8 +1009,8 @@
             
             // Валидация типа кода - проверяем соответствие типу пользователя
             if (currentUser && currentUser.user_type) {
-                const codePrefix = qrCode.substring(0, 2);
-                const expectedPrefix = currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                const codePrefix = qrCode.substring(0, 1);
+                const expectedPrefix = currentUser.user_type === 'seller' ? 'D' : 'E';
                 
                 if (codePrefix !== expectedPrefix) {
                     showQRError(t('WEBAPP_QR_WRONG_TYPE'));
@@ -804,7 +1052,7 @@
                 if (data.success) {
                     // Обновляем баллы пользователя
                     currentUser.points = data.total_points;
-                    document.getElementById('points').textContent = data.total_points.toLocaleString();
+                    document.getElementById('points').textContent = formatNumber(data.total_points);
                     
                     // Очищаем поле ввода
                     const qrInput = document.getElementById('qrInput');
@@ -836,7 +1084,8 @@
             const errorDiv = document.getElementById('qrError');
             const inputWrapper = document.getElementById('qrInputWrapper');
             
-            errorDiv.textContent = message;
+            // Обертываем текст в span для корректного переноса
+            errorDiv.innerHTML = '<span class="qr-error-text">' + message + '</span>';
             errorDiv.style.display = 'flex';
             inputWrapper.classList.add('error');
         }
@@ -847,7 +1096,7 @@
         }
 
         // Система навигации между экранами
-        function showScreen(screenName) {
+        async function showScreen(screenName) {
             // Скрываем все экраны
             document.querySelectorAll('.screen').forEach(screen => {
                 screen.style.display = 'none';
@@ -857,10 +1106,36 @@
             // Показываем нужный экран
             if (screenName === 'home') {
                 document.querySelector('.main-container').style.display = 'flex';
+                // Обновляем список заказов при возврате на главную страницу
+                await loadProductStatus();
+                // Обновляем данные пользователя (баллы)
+                if (currentUser && currentUser.telegram_id) {
+                    try {
+                        const userResponse = await fetch(`${API_BASE}/user/?telegram_id=${currentUser.telegram_id}`);
+                        if (userResponse.ok) {
+                            const userData = await userResponse.json();
+                            currentUser.points = userData.points;
+                            document.getElementById('points').textContent = formatNumber(currentUser.points);
+                        }
+                    } catch (error) {
+                        console.error('Error updating user data:', error);
+                    }
+                }
             } else {
                 const screen = document.getElementById(`${screenName}Screen`);
                 if (screen) {
                     screen.style.display = 'block';
+                    
+                    // Загружаем данные для конкретных экранов
+                    if (screenName === 'profileGifts') {
+                        await loadProfileGifts();
+                    } else if (screenName === 'qrHistory') {
+                        await loadQRHistory();
+                    } else if (screenName === 'privacy') {
+                        await loadPrivacyPolicy();
+                    } else if (screenName === 'getGiftDetail') {
+                        // Данные загружаются в функции getGiftDetail
+                    }
                 }
             }
         }
@@ -876,7 +1151,9 @@
                     throw new Error('User not loaded');
                 }
                 
-                const response = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`;
+                const response = await fetch(giftsUrl);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -902,32 +1179,51 @@
                 
                 container.innerHTML = '';
                 gifts.forEach(gift => {
-                    const redemption = redemptions.find(r => r.gift && r.gift.id === gift.id);
                     const userPoints = currentUser.points || 0;
                     const hasEnoughPoints = userPoints >= gift.points_cost;
                     const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
                     
                     const giftCard = document.createElement('div');
                     giftCard.className = 'gift-card';
-                    giftCard.onclick = () => showGiftDetail(gift.id);
                     
+                    // Всегда открываем страницу детальной информации о подарке
+                    giftCard.onclick = () => getGiftDetail(gift.id);
+                    
+                    // Определяем отображаемый процент прогресса согласно дизайну
+                    let displayProgress = progress;
+                    let showButton = false;
+                    
+                    if (progress >= 100 || hasEnoughPoints) {
+                        // 100% - показываем кнопку
+                        showButton = true;
+                    }
+                    
+                    // Формируем HTML для прогресс-бара или кнопки
                     let statusHtml = '';
-                    if (redemption) {
-                        if (redemption.status === 'pending') {
-                            statusHtml = `<div class="gift-status waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
-                        } else if (redemption.status === 'approved') {
-                            statusHtml = `<div class="gift-status approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
-                        } else if (redemption.status === 'rejected') {
-                            statusHtml = `<div class="gift-status rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
-                        }
-                    } else if (hasEnoughPoints) {
-                        statusHtml = `<button class="gift-get-btn" onclick="event.stopPropagation(); requestGift(${gift.id})">${t('WEBAPP_GET_GIFT')}</button>`;
+                    if (showButton) {
+                        statusHtml = `<button class="gift-get-btn-new" onclick="event.stopPropagation(); requestGift(${gift.id})">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_146_${gift.id})">
+                                    <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_146_${gift.id}">
+                                        <rect width="20" height="20" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                            <span>${t('WEBAPP_GET_GIFT')}</span>
+                        </button>`;
                     } else {
-                        statusHtml = `<div class="gift-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progress}%"></div>
-                            </div>
-                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        // Уменьшаем визуальную ширину прогресс-бара (60% от фактического процента)
+                        // Но минимум 15% для отображения текста
+                        const visualProgress = Math.max(displayProgress * 0.80, 15);
+                        statusHtml = `<div class="gift-progress-wrapper">
+                            <div class="gift-progress-bar-bg"></div>
+                            <div class="gift-progress-badge" style="width: ${visualProgress}%;">${Math.round(displayProgress)}%</div>
                         </div>`;
                     }
                     
@@ -947,9 +1243,11 @@
                         <div class="gift-card-image-wrapper">
                             <img src="${imageUrl}" alt="${gift.name || 'Gift'}" class="gift-card-image" onerror="this.src='/static/images/gift-box.png'">
                         </div>
+                        <div class="gift-card-info">
+                            <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                            <div class="gift-card-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
+                        </div>
                         ${statusHtml}
-                        <div class="gift-card-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
-                        <div class="gift-card-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
                     `;
                     container.appendChild(giftCard);
                 });
@@ -965,15 +1263,15 @@
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
             
             try {
-                const giftsResponse = await fetch(`${API_BASE}/gifts/`);
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const giftsResponse = await fetch(giftsUrl);
                 const gifts = await giftsResponse.json();
                 const gift = gifts.find(g => g.id === giftId);
                 
                 if (!gift) throw new Error('Gift not found');
-                
-                const redemptionsResponse = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                const redemptions = redemptionsResponse.ok ? await redemptionsResponse.json() : [];
-                const redemption = redemptions.find(r => r.gift.id === gift.id);
                 
                 const userPoints = currentUser.points || 0;
                 const hasEnoughPoints = userPoints >= gift.points_cost;
@@ -981,16 +1279,9 @@
                 
                 document.getElementById('giftDetailTitle').textContent = gift.name;
                 
+                // Всегда разрешаем заказ, если есть баллы, независимо от существующих заказов
                 let actionHtml = '';
-                if (redemption) {
-                    if (redemption.status === 'pending') {
-                        actionHtml = `<div class="gift-status-badge waiting">${t('WEBAPP_WAITING_PROCESS')}</div>`;
-                    } else if (redemption.status === 'approved') {
-                        actionHtml = `<div class="gift-status-badge approved">${t('WEBAPP_STATUS_APPROVED')}</div>`;
-                    } else if (redemption.status === 'rejected') {
-                        actionHtml = `<div class="gift-status-badge rejected">${t('WEBAPP_STATUS_REJECTED')}</div>`;
-                    }
-                } else if (hasEnoughPoints) {
+                if (hasEnoughPoints) {
                     actionHtml = `<button class="btn btn-primary gift-detail-btn" onclick="requestGift(${gift.id})">
                         <span class="btn-icon">🔄</span>
                         ${t('WEBAPP_GET_GIFT')}
@@ -1001,7 +1292,7 @@
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%"></div>
                             </div>
-                            <div class="progress-text">${userPoints.toLocaleString()} / ${gift.points_cost.toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                            <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
                         </div>
                         <div class="not-enough-points">${t('WEBAPP_NOT_ENOUGH_POINTS')}</div>
                     `;
@@ -1023,13 +1314,278 @@
                     </div>
                     <div class="gift-detail-info">
                         <div class="gift-detail-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
-                        <div class="gift-detail-points">${(gift.points_cost || 0).toLocaleString()} ${t('WEBAPP_BALL')}</div>
+                        <div class="gift-detail-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
                         ${gift.description ? `<div class="gift-detail-description">${gift.description}</div>` : ''}
                     </div>
                     ${actionHtml}
                 `;
             } catch (error) {
                 container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
+            }
+        }
+
+        async function getGiftDetail(giftId) {
+            showScreen('getGiftDetail');
+            const container = document.getElementById('getGiftDetailContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                if (!currentUser || !currentUser.telegram_id) {
+                    throw new Error('User not loaded');
+                }
+                
+                // Передаем telegram_id для получения описания на правильном языке
+                const giftsUrl = currentUser && currentUser.telegram_id 
+                    ? `${API_BASE}/gifts/?telegram_id=${currentUser.telegram_id}`
+                    : `${API_BASE}/gifts/`;
+                const giftsResponse = await fetch(giftsUrl);
+                const gifts = await giftsResponse.json();
+                const gift = gifts.find(g => g.id === giftId);
+                
+                if (!gift) throw new Error('Gift not found');
+                
+                const userPoints = currentUser.points || 0;
+                const hasEnoughPoints = userPoints >= gift.points_cost;
+                const progress = Math.min((userPoints / gift.points_cost) * 100, 100);
+                
+                // Устанавливаем заголовок и бейдж
+                document.getElementById('getGiftDetailTitle').textContent = gift.name || t('WEBAPP_GIFT_NAME');
+                const badgeElement = document.getElementById('getGiftDetailBadge');
+                if (badgeElement && gift.quantity) {
+                    badgeElement.textContent = gift.quantity;
+                    badgeElement.style.display = 'inline-block';
+                } else if (badgeElement) {
+                    badgeElement.style.display = 'none';
+                }
+                
+                // Обрабатываем URL изображения
+                let detailImageUrl = '/static/images/gift-box.png';
+                if (gift.image) {
+                    if (gift.image.startsWith('http://') || gift.image.startsWith('https://')) {
+                        detailImageUrl = gift.image;
+                    } else {
+                        detailImageUrl = gift.image.startsWith('/') ? gift.image : `/${gift.image}`;
+                    }
+                }
+                
+                // Определяем класс для прогресс-бара
+                const progressClass = hasEnoughPoints ? 'progress-filled' : '';
+                
+                // HTML согласно дизайну
+                container.innerHTML = `
+                    <div class="get-gift-detail-content">
+                        <!-- Карточка пользователя -->
+                        <div class="get-gift-detail-user-card" onclick="showProfile()" style="cursor: pointer;">
+                            <div class="get-gift-detail-user-avatar">
+                                <div class="get-gift-detail-avatar-icon">👤</div>
+                            </div>
+                            <div class="get-gift-detail-user-info">
+                                <div class="get-gift-detail-user-name">
+                                    ${currentUser.first_name || t('USER')}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <g clip-path="url(#clip0_110_61_get_gift_detail)">
+                                        <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </g>
+                                        <defs>
+                                        <clipPath id="clip0_110_61_get_gift_detail">
+                                        <rect width="16" height="16" fill="white"/>
+                                        </clipPath>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                <div class="get-gift-detail-user-id">ID: ${currentUser.telegram_id}</div>
+                            </div>
+                            <div class="points-badge" onclick="event.stopPropagation();">
+                                <div class="points-value">${formatNumber(currentUser.points || 0)}</div>
+                                <div class="points-label">${t('WEBAPP_TOTAL_POINTS')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Изображение подарка в белом блоке с прогресс-баром и информацией -->
+                        <div class="get-gift-detail-image-wrapper">
+                            <img src="${detailImageUrl}" alt="${gift.name || 'Gift'}" class="get-gift-detail-main-image" onerror="this.src='/static/images/gift-box.png'">
+                            
+                            <!-- Прогресс-бар -->
+                            <div class="get-gift-detail-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
+                                </div>
+                                <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
+                            </div>
+                            
+                            <!-- Информация о подарке -->
+                            <div class="get-gift-detail-info">
+                                <div class="get-gift-detail-name">${gift.name || t('WEBAPP_GIFT_NAME')}</div>
+                                <div class="get-gift-detail-points">${formatNumber(gift.points_cost || 0)} ${t('WEBAPP_BALL')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопка получения подарка -->
+                        <button class="get-gift-detail-get-btn ${hasEnoughPoints ? '' : 'disabled'}" 
+                                ${hasEnoughPoints ? `onclick="requestGift(${gift.id})"` : 'disabled'}
+                                ${hasEnoughPoints ? '' : 'style="opacity: 0.5; cursor: not-allowed;"'}>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_146_get_gift_${gift.id})">
+                                    <path d="M4.16667 16.6667C5.08714 16.6667 5.83333 15.9205 5.83333 15C5.83333 14.0796 5.08714 13.3334 4.16667 13.3334C3.24619 13.3334 2.5 14.0796 2.5 15C2.5 15.9205 3.24619 16.6667 4.16667 16.6667Z" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66671C16.7538 6.66671 17.5 5.92052 17.5 5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337C14.9128 3.33337 14.1666 4.07957 14.1666 5.00004C14.1666 5.92052 14.9128 6.66671 15.8333 6.66671Z" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15.8333 6.66663V10.8333C15.8333 11.9384 15.3943 12.9982 14.6129 13.7796C13.8315 14.561 12.7717 15 11.6666 15H9.16663L11.6666 17.5" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4.16663 13.3333V9.16667C4.16663 8.0616 4.60561 7.00179 5.38701 6.22039C6.16842 5.43899 7.22822 5 8.33329 5H10.8333M10.8333 5L8.33329 2.5M10.8333 5L8.33329 7.5" stroke="${hasEnoughPoints ? '#FFFFFF' : '#000000'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_146_get_gift_${gift.id}">
+                                        <rect width="20" height="20" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                            <span>${t('WEBAPP_GET_GIFT')}</span>
+                        </button>
+                        
+                        <!-- Кнопка связи с администратором -->
+                        <button class="get-gift-detail-contact-btn" onclick="contactAdmin()">
+                            <span class="get-gift-detail-contact-icon">🎧</span>
+                            ${t('WEBAPP_CONTACT_ADMIN')}
+                        </button>
+                        
+                        <!-- Ссылка на политику конфиденциальности -->
+                        <a href="javascript:void(0)" class="get-gift-detail-privacy-link" onclick="showPrivacy()">
+                            {% trans "WEBAPP_PRIVACY_POLICY" %}
+                        </a>
+                    </div>
+                `;
+            } catch (error) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_GIFTS') + '</div>';
+            }
+        }
+
+        async function showRedemptionDetail(redemptionId) {
+            showScreen('redemptionDetail');
+            const container = document.getElementById('redemptionDetailContainer');
+            container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            try {
+                if (!currentUser || !currentUser.telegram_id) {
+                    throw new Error('User not loaded');
+                }
+                
+                // Загружаем данные о redemption
+                const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load redemption');
+                }
+                
+                const redemptions = await response.json();
+                const redemption = redemptions.find(r => r.id === redemptionId);
+                
+                if (!redemption) {
+                    throw new Error('Redemption not found');
+                }
+                
+                // Устанавливаем заголовок
+                document.getElementById('redemptionDetailTitle').textContent = redemption.gift ? redemption.gift.name : t('WEBAPP_GIFT_NAME');
+                
+                // Определяем текст статуса и иконку
+                let statusText = t('WEBAPP_STATUS_PENDING');
+                let statusClass = 'waiting';
+                let statusIcon = getStatusIcon('pending');
+                if (redemption.status === 'approved') {
+                    statusText = t('WEBAPP_STATUS_APPROVED');
+                    statusClass = 'approved';
+                    statusIcon = getStatusIcon('approved');
+                } else if (redemption.status === 'sent') {
+                    statusText = t('WEBAPP_STATUS_SENT');
+                    statusClass = 'sent';
+                    statusIcon = getStatusIcon('sent');
+                } else if (redemption.status === 'rejected') {
+                    statusText = t('WEBAPP_STATUS_REJECTED');
+                    statusClass = 'rejected';
+                    statusIcon = getStatusIcon('rejected');
+                } else if (redemption.status === 'not_received') {
+                    statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
+                    statusClass = 'not_received';
+                    statusIcon = getStatusIcon('not_received');
+                } else if (redemption.status === 'completed') {
+                    statusText = t('WEBAPP_STATUS_COMPLETED');
+                    statusClass = 'completed';
+                    statusIcon = getStatusIcon('completed');
+                }
+                
+                // Обрабатываем URL изображения
+                let imageUrl = '/static/images/gift-box.png';
+                if (redemption.gift && redemption.gift.image) {
+                    if (redemption.gift.image.startsWith('http://') || redemption.gift.image.startsWith('https://')) {
+                        imageUrl = redemption.gift.image;
+                    } else if (redemption.gift.image.startsWith('/')) {
+                        imageUrl = redemption.gift.image;
+                    } else {
+                        imageUrl = '/' + redemption.gift.image;
+                    }
+                }
+                
+                // Форматируем стоимость подарка
+                const giftPoints = redemption.gift ? redemption.gift.points_cost : 0;
+                
+                // HTML для страницы ожидания товара (дизайн по второму рисунку)
+                container.innerHTML = `
+                    <div class="redemption-detail-content">
+                        <!-- Карточка пользователя -->
+                        <div class="redemption-user-card" onclick="showProfile()" style="cursor: pointer;">
+                            <div class="redemption-user-avatar">
+                                <div class="redemption-avatar-icon">👤</div>
+                            </div>
+                            <div class="redemption-user-info">
+                                <div class="redemption-user-name">
+                                    ${currentUser.first_name || t('USER')}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <g clip-path="url(#clip0_110_61)">
+                                        <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6 7.99999L7.33333 9.33332L10 6.66666" stroke="#40C4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </g>
+                                        <defs>
+                                        <clipPath id="clip0_110_61">
+                                        <rect width="16" height="16" fill="white"/>
+                                        </clipPath>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                <div class="redemption-user-id">ID: ${currentUser.telegram_id}</div>
+                            </div>
+                            <div class="points-badge" onclick="event.stopPropagation();">
+                                <div class="points-value">${formatNumber(currentUser.points || 0)}</div>
+                                <div class="points-label">${t('WEBAPP_TOTAL_POINTS')}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопки статуса и связи -->
+                        <div class="redemption-actions">
+                            <button class="redemption-status-btn ${statusClass}">
+                                <span class="status-icon">${statusIcon}</span>
+                                ${statusText}
+                            </button>
+                            <button class="redemption-contact-btn" onclick="contactAdmin()">
+                                <span class="contact-icon">🎧</span>
+                                ${t('WEBAPP_CONTACT_ADMIN')}
+                            </button>
+                        </div>
+                        
+                        <!-- Карточка подарка -->
+                        <div class="redemption-gift-card">
+                            <div class="redemption-gift-image-wrapper">
+                                <img src="${imageUrl}" alt="${redemption.gift ? redemption.gift.name : ''}" class="redemption-gift-img" onerror="this.onerror=null; this.src='/static/images/gift-box.png';">
+                            </div>
+                            <div class="redemption-gift-name">${redemption.gift ? redemption.gift.name : t('WEBAPP_GIFT_NAME')}</div>
+                            <div class="redemption-gift-points">${formatNumber(giftPoints)} ${t('WEBAPP_BALL')}</div>
+                        </div>
+                        
+                        <!-- Политика конфиденциальности -->
+                        <div class="redemption-privacy-link">
+                            <a href="#" onclick="showPrivacy(); return false;">{% trans "WEBAPP_PRIVACY_POLICY" %}</a>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading redemption detail:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_ORDERS')) + '</div>';
             }
         }
 
@@ -1053,7 +1609,9 @@
                 
                 const redemption = await response.json();
                 currentUser.points = redemption.user.points;
-                document.getElementById('points').textContent = currentUser.points.toLocaleString();
+                document.getElementById('points').textContent = formatNumber(currentUser.points);
+                // Обновляем список заказов перед переходом на экран успеха
+                await loadProductStatus();
                 showScreen('success');
             } catch (error) {
                 tg.showAlert(error.message || t('WEBAPP_ERROR_REQUESTING_GIFT'));
@@ -1062,16 +1620,33 @@
 
         async function loadProfileGifts() {
             const container = document.getElementById('profileGiftsContainer');
+            if (!container) return;
+            
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING_ORDERS') + '</div>';
+            
+            if (!currentUser || !currentUser.telegram_id) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                console.error('loadProfileGifts: currentUser not loaded');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/redemptions/?telegram_id=${currentUser.telegram_id}`);
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
                 
                 const redemptions = await response.json();
                 
                 if (redemptions.length === 0) {
-                    container.innerHTML = '<div class="empty-state">' + t('WEBAPP_NO_ORDERS') + '</div>';
+                    container.innerHTML = `
+                        <div class="empty-orders-state">
+                            <img src="/static/images/notfoundredemption.png" alt="No orders" class="empty-orders-image">
+                            <div class="empty-orders-title">${t('WEBAPP_NO_ORDERS')}</div>
+                            <div class="empty-orders-text">${t('WEBAPP_NO_ORDERS_TEXT')}</div>
+                        </div>
+                    `;
                     return;
                 }
                 
@@ -1079,20 +1654,26 @@
                 redemptions.forEach(redemption => {
                     const card = document.createElement('div');
                     card.className = 'profile-gift-card';
-                    card.onclick = () => showGiftDetail(redemption.gift.id);
+                    card.onclick = () => showRedemptionDetail(redemption.id);
                     
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
                     
-                    // Определяем статус в зависимости от статуса и delivery_status
+                    // Определяем статус в зависимости от статуса
                     if (redemption.status === 'approved') {
                         statusClass = 'approved';
                         statusText = t('WEBAPP_STATUS_APPROVED');
+                    } else if (redemption.status === 'sent') {
+                        statusClass = 'sent';
+                        statusText = t('WEBAPP_STATUS_SENT');
                     } else if (redemption.status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = t('WEBAPP_STATUS_REJECTED');
+                    } else if (redemption.status === 'not_received') {
+                        statusClass = 'not_received';
+                        statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
                     } else if (redemption.status === 'completed') {
-                        statusClass = 'approved';
+                        statusClass = 'completed';
                         statusText = t('WEBAPP_STATUS_COMPLETED');
                     } else {
                         // pending
@@ -1103,8 +1684,8 @@
                     const imageUrl = redemption.gift.image || '/static/images/gift-box.png';
 
                     let confirmButtonHtml = '';
-                    // Показываем кнопку для всех статусов, если пользователь еще не подтвердил получение
-                    if (!redemption.user_confirmed && (redemption.status === 'pending' || redemption.status === 'approved' || redemption.status === 'completed')) {
+                    // Показываем кнопку только при статусе 'completed' и если пользователь еще не подтвердил получение
+                    if (!redemption.user_confirmed && redemption.status === 'completed') {
                         confirmButtonHtml = `
                             <button class="btn btn-success btn-small" onclick="event.stopPropagation(); openConfirmModal(${redemption.id});">
                                 ${t('WEBAPP_YES_RECEIVED')}
@@ -1124,7 +1705,8 @@
                     container.appendChild(card);
                 });
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_ORDERS') + '</div>';
+                console.error('Error loading profile gifts:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_ORDERS')) + '</div>';
             }
         }
 
@@ -1207,7 +1789,29 @@
                     const card = document.createElement('div');
                     card.className = 'qr-history-card';
                     card.innerHTML = `
-                        <div class="qr-history-icon">📱</div>
+                        <div class="qr-history-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_130_1353_${item.id})">
+                                    <path d="M13.5 6H7.5C6.67157 6 6 6.67157 6 7.5V13.5C6 14.3284 6.67157 15 7.5 15H13.5C14.3284 15 15 14.3284 15 13.5V7.5C15 6.67157 14.3284 6 13.5 6Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 25.5V25.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M28.5 6H22.5C21.6716 6 21 6.67157 21 7.5V13.5C21 14.3284 21.6716 15 22.5 15H28.5C29.3284 15 30 14.3284 30 13.5V7.5C30 6.67157 29.3284 6 28.5 6Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 10.5V10.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M13.5 21H7.5C6.67157 21 6 21.6716 6 22.5V28.5C6 29.3284 6.67157 30 7.5 30H13.5C14.3284 30 15 29.3284 15 28.5V22.5C15 21.6716 14.3284 21 13.5 21Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M25.5 10.5V10.515" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 21H25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M30 21V21.015" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 21V25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 30H25.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M25.5 25.5H30" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M30 25.5V30" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_130_1353_${item.id}">
+                                        <rect width="36" height="36" fill="white"/>
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                        </div>
                         <div class="qr-history-info">
                             <div class="qr-history-code">#${item.code}</div>
                             <div class="qr-history-date">${item.scanned_at}</div>
@@ -1235,13 +1839,11 @@
 
         function updateLanguageChecks() {
             document.getElementById('checkUzLatin').style.display = currentUser.language === 'uz_latin' ? 'block' : 'none';
-            document.getElementById('checkUzCyrillic').style.display = currentUser.language === 'uz_cyrillic' ? 'block' : 'none';
             document.getElementById('checkRu').style.display = currentUser.language === 'ru' ? 'block' : 'none';
         }
 
         function getLanguageName(language) {
             if (language === 'uz_latin') return t('WEBAPP_UZBEK');
-            if (language === 'uz_cyrillic') return t('WEBAPP_UZBEK_CYRILLIC');
             if (language === 'ru') return t('WEBAPP_RUSSIAN');
             return t('WEBAPP_UZBEK');
         }
@@ -1287,6 +1889,29 @@
         // Обновляем функции для работы с экранами
         function showProfile() {
             showScreen('profile');
+            // Обновляем данные пользователя в карточке профиля
+            if (currentUser) {
+                const profileUserName = document.getElementById('profileUserName');
+                const profileUserId = document.getElementById('profileUserId');
+                const profilePoints = document.getElementById('profilePoints');
+                
+                if (profileUserName) profileUserName.textContent = currentUser.first_name || t('USER');
+                if (profileUserId) profileUserId.textContent = `ID: ${currentUser.telegram_id}`;
+                if (profilePoints) profilePoints.textContent = formatNumber(currentUser.points);
+                
+                // Копируем аватар из главной страницы
+                const mainAvatar = document.getElementById('userAvatar');
+                const profileAvatar = document.getElementById('profileUserAvatar');
+                if (mainAvatar && profileAvatar) {
+                    profileAvatar.style.backgroundImage = mainAvatar.style.backgroundImage;
+                    profileAvatar.style.backgroundSize = 'cover';
+                    profileAvatar.style.backgroundPosition = 'center';
+                    if (mainAvatar.style.backgroundImage) {
+                        profileAvatar.textContent = '';
+                        profileAvatar.style.color = 'transparent';
+                    }
+                }
+            }
         }
 
         function showQRHistory() {
@@ -1296,11 +1921,11 @@
 
         function showProfileGifts() {
             showScreen('profileGifts');
-            loadProfileGifts();
+            // loadProfileGifts() вызывается автоматически в showScreen()
         }
 
         function contactAdmin() {
-            const botUsername = '{{ TELEGRAM_BOT_USERNAME }}';
+            const botUsername = '{{ TELEGRAM_BOT_ADMIN_USERNAME }}';
             if (botUsername) {
                 tg.openTelegramLink(`https://t.me/${botUsername}`);
             } else {
@@ -1308,29 +1933,95 @@
             }
         }
 
+        function openPrivacyPDF(pdfUrl) {
+            if (tg && tg.openLink) {
+                tg.openLink(pdfUrl);
+            } else {
+                window.open(pdfUrl, '_blank');
+            }
+        }
+
         async function showPrivacy() {
+            // Определяем текущий экран перед открытием политики
+            const screens = [
+                'redemptionDetail', 'profileGifts', 'qrHistory', 'giftDetail', 
+                'giftsList', 'profile', 'promotionDetail', 'home'
+            ];
+            
+            // Проверяем все экраны
+            for (const screen of screens) {
+                const screenElement = document.getElementById(`${screen}Screen`);
+                if (screenElement && screenElement.style.display !== 'none') {
+                    previousScreen = screen;
+                    break;
+                }
+            }
+            
+            // Если ни один экран не найден, проверяем main-container
+            if (!previousScreen && document.querySelector('.main-container').style.display !== 'none') {
+                previousScreen = 'home';
+            }
+            
+            // Если все еще не определено, используем 'profile' по умолчанию
+            if (!previousScreen) {
+                previousScreen = 'profile';
+            }
+            
             showScreen('privacy');
-            await loadPrivacyPolicy();
+            // loadPrivacyPolicy() вызывается автоматически в showScreen()
+        }
+        
+        function getPreviousScreen() {
+            // Возвращаем сохраненный экран или 'profile' по умолчанию
+            return previousScreen || 'profile';
         }
 
         async function loadPrivacyPolicy() {
             const container = document.getElementById('privacyContainer');
+            if (!container) return;
+            
             container.innerHTML = '<div class="loading">' + t('WEBAPP_LOADING') + '</div>';
+            
+            if (!currentUser || !currentUser.language) {
+                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/privacy-policy/?lang=${currentUser.language}`);
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
                 
                 const data = await response.json();
                 
-                container.innerHTML = `
-                    <div class="privacy-content">
-                        <div class="privacy-text">${data.content.replace(/\n/g, '<br>')}</div>
-                        ${data.updated_at ? `<div class="privacy-updated">${t('WEBAPP_UPDATED')}: ${data.updated_at}</div>` : ''}
-                    </div>
-                `;
+                let contentHtml = '';
+                
+                // Если есть PDF файл, показываем кнопку для открытия
+                // В Telegram Web App PDF нельзя отобразить напрямую из-за ограничений безопасности
+                if (data.pdf_url) {
+                    contentHtml = `
+                        <div class="privacy-content">
+                            <div class="privacy-pdf-wrapper">
+                                <div class="privacy-pdf-icon">📄</div>
+                                <h3 class="privacy-pdf-title">${t('WEBAPP_PRIVACY_POLICY') || 'Политика конфиденциальности'}</h3>
+                                <p class="privacy-pdf-text">${t('WEBAPP_PRIVACY_PDF_DESCRIPTION') || 'Политика конфиденциальности доступна в формате PDF. Нажмите кнопку ниже, чтобы открыть документ в браузере.'}</p>
+                                <button class="btn btn-primary privacy-pdf-open-btn" onclick="openPrivacyPDF('${data.pdf_url}')">
+                                    ${t('WEBAPP_OPEN_PDF') || 'Открыть PDF'}
+                                </button>
+                            </div>
+                            ${data.updated_at ? `<div class="privacy-updated">${t('WEBAPP_UPDATED')}: ${data.updated_at}</div>` : ''}
+                        </div>
+                    `;
+                    container.innerHTML = contentHtml;
+                } else {
+                    contentHtml = '<div class="empty-state">' + (t('WEBAPP_NO_CONTENT') || 'Контент не найден') + '</div>';
+                    container.innerHTML = contentHtml;
+                }
             } catch (error) {
-                container.innerHTML = '<div class="error">' + t('WEBAPP_ERROR_LOADING_USER') + '</div>';
+                console.error('Error loading privacy policy:', error);
+                container.innerHTML = '<div class="error">' + (error.message || t('WEBAPP_ERROR_LOADING_USER')) + '</div>';
             }
         }
 
@@ -1734,13 +2425,23 @@
                 if (index === 0) {
                     option.textContent = t('WEBAPP_UZBEK');
                 } else if (index === 1) {
-                    option.textContent = t('WEBAPP_UZBEK_CYRILLIC');
-                } else if (index === 2) {
                     option.textContent = t('WEBAPP_RUSSIAN');
                 }
             });
             
-            // Обновляем тексты в меню профиля
+            // Обновляем тексты в меню профиля (новые кнопки)
+            const profileMenuTexts = document.querySelectorAll('.profile-menu-text');
+            profileMenuTexts.forEach((textElement, index) => {
+                if (index === 0) {
+                    textElement.textContent = t('WEBAPP_INTERFACE_LANGUAGE');
+                } else if (index === 1) {
+                    textElement.textContent = t('WEBAPP_GIFTS');
+                } else if (index === 2) {
+                    textElement.textContent = t('WEBAPP_QR_HISTORY');
+                }
+            });
+            
+            // Обновляем тексты в меню профиля (старые элементы, если есть)
             const menuItems = document.querySelectorAll('.menu-item .menu-text');
             menuItems.forEach((item, index) => {
                 const menuItem = item.closest('.menu-item');
@@ -1880,9 +2581,9 @@
             
             function getExpectedPrefix() {
                 if (currentUser && currentUser.user_type) {
-                    return currentUser.user_type === 'seller' ? 'D-' : 'E-';
+                    return currentUser.user_type === 'seller' ? 'D' : 'E';
                 }
-                return 'E-'; // По умолчанию E-
+                return 'E'; // По умолчанию E
             }
             
             if (qrInput) {
@@ -1926,14 +2627,11 @@
                     }
                     
                     // Если пользователь начинает вводить без префикса, добавляем его автоматически
-                    if (!value.startsWith('E-') && !value.startsWith('D-')) {
+                    if (!value.startsWith('E') && !value.startsWith('D')) {
                         // Если первый символ - буква или цифра, добавляем префикс типа пользователя
                         if (/^[A-Z0-9]/.test(value)) {
                             value = expectedPrefix + value;
                         }
-                    } else if (value.length === 1 && (value === 'E' || value === 'D')) {
-                        // Если пользователь ввел только E или D, добавляем дефис
-                        value = value + '-';
                     }
                     
                     // Сохраняем старую длину для корректного восстановления позиции курсора
@@ -1977,7 +2675,7 @@
                         let value = qrInput.value.toUpperCase();
                         const expectedPrefix = getExpectedPrefix();
                         
-                        if (value.length > 0 && !value.startsWith('E-') && !value.startsWith('D-')) {
+                        if (value.length > 0 && !value.startsWith('E') && !value.startsWith('D')) {
                             if (/^[A-Z0-9]/.test(value)) {
                                 value = expectedPrefix + value;
                             }

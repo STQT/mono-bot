@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0011_alter_qrcode_options'),
+        ('core', '0017_alter_giftredemption_status'),
     ]
 
     operations = [
@@ -22,13 +22,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name='privacypolicy',
-            name='content_uz_latin',
-            field=models.TextField(blank=True, help_text='Текстовый контент для узбекского языка (латиница). Если загружен PDF, текст будет использован как подпись.', verbose_name='Kontent (O\'zbek lotin)'),
+            name='content_ru',
+            field=models.TextField(blank=True, help_text='Текстовый контент (необязательно, если загружен PDF)', verbose_name='Kontent (Ruscha)'),
         ),
         migrations.AlterField(
             model_name='privacypolicy',
-            name='content_ru',
-            field=models.TextField(blank=True, help_text='Текстовый контент для русского языка. Если загружен PDF, текст будет использован как подпись.', verbose_name='Kontent (Ruscha)'),
+            name='content_uz_latin',
+            field=models.TextField(blank=True, help_text='Текстовый контент (необязательно, если загружен PDF)', verbose_name='Kontent (O\'zbek lotin)'),
         ),
     ]
 
