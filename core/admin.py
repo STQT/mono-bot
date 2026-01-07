@@ -870,7 +870,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
             # Call Center не может подтверждать получение подарка
             elif request.user.has_perm('core.change_user_type_call_center'):
                 if 'user_confirmed' not in readonly:
-                readonly.append('user_confirmed')
+                    readonly.append('user_confirmed')
         
         return readonly
     
