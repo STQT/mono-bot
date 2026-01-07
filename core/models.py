@@ -323,6 +323,44 @@ class BroadcastMessage(models.Model):
         blank=True,
         verbose_name='Foydalanuvchi turi bo\'yicha filtr'
     )
+    # Фильтрация по региону (геолокации)
+    region_min_latitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name='Min kenglik',
+        help_text='Minimal kenglik (latitude) filtri'
+    )
+    region_max_latitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name='Max kenglik',
+        help_text='Maksimal kenglik (latitude) filtri'
+    )
+    region_min_longitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name='Min uzunlik',
+        help_text='Minimal uzunlik (longitude) filtri'
+    )
+    region_max_longitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name='Max uzunlik',
+        help_text='Maksimal uzunlik (longitude) filtri'
+    )
+    # Фильтр по языку
+    LANGUAGE_CHOICES = [
+        ('uz_latin', 'O\'zbek (Lotin)'),
+        ('uz_cyrillic', 'O\'zbek (Kirill)'),
+        ('ru', 'Русский'),
+    ]
+    language_filter = models.CharField(
+        max_length=15,
+        choices=LANGUAGE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Til bo\'yicha filtr'
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

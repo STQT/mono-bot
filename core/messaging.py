@@ -92,7 +92,7 @@ async def send_broadcast_message(
     Args:
         broadcast: Объект рассылки
         bot: Экземпляр бота
-        user_type_filter: Фильтр по типу пользователя (опционально)
+        user_type_filter: Фильтр по типу пользователя (опционально, если не указан, используется из broadcast)
     
     Returns:
         dict: Статистика отправки
@@ -100,8 +100,34 @@ async def send_broadcast_message(
     # Получаем активных пользователей
     users_query = TelegramUser.objects.filter(is_active=True)
     
-    if user_type_filter:
-        users_query = users_query.filter(user_type=user_type_filter)
+    # Фильтр по типу пользователя
+    filter_user_type = user_type_filter or broadcast.user_type_filter
+    if filter_user_type:
+        users_query = users_query.filter(user_type=filter_user_type)
+    
+    # Фильтр по языку
+    if broadcast.language_filter:
+        users_query = users_query.filter(language=broadcast.language_filter)
+    
+    # Фильтр по региону (геолокации)
+    if broadcast.region_min_latitude is not None:
+        users_query = users_query.filter(latitude__gte=broadcast.region_min_latitude)
+    if broadcast.region_max_latitude is not None:
+        users_query = users_query.filter(latitude__lte=broadcast.region_max_latitude)
+    if broadcast.region_min_longitude is not None:
+        users_query = users_query.filter(longitude__gte=broadcast.region_min_longitude)
+    if broadcast.region_max_longitude is not None:
+        users_query = users_query.filter(longitude__lte=broadcast.region_max_longitude)
+    
+    # Фильтр: только пользователи с геолокацией (если указаны границы региона)
+    if (broadcast.region_min_latitude is not None or 
+        broadcast.region_max_latitude is not None or
+        broadcast.region_min_longitude is not None or
+        broadcast.region_max_longitude is not None):
+        users_query = users_query.filter(
+            latitude__isnull=False,
+            longitude__isnull=False
+        )
     
     users = list(users_query)
     total_users = len(users)
