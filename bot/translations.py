@@ -30,7 +30,7 @@ TRANSLATIONS = {
         'PRIVACY_REQUIRED': "❌ Ro‘yxatdan o‘tish uchun maxfiylik siyosatiga rozilik berish talab etiladi.",
         'SEND_PHONE_BUTTON': "📱 Telefon raqamini yuborish",
         'REGISTRATION_COMPLETE_MESSAGE': "✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi! Endi botdan foydalanishingiz mumkin.",
-        'SEND_PROMO_CODE': "💡 Iltimos, o'z promo-kodingizni kiriting.",
+        'SEND_PROMO_CODE': "Iltimos, o'z promo-kodingizni kiriting.",
         'PROMO_CODE_SAVED': "✅ Promo-kod saqlandi!",
         
         # QR-код сообщения
@@ -188,7 +188,7 @@ TRANSLATIONS = {
         'PRIVACY_REQUIRED': "❌ Для регистрации необходимо согласие с политикой конфиденциальности.",
         'SEND_PHONE_BUTTON': "📱 Отправить номер телефона",
         'REGISTRATION_COMPLETE_MESSAGE': "✅ Регистрация успешно завершена! Теперь вы можете пользоваться ботом.",
-        'SEND_PROMO_CODE': "💡 Пожалуйста, введите ваш промокод.",
+        'SEND_PROMO_CODE': "Пожалуйста, введите ваш промокод.",
         'PROMO_CODE_SAVED': "✅ Промокод сохранен!",
         
         # QR-код сообщения

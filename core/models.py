@@ -8,6 +8,7 @@ import random
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from simple_history.models import HistoricalRecords
 
 
 class TelegramUser(models.Model):
@@ -49,9 +50,11 @@ class TelegramUser(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'Telegram foydalanuvchi'
-        verbose_name_plural = 'Telegram foydalanuvchilar'
+        verbose_name = 'Telegram foydalanuvchisi'
+        verbose_name_plural = 'Telegram foydalanuvchilari'
         ordering = ['region', 'district', '-created_at']
         permissions = [
             ('send_region_messages', 'Can send messages to users by region'),
@@ -152,9 +155,11 @@ class QRCode(models.Model):
     )
     is_scanned = models.BooleanField(default=False)
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'QR-kod'
-        verbose_name_plural = 'QR-kodlar'
+        verbose_name = 'Promo-kod tarixi'
+        verbose_name_plural = 'Promo-kodlar tarixi'
         ordering = ['-generated_at']
         indexes = [
             models.Index(fields=['code']),
@@ -179,7 +184,7 @@ class QRCode(models.Model):
         return f"{masked_code} ({self.get_code_type_display()})"
     
     @classmethod
-    def generate_hash(cls, length=6):
+    def generate_hash(cls, length=4):
         """
         Генерирует уникальный короткий хеш для QR-кода.
         
@@ -329,9 +334,11 @@ class Gift(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'Sovg\'a'
-        verbose_name_plural = 'Sovg\'alar'
+        verbose_name = 'Sovg‘a'
+        verbose_name_plural = 'Sovg‘alar ro‘yxati'
         ordering = ['points_cost', 'name_uz_latin']
         indexes = [
             models.Index(fields=['user_type', 'is_active']),
@@ -392,9 +399,11 @@ class GiftRedemption(models.Model):
     user_comment = models.TextField(blank=True, verbose_name='Foydalanuvchi sharhi')
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name='Tasdiqlangan vaqt')
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'Sovg\'a olish'
-        verbose_name_plural = 'Sovg\'a olishlar'
+        verbose_name = 'Sovg‘a olish uchun arizalar'
+        verbose_name_plural = 'Sovg‘a olish uchun arizalar'
         ordering = ['-requested_at']
         permissions = [
             ('change_status_call_center', 'Call Center: Can change redemption status'),
@@ -475,9 +484,11 @@ class BroadcastMessage(models.Model):
     started_at = models.DateTimeField(null=True, blank=True, verbose_name='Yuborish boshlangan')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Yakunlangan')
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'Yuborish'
-        verbose_name_plural = 'Yuborishlar'
+        verbose_name = 'Xabarlar yuborish'
+        verbose_name_plural = 'Xabarlar yuborish'
         ordering = ['-created_at']
     
     def __str__(self):
@@ -493,6 +504,8 @@ class Promotion(models.Model):
     order = models.IntegerField(default=0, verbose_name='Tartib raqami', help_text='Kichikroq raqam yuqorida ko\'rsatiladi')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    history = HistoricalRecords()
     
     class Meta:
         verbose_name = 'Aksiya'
@@ -517,6 +530,8 @@ class PrivacyPolicy(models.Model):
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    history = HistoricalRecords()
     
     class Meta:
         verbose_name = 'Maxfiylik siyosati'
@@ -573,9 +588,11 @@ class QRCodeGeneration(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Yakunlangan')
     
+    history = HistoricalRecords()
+    
     class Meta:
-        verbose_name = 'QR-kod generatsiyasi'
-        verbose_name_plural = 'QR-kod generatsiyalari'
+        verbose_name = 'Promo-kod yaratilish tarixi'
+        verbose_name_plural = 'Promo-kodlar yaratish tarixi'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status', '-created_at']),
@@ -583,4 +600,59 @@ class QRCodeGeneration(models.Model):
     
     def __str__(self):
         return f"{self.get_code_type_display()} - {self.quantity} ta ({self.get_status_display()})"
+
+
+class AdminContactSettings(models.Model):
+    """Модель для настроек контакта администратора в Web App."""
+    CONTACT_TYPE_CHOICES = [
+        ('telegram', 'Telegram username'),
+        ('phone', 'Telefon raqami'),
+        ('link', 'Havola (URL)'),
+    ]
+    
+    contact_type = models.CharField(
+        max_length=20,
+        choices=CONTACT_TYPE_CHOICES,
+        default='telegram',
+        verbose_name='Kontakt turi',
+        help_text='Telegram username, telefon raqami yoki havola'
+    )
+    contact_value = models.CharField(
+        max_length=255,
+        verbose_name='Kontakt qiymati',
+        help_text='Telegram username (@ belgisisiz), telefon raqami (+998901234567) yoki to\'liq havola (https://...)'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Faol')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    history = HistoricalRecords()
+    
+    class Meta:
+        verbose_name = 'Admin kontakt sozlamalari'
+        verbose_name_plural = 'Admin kontakt sozlamalari'
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"{self.get_contact_type_display()}: {self.contact_value}"
+    
+    def get_contact_url(self):
+        """Возвращает URL для контакта в зависимости от типа."""
+        if self.contact_type == 'telegram':
+            # Убираем @ если есть
+            username = self.contact_value.lstrip('@')
+            return f"https://t.me/{username}"
+        elif self.contact_type == 'phone':
+            # Для телефона возвращаем сам номер (tel: не поддерживается в Telegram Web App)
+            # Telegram Web App не поддерживает tel: протокол, поэтому возвращаем просто номер
+            return self.contact_value
+        elif self.contact_type == 'link':
+            # Возвращаем ссылку как есть
+            return self.contact_value
+        return None
+    
+    @classmethod
+    def get_active_contact(cls):
+        """Возвращает активную настройку контакта."""
+        return cls.objects.filter(is_active=True).first()
 

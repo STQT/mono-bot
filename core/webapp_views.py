@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils import translation
 from django.db import models
 from functools import wraps
-from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy
+from .models import TelegramUser, Gift, GiftRedemption, QRCode, Promotion, PrivacyPolicy, AdminContactSettings
 from .serializers import GiftSerializer, GiftRedemptionSerializer
 from django.utils import timezone
 
@@ -424,6 +424,33 @@ def get_privacy_policy(request):
         return Response({
             'pdf_url': pdf_url,
             'updated_at': policy.updated_at.strftime('%d.%m.%Y %H:%M') if policy.updated_at else None
+        })
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@no_cache_response
+def get_admin_contact(request):
+    """Получает настройки контакта администратора."""
+    try:
+        contact_settings = AdminContactSettings.get_active_contact()
+        
+        if not contact_settings:
+            return Response({
+                'contact_type': None,
+                'contact_value': None,
+                'contact_url': None
+            })
+        
+        return Response({
+            'contact_type': contact_settings.contact_type,
+            'contact_value': contact_settings.contact_value,
+            'contact_url': contact_settings.get_contact_url()
         })
     except Exception as e:
         return Response(

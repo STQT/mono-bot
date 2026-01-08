@@ -131,7 +131,7 @@ def dashboard_view(request):
     
     context = {
         **admin.site.each_context(request),
-        'title': 'Дашборд',
+        'title': 'Boshqaruv paneli',
         'top_electricians': top_electricians,
         'top_sellers': top_sellers,
         'total_users': total_users,
