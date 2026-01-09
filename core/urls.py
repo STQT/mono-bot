@@ -7,7 +7,8 @@ from .views import TelegramUserViewSet, QRCodeViewSet, GiftViewSet
 from .webapp_views import (
     webapp_view, get_user_data, get_gifts,
     get_user_redemptions, request_gift, confirm_delivery, get_translations, get_qr_history, 
-    get_promotions, register_qr_code, get_promotion_detail, get_privacy_policy, update_user_language
+    get_promotions, register_qr_code, get_promotion_detail, get_privacy_policy, update_user_language,
+    get_admin_contact
 )
 
 router = DefaultRouter()
@@ -31,5 +32,6 @@ urlpatterns = [
     path('webapp/register-qr/', register_qr_code, name='webapp_register_qr'),
     path('webapp/privacy-policy/', get_privacy_policy, name='webapp_privacy_policy'),
     path('webapp/update-language/', update_user_language, name='webapp_update_language'),
+    path('webapp/admin-contact/', get_admin_contact, name='webapp_admin_contact'),
 ]
 

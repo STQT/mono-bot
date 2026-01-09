@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'channels',
+    'simple_history',  # История изменений моделей
     'core',
     'bot',
 ]
@@ -42,6 +43,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',  # Отслеживание пользователя для истории
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -216,9 +218,9 @@ LOGIN_URL = '/admin/login/'
 # Jazzmin Configuration
 JAZZMIN_SETTINGS = {
     # Заголовок сайта
-    "site_title": "Mona Admin",
-    "site_header": "Mona Admin Panel",
-    "site_brand": "Mona Admin",
+    "site_title": "Mono Admin",
+    "site_header": "Mono Admin Panel",
+    "site_brand": "Mono Admin",
     "site_logo": None,  # Можно добавить путь к логотипу
     "login_logo": None,
     "login_logo_dark": None,
@@ -261,13 +263,13 @@ JAZZMIN_SETTINGS = {
     "custom_links": {
         "core": [
             {
-                "name": "Дашборд",
+                "name": "Boshqaruv paneli",
                 "url": "/admin/dashboard/",
                 "icon": "fas fa-chart-line",
                 "permissions": ["auth.view_user"]
             },
             {
-                "name": "Генерировать QR-код",
+                "name": "Promo-kodni yaratish",
                 "url": "/admin/core/qrcode/generate/",
                 "icon": "fas fa-qrcode",
                 "permissions": ["core.generate_qrcodes"]
@@ -287,7 +289,7 @@ JAZZMIN_SETTINGS = {
     "show_ui_builder": False,
     
     # Настройки футера
-    "copyright": "Mona Admin Panel",
+    "copyright": "Mono Admin Panel",
     
     # Настройки поиска
     "search_model": ["auth.User", "core.TelegramUser"],

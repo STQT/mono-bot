@@ -12,15 +12,16 @@ from django.template.response import TemplateResponse
 from django.contrib import messages
 from django.conf import settings
 from django.db import models
+from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy
+    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
 
 @admin.register(TelegramUser)
-class TelegramUserAdmin(admin.ModelAdmin):
+class TelegramUserAdmin(SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
     list_display = [
         'user_display', 'phone_number', 'region_display', 'district_display', 
@@ -331,7 +332,7 @@ class QRCodeScanAttemptInline(admin.TabularInline):
 
 
 @admin.register(QRCode)
-class QRCodeAdmin(admin.ModelAdmin):
+class QRCodeAdmin(SimpleHistoryAdmin):
     """Админка для QR-кодов (только просмотр)."""
     list_display = [
         'qr_display', 'code_type_badge', 'points_display', 
@@ -652,7 +653,7 @@ class QRCodeAdmin(admin.ModelAdmin):
 
 
 @admin.register(Gift)
-class GiftAdmin(admin.ModelAdmin):
+class GiftAdmin(SimpleHistoryAdmin):
     """Админка для подарков."""
     list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
     list_filter = ['is_active', 'user_type', 'created_at']
@@ -741,7 +742,7 @@ class GiftAdmin(admin.ModelAdmin):
 
 
 @admin.register(GiftRedemption)
-class GiftRedemptionAdmin(admin.ModelAdmin):
+class GiftRedemptionAdmin(SimpleHistoryAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
         'redemption_display', 'telegram_id_display', 'phone_number_display', 'status_badge', 
@@ -980,7 +981,7 @@ class GiftRedemptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(BroadcastMessage)
-class BroadcastMessageAdmin(admin.ModelAdmin):
+class BroadcastMessageAdmin(SimpleHistoryAdmin):
     """Админка для массовых рассылок."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
@@ -1079,7 +1080,7 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
 
 
 @admin.register(Promotion)
-class PromotionAdmin(admin.ModelAdmin):
+class PromotionAdmin(SimpleHistoryAdmin):
     """Админка для акций/баннеров."""
     list_display = [
         'image_preview', 'title', 'date_display', 'order', 'is_active', 'status_badge', 'created_at'
@@ -1133,7 +1134,7 @@ class PromotionAdmin(admin.ModelAdmin):
 
 
 @admin.register(QRCodeGeneration)
-class QRCodeGenerationAdmin(admin.ModelAdmin):
+class QRCodeGenerationAdmin(SimpleHistoryAdmin):
     """Админка для истории генерации QR-кодов."""
     list_display = [
         'generation_display', 'code_type_badge', 'quantity_display',
@@ -1271,9 +1272,10 @@ class QRCodeGenerationAdmin(admin.ModelAdmin):
 
 
 @admin.register(PrivacyPolicy)
-class PrivacyPolicyAdmin(admin.ModelAdmin):
+class PrivacyPolicyAdmin(SimpleHistoryAdmin):
     """Админка для политики конфиденциальности."""
     list_display = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
+    list_display_links = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
     list_filter = ['is_active', 'created_at', 'updated_at']
     fieldsets = (
         ('Узбекский язык (Латиница)', {
@@ -1313,6 +1315,53 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Разрешаем удаление только для superuser."""
         return request.user.is_superuser
+
+
+@admin.register(AdminContactSettings)
+class AdminContactSettingsAdmin(SimpleHistoryAdmin):
+    """Админка для настроек контакта администратора."""
+    list_display = ['contact_type_display', 'contact_value_display', 'is_active', 'updated_at']
+    list_filter = ['contact_type', 'is_active', 'updated_at']
+    search_fields = ['contact_value']
+    fields = ['contact_type', 'contact_value', 'is_active']
+    readonly_fields = ['created_at', 'updated_at']
+    
+    def contact_type_display(self, obj):
+        """Отображает тип контакта с иконкой."""
+        icons = {
+            'telegram': '💬',
+            'phone': '📞',
+            'link': '🔗',
+        }
+        icon = icons.get(obj.contact_type, '📋')
+        return format_html('{} {}', icon, obj.get_contact_type_display())
+    contact_type_display.short_description = 'Kontakt turi'
+    
+    def contact_value_display(self, obj):
+        """Отображает значение контакта с предпросмотром URL."""
+        url = obj.get_contact_url()
+        if url:
+            return format_html(
+                '<strong>{}</strong><br><a href="{}" target="_blank" style="color: #2064AE; font-size: 12px;">{}</a>',
+                obj.contact_value, url, url
+            )
+        return obj.contact_value
+    contact_value_display.short_description = 'Kontakt qiymati'
+    
+    def has_add_permission(self, request):
+        """Разрешаем создание только для superuser."""
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        """Разрешаем удаление только для superuser."""
+        return request.user.is_superuser
+    
+    def save_model(self, request, obj, form, change):
+        """При сохранении деактивируем другие активные настройки, если эта активна."""
+        if obj.is_active:
+            # Деактивируем все другие активные настройки
+            AdminContactSettings.objects.filter(is_active=True).exclude(pk=obj.pk if obj.pk else None).update(is_active=False)
+        super().save_model(request, obj, form, change)
 
 
 # Кастомная админка для дашборда

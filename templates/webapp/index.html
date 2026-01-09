@@ -858,6 +858,7 @@
                 await loadPromotions();
                 await loadGiftsCount();
                 await loadProductStatus();
+                await loadAdminContact();
             } catch (error) {
                 console.error('Error initializing app:', error);
                 showError(t('WEBAPP_ERROR_LOADING_USER'));
@@ -1440,7 +1441,7 @@
                                 <div class="progress-bar">
                                     <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
                                 </div>
-                                <div class="progress-text">${formatNumber(userPoints)} / ${formatNumber(gift.points_cost)} ${t('WEBAPP_BALL')}</div>
+                                
                             </div>
                             
                             <!-- Информация о подарке -->
@@ -1953,12 +1954,77 @@
             // loadProfileGifts() вызывается автоматически в showScreen()
         }
 
-        function contactAdmin() {
-            const botUsername = '{{ TELEGRAM_BOT_ADMIN_USERNAME }}';
-            if (botUsername) {
-                tg.openTelegramLink(`https://t.me/${botUsername}`);
+        let adminContactSettings = null;
+        
+        async function loadAdminContact() {
+            try {
+                const response = await fetchNoCache(`${API_BASE}/admin-contact/`);
+                if (response.ok) {
+                    adminContactSettings = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading admin contact:', error);
+            }
+        }
+        
+        async function contactAdmin() {
+            // Если настройки не загружены, загружаем их
+            if (!adminContactSettings) {
+                await loadAdminContact();
+            }
+            
+            // Используем настройки из API, если они есть
+            if (adminContactSettings && (adminContactSettings.contact_url || adminContactSettings.contact_value)) {
+                const contactType = adminContactSettings.contact_type;
+                const contactUrl = adminContactSettings.contact_url;
+                const contactValue = adminContactSettings.contact_value;
+                
+                if (contactType === 'telegram') {
+                    // Для Telegram используем openTelegramLink
+                    if (contactUrl) {
+                        tg.openTelegramLink(contactUrl);
+                    } else if (contactValue) {
+                        // Fallback: формируем URL из contact_value
+                        const username = contactValue.replace('@', '');
+                        tg.openTelegramLink(`https://t.me/${username}`);
+                    }
+                } else if (contactType === 'phone') {
+                    // Для телефона Telegram Web App не поддерживает tel: протокол
+                    // Показываем номер телефона пользователю и копируем в буфер обмена
+                    const phoneNumber = contactValue || contactUrl || '';
+                    if (phoneNumber) {
+                        // Пытаемся скопировать номер в буфер обмена
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            try {
+                                await navigator.clipboard.writeText(phoneNumber);
+                                tg.showAlert(`${t('WEBAPP_CONTACT_ADMIN')}\n\n📞 ${phoneNumber}\n\nНомер телефона скопирован в буфер обмена.`);
+                            } catch (err) {
+                                // Если копирование не удалось, просто показываем номер
+                                tg.showAlert(`${t('WEBAPP_CONTACT_ADMIN')}\n\n📞 ${phoneNumber}`);
+                            }
+                        } else {
+                            // Fallback: просто показываем номер телефона
+                            tg.showAlert(`${t('WEBAPP_CONTACT_ADMIN')}\n\n📞 ${phoneNumber}`);
+                        }
+                    }
+                } else if (contactType === 'link') {
+                    // Для обычной ссылки используем openLink
+                    if (contactUrl) {
+                        if (tg && tg.openLink) {
+                            tg.openLink(contactUrl);
+                        } else {
+                            window.open(contactUrl, '_blank');
+                        }
+                    }
+                }
             } else {
-                tg.showAlert('Bot username not configured');
+                // Fallback на старый способ через TELEGRAM_BOT_ADMIN_USERNAME
+                const botUsername = '{{ TELEGRAM_BOT_ADMIN_USERNAME }}';
+                if (botUsername) {
+                    tg.openTelegramLink(`https://t.me/${botUsername}`);
+                } else {
+                    tg.showAlert(t('WEBAPP_CONTACT_ADMIN') || 'Admin bilan bog\'lanamiz');
+                }
             }
         }
 
@@ -2467,6 +2533,8 @@
                     textElement.textContent = t('WEBAPP_GIFTS');
                 } else if (index === 2) {
                     textElement.textContent = t('WEBAPP_QR_HISTORY');
+                } else if (index === 3) {
+                    textElement.textContent = t('WEBAPP_PRIVACY_POLICY');
                 }
             });
             

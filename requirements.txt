@@ -5,6 +5,7 @@ djangorestframework==3.14.0
 channels==4.0.0
 channels-redis==4.1.0
 django-jazzmin==2.6.0  # Современный дизайн для Django Admin
+django-simple-history==3.4.0  # История изменений моделей в БД
 
 # Telegram Bot
 aiogram==3.3.0
