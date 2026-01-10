@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from aiogram import Bot
 from .models import QRCode, QRCodeGeneration, BroadcastMessage, TelegramUser
-from .utils import generate_qr_code_image, generate_qr_codes_batch
+from .utils import generate_qr_code_image, generate_qr_codes_batch, generate_qr_code_images_batch
 from .messaging import send_message_to_user, TELEGRAM_MESSAGE_DELAY
 
 logger = logging.getLogger(__name__)
@@ -51,13 +51,28 @@ def generate_qr_codes_batch_task(self, prev_result=None, **kwargs):
         qr_codes = []
         batch_end = min(batch_start + batch_size, generation.quantity)
         
+        # Сначала создаем все QR-коды в БД
         for i in range(batch_start, batch_end):
             qr_code = QRCode.create_code(
                 code_type=generation.code_type,
                 points=generation.points
             )
-            generate_qr_code_image(qr_code)
             qr_codes.append(qr_code)
+        
+        # Затем генерируем изображения батчем (переиспользуя один браузер)
+        # Это значительно эффективнее, чем создавать браузер для каждого QR-кода
+        try:
+            generate_qr_code_images_batch(qr_codes)
+        except Exception as e:
+            logger.error(f"Ошибка при генерации изображений для батча {batch_start}-{batch_end}: {e}")
+            # Если батчевая генерация не удалась, пробуем по одному
+            logger.info(f"Пробуем генерировать изображения по одному...")
+            for qr_code in qr_codes:
+                try:
+                    generate_qr_code_image(qr_code)
+                except Exception as img_error:
+                    logger.error(f"Ошибка при генерации изображения для QR-кода {qr_code.code}: {img_error}")
+                    # Продолжаем с другими QR-кодами даже если один не удался
         
         # Добавляем QR-коды к генерации
         generation.qr_codes.add(*qr_codes)
