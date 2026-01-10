@@ -584,6 +584,7 @@
             'WEBAPP_STATUS_SENT': '{% trans "WEBAPP_STATUS_SENT" %}',
             'WEBAPP_STATUS_REJECTED': '{% trans "WEBAPP_STATUS_REJECTED" %}',
             'WEBAPP_STATUS_COMPLETED': '{% trans "WEBAPP_STATUS_COMPLETED" %}',
+            'WEBAPP_STATUS_RECEIVED': '{% trans "WEBAPP_STATUS_RECEIVED" %}',
             'WEBAPP_STATUS_NOT_RECEIVED': '{% trans "WEBAPP_STATUS_NOT_RECEIVED" %}',
             'WEBAPP_TOTAL_POINTS': '{% trans "WEBAPP_TOTAL_POINTS" %}',
             'WEBAPP_REGISTER': '{% trans "WEBAPP_REGISTER" %}',
@@ -918,8 +919,12 @@
                     const ordersList = document.getElementById('ordersList');
                     
                     if (redemptions && redemptions.length > 0) {
+                        // Фильтруем заказы: показываем только те, где user_confirmed = False
+                        // Подтвержденные товары не показываются на главной странице
+                        const filteredRedemptions = redemptions.filter(redemption => !redemption.user_confirmed);
+                        
                         // Сортируем заказы: сначала активные (pending, approved, sent), потом completed, потом rejected, потом not_received
-                        const sortedRedemptions = redemptions.sort((a, b) => {
+                        const sortedRedemptions = filteredRedemptions.sort((a, b) => {
                             const statusOrder = {
                                 'pending': 1,
                                 'approved': 2,
@@ -1005,7 +1010,12 @@
                             ordersList.appendChild(orderCard);
                         });
                         
-                        ordersSection.style.display = 'block';
+                        // Если после фильтрации не осталось заказов, скрываем секцию
+                        if (sortedRedemptions.length === 0) {
+                            ordersSection.style.display = 'none';
+                        } else {
+                            ordersSection.style.display = 'block';
+                        }
                     } else {
                         ordersSection.style.display = 'none';
                     }
@@ -1689,26 +1699,32 @@
                     let statusClass = 'pending';
                     let statusText = t('WEBAPP_STATUS_PENDING');
                     
-                    // Определяем статус в зависимости от статуса
-                    if (redemption.status === 'approved') {
-                        statusClass = 'approved';
-                        statusText = t('WEBAPP_STATUS_APPROVED');
-                    } else if (redemption.status === 'sent') {
-                        statusClass = 'sent';
-                        statusText = t('WEBAPP_STATUS_SENT');
-                    } else if (redemption.status === 'rejected') {
-                        statusClass = 'rejected';
-                        statusText = t('WEBAPP_STATUS_REJECTED');
-                    } else if (redemption.status === 'not_received') {
-                        statusClass = 'not_received';
-                        statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
-                    } else if (redemption.status === 'completed') {
+                    // Если товар подтвержден (user_confirmed = True), показываем статус "Полученный товар"
+                    if (redemption.user_confirmed && redemption.status === 'completed') {
                         statusClass = 'completed';
-                        statusText = t('WEBAPP_STATUS_COMPLETED');
+                        statusText = t('WEBAPP_STATUS_RECEIVED');
                     } else {
-                        // pending
-                        statusClass = 'pending';
-                        statusText = t('WEBAPP_STATUS_PENDING');
+                        // Определяем статус в зависимости от статуса
+                        if (redemption.status === 'approved') {
+                            statusClass = 'approved';
+                            statusText = t('WEBAPP_STATUS_APPROVED');
+                        } else if (redemption.status === 'sent') {
+                            statusClass = 'sent';
+                            statusText = t('WEBAPP_STATUS_SENT');
+                        } else if (redemption.status === 'rejected') {
+                            statusClass = 'rejected';
+                            statusText = t('WEBAPP_STATUS_REJECTED');
+                        } else if (redemption.status === 'not_received') {
+                            statusClass = 'not_received';
+                            statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
+                        } else if (redemption.status === 'completed') {
+                            statusClass = 'completed';
+                            statusText = t('WEBAPP_STATUS_COMPLETED');
+                        } else {
+                            // pending
+                            statusClass = 'pending';
+                            statusText = t('WEBAPP_STATUS_PENDING');
+                        }
                     }
                     
                     const imageUrl = redemption.gift.image || '/static/images/gift-box.png';
@@ -1789,10 +1805,27 @@
                 tg.showAlert(t('WEBAPP_THANKS_CONFIRMATION'));
 
                 // Обновляем список заказов и статус продукта
-                if (document.getElementById('profileGiftsScreen').style.display !== 'none') {
+                // Проверяем, на каком экране мы находимся
+                const profileGiftsScreen = document.getElementById('profileGiftsScreen');
+                if (profileGiftsScreen && profileGiftsScreen.style.display !== 'none') {
+                    // Если на экране "Мои подарки", обновляем его
                     await loadProfileGifts();
                 }
-                await loadProductStatus();
+                // Всегда обновляем главную страницу, если она видна (товар должен исчезнуть)
+                const mainContainer = document.querySelector('.main-container');
+                if (mainContainer && mainContainer.style.display !== 'none') {
+                    await loadProductStatus();
+                }
+                // Если мы на детальной странице заказа, возвращаемся на главную или в "Мои подарки"
+                const redemptionDetailScreen = document.getElementById('redemptionDetailScreen');
+                if (redemptionDetailScreen && redemptionDetailScreen.style.display !== 'none') {
+                    // Возвращаемся на предыдущий экран или на главную
+                    if (profileGiftsScreen && profileGiftsScreen.style.display !== 'none') {
+                        await showScreen('profileGifts');
+                    } else {
+                        await showScreen('home');
+                    }
+                }
             } catch (error) {
                 console.error('Error confirming delivery:', error);
                 tg.showAlert(error.message || t('WEBAPP_ERROR_CONFIRMING'));
