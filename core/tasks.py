@@ -17,16 +17,34 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True)
-def generate_qr_codes_batch_task(self, generation_id, batch_start, batch_size):
+def generate_qr_codes_batch_task(self, prev_result=None, **kwargs):
     """
     Генерирует один батч QR-кодов.
     
     Args:
-        generation_id: ID объекта QRCodeGeneration
-        batch_start: Начальный индекс батча
-        batch_size: Размер батча
+        prev_result: Результат предыдущей задачи в цепочке (если есть)
+        **kwargs: Может содержать generation_id, batch_start, batch_size
     """
     try:
+        # Если есть результат предыдущей задачи, извлекаем параметры из него
+        if prev_result and isinstance(prev_result, dict):
+            generation_id = prev_result.get('generation_id') or kwargs.get('generation_id')
+            batch_start = prev_result.get('batch_start') or kwargs.get('batch_start')
+            batch_size = prev_result.get('batch_size') or kwargs.get('batch_size')
+        else:
+            # Иначе используем параметры из kwargs
+            generation_id = kwargs.get('generation_id')
+            batch_start = kwargs.get('batch_start')
+            batch_size = kwargs.get('batch_size')
+        
+        # Проверяем, что все необходимые параметры есть
+        if generation_id is None:
+            raise ValueError("generation_id должен быть передан")
+        if batch_start is None:
+            raise ValueError("batch_start должен быть передан")
+        if batch_size is None:
+            raise ValueError("batch_size должен быть передан")
+        
         generation = QRCodeGeneration.objects.get(id=generation_id)
         
         # Генерируем QR-коды для этого батча
@@ -65,14 +83,25 @@ def generate_qr_codes_batch_task(self, generation_id, batch_start, batch_size):
 
 
 @shared_task(bind=True)
-def finalize_qr_generation_task(self, generation_id):
+def finalize_qr_generation_task(self, prev_result=None, **kwargs):
     """
     Завершает генерацию QR-кодов и создает ZIP архив.
     
     Args:
-        generation_id: ID объекта QRCodeGeneration
+        prev_result: Результат предыдущей задачи в цепочке (если есть)
+        **kwargs: Может содержать generation_id
     """
     try:
+        # Если есть результат предыдущей задачи, извлекаем generation_id из него
+        if prev_result and isinstance(prev_result, dict):
+            generation_id = prev_result.get('generation_id') or kwargs.get('generation_id')
+        else:
+            generation_id = kwargs.get('generation_id')
+        
+        # Проверяем, что generation_id есть
+        if generation_id is None:
+            raise ValueError("generation_id должен быть передан")
+        
         generation = QRCodeGeneration.objects.get(id=generation_id)
         
         # Получаем все QR-коды для этой генерации
@@ -205,6 +234,8 @@ def generate_qr_codes_task(self, generation_id):
             tasks = []
             for batch_num in range(total_batches):
                 batch_start = batch_num * BATCH_SIZE
+                # Передаем параметры как именованные аргументы
+                # При использовании chain() результат предыдущей задачи будет передан как prev_result
                 task = generate_qr_codes_batch_task.s(
                     generation_id=generation_id,
                     batch_start=batch_start,
@@ -213,6 +244,7 @@ def generate_qr_codes_task(self, generation_id):
                 tasks.append(task)
             
             # Добавляем задачу завершения в конец цепочки
+            # Она получит generation_id из результата последней задачи батча
             tasks.append(finalize_qr_generation_task.s(generation_id=generation_id))
             
             # Запускаем цепочку задач последовательно

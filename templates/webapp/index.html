@@ -762,19 +762,19 @@
             if (!qrInput) return;
             
             if (currentUser && currentUser.user_type) {
-                // Если Продавец (seller) -> DXXXXXX
-                // Если Покупатель/Электрик (electrician) -> EXXXXXX
+                // Если Продавец (seller) -> DXXXX
+                // Если Покупатель/Электрик (electrician) -> EXXXX
                 if (currentUser.user_type === 'seller') {
-                    qrInput.placeholder = 'DXXXXXX';
+                    qrInput.placeholder = 'DXXXX';
                 } else if (currentUser.user_type === 'electrician') {
-                    qrInput.placeholder = 'EXXXXXX';
+                    qrInput.placeholder = 'EXXXX';
                 } else {
                     // По умолчанию EXXXXXX
-                    qrInput.placeholder = 'EXXXXXX';
+                    qrInput.placeholder = 'EXXXX';
                 }
             } else {
                 // Если тип пользователя не определен, используем EXXXXXX по умолчанию
-                qrInput.placeholder = 'EXXXXXX';
+                qrInput.placeholder = 'EXXXX';
             }
         }
 
@@ -1030,7 +1030,7 @@
                 return;
             }
             
-            // Валидация формата QR кода (EXXXXXX или DXXXXXX)
+            // Валидация формата QR кода (EXXXX или DXXXX)
             const qrPattern = /^[ED]\w{6,}$/;
             if (!qrPattern.test(qrCode)) {
                 showQRError(t('WEBAPP_QR_ERROR'));

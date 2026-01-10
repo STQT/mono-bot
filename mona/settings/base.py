@@ -188,7 +188,7 @@ SELLER_POINTS = 20  # 20 dollars
 
 # QR Code Settings
 QR_CODE_MAX_ATTEMPTS = 5  # Максимальное количество неудачных попыток в день
-QR_CODE_BATCH_SIZE = 1000  # Размер батча для генерации QR-кодов (для избежания таймаутов)
+QR_CODE_BATCH_SIZE = 200  # Размер батча для генерации QR-кодов (для избежания таймаутов)
 
 # REST Framework
 REST_FRAMEWORK = {
