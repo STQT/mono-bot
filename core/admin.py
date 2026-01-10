@@ -965,19 +965,21 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
                     logger = logging.getLogger(__name__)
                     logger.error(f"Ошибка при отправке уведомления о статусе подарка: {e}")
             
-            # Запускаем асинхронную функцию
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            # Запускаем асинхронную функцию в отдельном потоке
+            # Это необходимо, так как Django admin работает в синхронном контексте
+            import threading
             
-            if loop.is_running():
-                # Если цикл уже запущен, создаем задачу
-                asyncio.create_task(send_notification())
-            else:
-                # Если цикл не запущен, запускаем его
-                loop.run_until_complete(send_notification())
+            def run_async_in_thread():
+                """Запускает асинхронную функцию в новом event loop в отдельном потоке."""
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    new_loop.run_until_complete(send_notification())
+                finally:
+                    new_loop.close()
+            
+            thread = threading.Thread(target=run_async_in_thread, daemon=True)
+            thread.start()
 
 
 @admin.register(BroadcastMessage)
