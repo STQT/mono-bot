@@ -168,6 +168,7 @@ def generate_qr_code_images_batch(qr_code_instances):
     import tempfile
     temp_files = []
     
+    # Сначала генерируем все изображения с помощью Playwright
     try:
         # Используем один браузер для всех QR-кодов
         # Семафор ограничивает одновременные операции Playwright
@@ -258,9 +259,9 @@ def generate_qr_code_images_batch(qr_code_instances):
                                 page.screenshot(path=filepath, full_page=False)
                                 filepaths.append(filepath)
                                 
-                                # Обновляем путь в модели
+                                # Только устанавливаем путь в памяти, НЕ сохраняем в БД здесь
+                                # Сохранение будет сделано после полного выхода из Playwright контекста
                                 qr_code_instance.image_path = filepath
-                                qr_code_instance.save(update_fields=['image_path'])
                                 
                                 if idx % 50 == 0:
                                     logger.info(f"Сгенерировано {idx}/{len(qr_code_instances)} изображений")
@@ -283,7 +284,7 @@ def generate_qr_code_images_batch(qr_code_instances):
                             # Продолжаем с другими QR-кодами
                             continue
                     
-                    logger.info(f"Батчевая генерация завершена: сгенерировано {len(filepaths)}/{len(qr_code_instances)} изображений")
+                    logger.info(f"Батчевая генерация изображений завершена: сгенерировано {len(filepaths)}/{len(qr_code_instances)} изображений")
                     
                 finally:
                     if browser:
@@ -299,6 +300,49 @@ def generate_qr_code_images_batch(qr_code_instances):
                 os.unlink(temp_file)
             except:
                 pass
+    
+    # ВАЖНО: После полного выхода из всех контекстных менеджеров Playwright сохраняем в БД
+    # Используем отдельный поток для гарантии, что мы вне async контекста Playwright
+    qr_codes_to_update = [qr for qr in qr_code_instances if qr.image_path]
+    if qr_codes_to_update:
+        logger.info(f"Сохранение путей к изображениям в БД для {len(qr_codes_to_update)} QR-кодов...")
+        
+        # Используем threading для выполнения сохранения в отдельном потоке
+        # Это гарантирует, что мы полностью вне async контекста Playwright
+        # и Django ORM может работать в чистом синхронном контексте
+        saved_count = [0]  # Используем список для изменяемого значения в замыкании
+        error_occurred = [False]
+        
+        def save_to_db():
+            try:
+                # Используем bulk_update для массового сохранения
+                QRCode.objects.bulk_update(qr_codes_to_update, ['image_path'], batch_size=100)
+                saved_count[0] = len(qr_codes_to_update)
+                logger.info(f"Сохранено {saved_count[0]} путей к изображениям в БД с помощью bulk_update")
+            except Exception as e:
+                logger.error(f"Ошибка при bulk_update путей изображений: {e}")
+                error_occurred[0] = True
+                # Fallback: сохраняем по одному в транзакции
+                logger.info("Пробуем сохранить по одному в транзакции...")
+                from django.db import transaction
+                saved = 0
+                for qr_code_instance in qr_codes_to_update:
+                    try:
+                        with transaction.atomic():
+                            qr_code_instance.save(update_fields=['image_path'])
+                        saved += 1
+                    except Exception as save_error:
+                        logger.error(f"Ошибка при сохранении пути изображения для QR-кода {qr_code_instance.code}: {save_error}")
+                saved_count[0] = saved
+                logger.info(f"Сохранено {saved_count[0]}/{len(qr_codes_to_update)} путей к изображениям в БД по одному")
+        
+        # Выполняем сохранение в отдельном потоке для гарантии синхронного контекста
+        save_thread = threading.Thread(target=save_to_db)
+        save_thread.start()
+        save_thread.join()  # Ждем завершения сохранения
+        
+        if error_occurred[0] and saved_count[0] < len(qr_codes_to_update):
+            logger.warning(f"Не все QR-коды были сохранены: {saved_count[0]}/{len(qr_codes_to_update)}")
     
     return filepaths
 
