@@ -1041,7 +1041,7 @@
             }
             
             // Валидация формата QR кода (EXXXX или DXXXX)
-            const qrPattern = /^[ED]\w{6,}$/;
+            const qrPattern = /^[ED]\w{4,}$/;
             if (!qrPattern.test(qrCode)) {
                 showQRError(t('WEBAPP_QR_ERROR'));
                 return;
