@@ -1233,13 +1233,23 @@ class QRCodeGenerationAdmin(SimpleHistoryAdmin):
     completed_at_display.admin_order_field = 'completed_at'
     
     def download_button(self, obj):
-        """Кнопка для скачивания ZIP файла."""
-        if obj.status == 'completed' and obj.zip_file:
-            return format_html(
-                '<a href="{}" style="background: #417690; color: white; padding: 6px 12px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block;">📥 Скачать</a>',
-                obj.zip_file.url
+        """Кнопки для скачивания ZIP файла и Excel."""
+        if obj.status == 'completed':
+            buttons = []
+            if obj.zip_file:
+                buttons.append(
+                    '<a href="{}" style="background: #417690; color: white; padding: 6px 12px; '
+                    'border-radius: 4px; text-decoration: none; display: inline-block; margin-right: 5px;">📥 .zip</a>'.format(
+                        obj.zip_file.url
+                    )
+                )
+            buttons.append(
+                '<a href="{}" style="background: #28a745; color: white; padding: 6px 12px; '
+                'border-radius: 4px; text-decoration: none; display: inline-block;">📊 .xlsx</a>'.format(
+                    f'/admin/core/qrcodegeneration/{obj.id}/export_excel/'
+                )
             )
+            return format_html(''.join(buttons))
         elif obj.status == 'failed':
             return format_html(
                 '<span style="color: #dc3545; font-size: 11px;">{}</span>',
@@ -1271,6 +1281,69 @@ class QRCodeGenerationAdmin(SimpleHistoryAdmin):
     def has_delete_permission(self, request, obj=None):
         """Разрешаем удаление только для superuser."""
         return request.user.is_superuser
+    
+    def get_urls(self):
+        """Добавляет кастомные URL для экспорта Excel."""
+        urls = super().get_urls()
+        custom_urls = [
+            path('<path:object_id>/export_excel/', self.admin_site.admin_view(self.export_excel_view), name='core_qrcodegeneration_export_excel'),
+        ]
+        return custom_urls + urls
+    
+    def export_excel_view(self, request, object_id):
+        """Экспорт QR-кодов в Excel формат."""
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment
+        from django.utils import timezone
+        
+        try:
+            generation = QRCodeGeneration.objects.get(id=object_id)
+        except QRCodeGeneration.DoesNotExist:
+            from django.http import Http404
+            raise Http404("Генерация не найдена")
+        
+        # Получаем все QR-коды для этой генерации
+        qr_codes = generation.qr_codes.all().order_by('generated_at')
+        
+        # Создаем Excel файл
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "QR Codes"
+        
+        # Заголовки
+        headers = ['Дата создания QR кода', 'Серийный номер', 'Сканирован ли', 'Промо код']
+        ws.append(headers)
+        
+        # Стили для заголовков
+        header_font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center', vertical='center')
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.alignment = header_alignment
+        
+        # Данные
+        for qr_code in qr_codes:
+            generated_at = qr_code.generated_at.strftime('%d.%m.%Y %H:%M:%S') if qr_code.generated_at else ''
+            serial_number = qr_code.serial_number
+            is_scanned = 'Да' if qr_code.is_scanned else 'Нет'
+            promo_code = qr_code.code
+            ws.append([generated_at, serial_number, is_scanned, promo_code])
+        
+        # Автоподбор ширины колонок
+        from openpyxl.utils import get_column_letter
+        column_widths = [25, 20, 15, 20]
+        for idx, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(idx)].width = width
+        
+        # Создаем HttpResponse с Excel файлом
+        filename = f"qrcodes_{generation.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        wb.save(response)
+        return response
 
 
 @admin.register(PrivacyPolicy)

@@ -107,27 +107,29 @@ def generate_qr_code_image(qr_code_instance):
         
         try:
             # Генерируем изображение с помощью Playwright
-            filename = f"{qr_code_instance.code.replace('-', '_')}.png"
-            filepath = os.path.join(qr_dir, filename)
-            
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                try:
-                    page = browser.new_page()
-                    page.set_viewport_size({"width": 1000, "height": 600})
-                    page.goto(f"file://{temp_html_path}")
-                    page.screenshot(path=filepath, full_page=False)
-                finally:
-                    browser.close()
-            
-            # Обновляем путь в модели
-            qr_code_instance.image_path = filepath
-            qr_code_instance.save(update_fields=['image_path'])
-            
-            # Небольшая задержка для освобождения ресурсов
-            time.sleep(0.1)
-            
-            return filepath
+            # ВРЕМЕННО ЗАКОММЕНТИРОВАНО
+            # filename = f"{qr_code_instance.code.replace('-', '_')}.png"
+            # filepath = os.path.join(qr_dir, filename)
+            # 
+            # with sync_playwright() as p:
+            #     browser = p.chromium.launch(headless=True)
+            #     try:
+            #         page = browser.new_page()
+            #         page.set_viewport_size({"width": 1000, "height": 600})
+            #         page.goto(f"file://{temp_html_path}")
+            #         page.screenshot(path=filepath, full_page=False)
+            #     finally:
+            #         browser.close()
+            # 
+            # # Обновляем путь в модели
+            # qr_code_instance.image_path = filepath
+            # qr_code_instance.save(update_fields=['image_path'])
+            # 
+            # # Небольшая задержка для освобождения ресурсов
+            # time.sleep(0.1)
+            # 
+            # return filepath
+            pass
         finally:
             # Удаляем временный HTML файл
             try:
@@ -169,137 +171,138 @@ def generate_qr_code_images_batch(qr_code_instances):
     temp_files = []
     
     # Сначала генерируем все изображения с помощью Playwright
-    try:
-        # Используем один браузер для всех QR-кодов
-        # Семафор ограничивает одновременные операции Playwright
-        logger.info(f"Начало батчевой генерации изображений для {len(qr_code_instances)} QR-кодов")
-        
-        with _playwright_semaphore:
-            with sync_playwright() as p:
-                browser = None
-                try:
-                    browser = p.chromium.launch(headless=True)
-                    logger.debug("Браузер запущен для батчевой генерации")
-                    
-                    for idx, qr_code_instance in enumerate(qr_code_instances, 1):
-                        try:
-                            # Тексты для отображения
-                            code_text = qr_code_instance.code
-                            serial_text = f"Seriya raqami: {qr_code_instance.serial_number}"
-                            
-                            # Создаем HTML с CSS
-                            html_content = f"""
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <meta charset="UTF-8">
-                                <style>
-                                    * {{
-                                        margin: 0;
-                                        padding: 0;
-                                        box-sizing: border-box;
-                                    }}
-                                    body {{
-                                        width: 1000px;
-                                        height: 600px;
-                                        background: white;
-                                        display: flex;
-                                        flex-direction: column;
-                                        justify-content: center;
-                                        align-items: center;
-                                        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-                                        border: 4px solid black;
-                                        padding: 40px;
-                                    }}
-                                    .serial {{
-                                        font-size: 28px;
-                                        color: black;
-                                        margin-bottom: 40px;
-                                        text-align: center;
-                                    }}
-                                    .code {{
-                                        font-size: 150px;
-                                        font-weight: bold;
-                                        color: black;
-                                        letter-spacing: 8px;
-                                        margin-bottom: 40px;
-                                        text-align: center;
-                                        line-height: 1;
-                                    }}
-                                    .instruction {{
-                                        font-size: 20px;
-                                        color: black;
-                                        text-align: center;
-                                    }}
-                                </style>
-                            </head>
-                            <body>
-                                <div class="serial">{serial_text}</div>
-                                <div class="code">{code_text}</div>
-                                <div class="instruction">{instruction_text}</div>
-                            </body>
-                            </html>
-                            """
-                            
-                            # Сохраняем HTML во временный файл
-                            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-                                f.write(html_content)
-                                temp_html_path = f.name
-                                temp_files.append(temp_html_path)
-                            
-                            # Генерируем изображение
-                            filename = f"{qr_code_instance.code.replace('-', '_')}.png"
-                            filepath = os.path.join(qr_dir, filename)
-                            
-                            page = None
-                            try:
-                                page = browser.new_page()
-                                page.set_viewport_size({"width": 1000, "height": 600})
-                                page.goto(f"file://{temp_html_path}")
-                                page.screenshot(path=filepath, full_page=False)
-                                filepaths.append(filepath)
-                                
-                                # Только устанавливаем путь в памяти, НЕ сохраняем в БД здесь
-                                # Сохранение будет сделано после полного выхода из Playwright контекста
-                                qr_code_instance.image_path = filepath
-                                
-                                if idx % 50 == 0:
-                                    logger.info(f"Сгенерировано {idx}/{len(qr_code_instances)} изображений")
-                            except Exception as e:
-                                # Логируем ошибку, но продолжаем с другими QR-кодами
-                                logger.error(f"Ошибка при генерации изображения для QR-кода {qr_code_instance.code} ({idx}/{len(qr_code_instances)}): {e}")
-                                raise
-                            finally:
-                                if page:
-                                    try:
-                                        page.close()
-                                    except:
-                                        pass
-                                # Небольшая задержка для освобождения ресурсов
-                                if idx < len(qr_code_instances):
-                                    time.sleep(0.1)
-                        
-                        except Exception as e:
-                            logger.error(f"Ошибка при обработке QR-кода {idx}/{len(qr_code_instances)}: {e}")
-                            # Продолжаем с другими QR-кодами
-                            continue
-                    
-                    logger.info(f"Батчевая генерация изображений завершена: сгенерировано {len(filepaths)}/{len(qr_code_instances)} изображений")
-                    
-                finally:
-                    if browser:
-                        try:
-                            browser.close()
-                            logger.debug("Браузер закрыт")
-                        except:
-                            pass
-    finally:
-        # Удаляем временные HTML файлы
-        for temp_file in temp_files:
-            try:
-                os.unlink(temp_file)
-            except:
-                pass
+    # ВРЕМЕННО ЗАКОММЕНТИРОВАНО
+    # try:
+    #     # Используем один браузер для всех QR-кодов
+    #     # Семафор ограничивает одновременные операции Playwright
+    #     logger.info(f"Начало батчевой генерации изображений для {len(qr_code_instances)} QR-кодов")
+    #     
+    #     with _playwright_semaphore:
+    #         with sync_playwright() as p:
+    #             browser = None
+    #             try:
+    #                 browser = p.chromium.launch(headless=True)
+    #                 logger.debug("Браузер запущен для батчевой генерации")
+    #                 
+    #                 for idx, qr_code_instance in enumerate(qr_code_instances, 1):
+    #                     try:
+    #                         # Тексты для отображения
+    #                         code_text = qr_code_instance.code
+    #                         serial_text = f"Seriya raqami: {qr_code_instance.serial_number}"
+    #                         
+    #                         # Создаем HTML с CSS
+    #                         html_content = f"""
+    #                         <!DOCTYPE html>
+    #                         <html>
+    #                         <head>
+    #                             <meta charset="UTF-8">
+    #                             <style>
+    #                                 * {{
+    #                                     margin: 0;
+    #                                     padding: 0;
+    #                                     box-sizing: border-box;
+    #                                 }}
+    #                                 body {{
+    #                                     width: 1000px;
+    #                                     height: 600px;
+    #                                     background: white;
+    #                                     display: flex;
+    #                                     flex-direction: column;
+    #                                     justify-content: center;
+    #                                     align-items: center;
+    #                                     font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+    #                                     border: 4px solid black;
+    #                                     padding: 40px;
+    #                                 }}
+    #                                 .serial {{
+    #                                     font-size: 28px;
+    #                                     color: black;
+    #                                     margin-bottom: 40px;
+    #                                     text-align: center;
+    #                                 }}
+    #                                 .code {{
+    #                                     font-size: 150px;
+    #                                     font-weight: bold;
+    #                                     color: black;
+    #                                     letter-spacing: 8px;
+    #                                     margin-bottom: 40px;
+    #                                     text-align: center;
+    #                                     line-height: 1;
+    #                                 }}
+    #                                 .instruction {{
+    #                                     font-size: 20px;
+    #                                     color: black;
+    #                                     text-align: center;
+    #                                 }}
+    #                             </style>
+    #                         </head>
+    #                         <body>
+    #                             <div class="serial">{serial_text}</div>
+    #                             <div class="code">{code_text}</div>
+    #                             <div class="instruction">{instruction_text}</div>
+    #                         </body>
+    #                         </html>
+    #                         """
+    #                         
+    #                         # Сохраняем HTML во временный файл
+    #                         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+    #                             f.write(html_content)
+    #                             temp_html_path = f.name
+    #                             temp_files.append(temp_html_path)
+    #                         
+    #                         # Генерируем изображение
+    #                         filename = f"{qr_code_instance.code.replace('-', '_')}.png"
+    #                         filepath = os.path.join(qr_dir, filename)
+    #                         
+    #                         page = None
+    #                         try:
+    #                             page = browser.new_page()
+    #                             page.set_viewport_size({"width": 1000, "height": 600})
+    #                             page.goto(f"file://{temp_html_path}")
+    #                             page.screenshot(path=filepath, full_page=False)
+    #                             filepaths.append(filepath)
+    #                             
+    #                             # Только устанавливаем путь в памяти, НЕ сохраняем в БД здесь
+    #                             # Сохранение будет сделано после полного выхода из Playwright контекста
+    #                             qr_code_instance.image_path = filepath
+    #                             
+    #                             if idx % 50 == 0:
+    #                                 logger.info(f"Сгенерировано {idx}/{len(qr_code_instances)} изображений")
+    #                         except Exception as e:
+    #                             # Логируем ошибку, но продолжаем с другими QR-кодами
+    #                             logger.error(f"Ошибка при генерации изображения для QR-кода {qr_code_instance.code} ({idx}/{len(qr_code_instances)}): {e}")
+    #                             raise
+    #                         finally:
+    #                             if page:
+    #                                 try:
+    #                                     page.close()
+    #                                 except:
+    #                                     pass
+    #                             # Небольшая задержка для освобождения ресурсов
+    #                             if idx < len(qr_code_instances):
+    #                                 time.sleep(0.1)
+    #                     
+    #                     except Exception as e:
+    #                         logger.error(f"Ошибка при обработке QR-кода {idx}/{len(qr_code_instances)}: {e}")
+    #                         # Продолжаем с другими QR-кодами
+    #                         continue
+    #                 
+    #                 logger.info(f"Батчевая генерация изображений завершена: сгенерировано {len(filepaths)}/{len(qr_code_instances)} изображений")
+    #                 
+    #             finally:
+    #                 if browser:
+    #                     try:
+    #                         browser.close()
+    #                         logger.debug("Браузер закрыт")
+    #                     except:
+    #                         pass
+    # finally:
+    #     # Удаляем временные HTML файлы
+    #     for temp_file in temp_files:
+    #         try:
+    #             os.unlink(temp_file)
+    #         except:
+    #             pass
     
     # ВАЖНО: После полного выхода из всех контекстных менеджеров Playwright сохраняем в БД
     # Используем отдельный поток для гарантии, что мы вне async контекста Playwright
