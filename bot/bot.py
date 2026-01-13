@@ -849,11 +849,12 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         await callback.message.delete()
         
         # Отправляем видео инструкцию только при первом выборе языка (если пользователь еще не зарегистрирован)
-        # Отправляем асинхронно в фоне, чтобы не блокировать процесс регистрации
         if not is_registered:
-            logger.info(f"[process_language_selection] Пользователь не зарегистрирован, отправляем видео инструкцию в фоне")
-            # Создаем задачу для отправки видео в фоне
-            asyncio.create_task(send_video_instruction(callback.from_user.id, language))
+            logger.info(f"[process_language_selection] Пользователь не зарегистрирован, отправляем видео инструкцию")
+            try:
+                await send_video_instruction(callback.from_user.id, language)
+            except Exception as e:
+                logger.error(f"[process_language_selection] Ошибка при отправке видео инструкции: {e}", exc_info=True)
         if is_registered:
             # Пользователь уже зарегистрирован - показываем обновленное меню
             logger.info(f"[process_language_selection] Пользователь зарегистрирован, показываем меню")
@@ -917,9 +918,33 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         else:
             # Регистрация не завершена - продолжаем регистрацию
             logger.info(f"[process_language_selection] Регистрация не завершена, продолжаем процесс регистрации")
-            # Используем cmd_start логику для продолжения регистрации
-            # Это гарантирует правильную последовательность шагов
-            await cmd_start(callback.message, state)
+            # Используем callback.message для отправки следующего вопроса
+            # message.answer() создает новое сообщение, даже если исходное было удалено
+            # Шаг 2: Ввод имени - спрашиваем только после выбора языка
+            if not user.first_name:
+                logger.info(f"[process_language_selection] Имя не указано, вызываем ask_name")
+                await ask_name(callback.message, user, state)
+            # Шаг 3: Выбор типа пользователя
+            elif not user.user_type:
+                logger.info(f"[process_language_selection] Тип пользователя не выбран, вызываем ask_user_type")
+                await ask_user_type(callback.message, user, state)
+            # Шаг 4: Согласие на политику конфиденциальности
+            elif not user.privacy_accepted:
+                logger.info(f"[process_language_selection] Политика конфиденциальности не принята, вызываем ask_privacy_acceptance")
+                await ask_privacy_acceptance(callback.message, user, state)
+            # Шаг 5: Телефонный номер
+            elif not user.phone_number:
+                logger.info(f"[process_language_selection] Телефонный номер не указан, вызываем ask_phone")
+                await ask_phone(callback.message, user, state)
+            # Шаг 6: Локация
+            elif user.latitude is None or user.longitude is None:
+                logger.info(f"[process_language_selection] Локация не указана, вызываем ask_location")
+                await ask_location(callback.message, user, state)
+            # Шаг 7: Промокод (не обязателен)
+            else:
+                logger.info(f"[process_language_selection] Все шаги регистрации пройдены, показываем главное меню")
+                await state.clear()
+                await show_main_menu(callback.message, user)
     except Exception as e:
         logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
         await callback.answer("Произошла ошибка. Попробуйте еще раз.")
