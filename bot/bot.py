@@ -39,15 +39,28 @@ else:
 class BotFilterMiddleware(BaseMiddleware):
     """Middleware для фильтрации сообщений от ботов."""
     
-    async def __call__(self, handler, event: Update, data):
-        # Проверяем, является ли отправитель ботом
-        if event.message and event.message.from_user and event.message.from_user.is_bot:
-            logger.info(f"[BotFilterMiddleware] Игнорируем сообщение от бота: {event.message.from_user.id}")
-            return
-        
-        if event.callback_query and event.callback_query.from_user and event.callback_query.from_user.is_bot:
-            logger.info(f"[BotFilterMiddleware] Игнорируем callback от бота: {event.callback_query.from_user.id}")
-            return
+    async def __call__(self, handler, event, data):
+        # Когда middleware зарегистрирован через dp.message.middleware(),
+        # event является Message объектом, а не Update
+        # Когда зарегистрирован через dp.callback_query.middleware(),
+        # event является CallbackQuery объектом
+        if isinstance(event, Message):
+            if event.from_user and event.from_user.is_bot:
+                logger.info(f"[BotFilterMiddleware] Игнорируем сообщение от бота: {event.from_user.id}")
+                return
+        elif isinstance(event, CallbackQuery):
+            if event.from_user and event.from_user.is_bot:
+                logger.info(f"[BotFilterMiddleware] Игнорируем callback от бота: {event.from_user.id}")
+                return
+        elif isinstance(event, Update):
+            # Если это Update объект (для совместимости)
+            if event.message and event.message.from_user and event.message.from_user.is_bot:
+                logger.info(f"[BotFilterMiddleware] Игнорируем сообщение от бота: {event.message.from_user.id}")
+                return
+            
+            if event.callback_query and event.callback_query.from_user and event.callback_query.from_user.is_bot:
+                logger.info(f"[BotFilterMiddleware] Игнорируем callback от бота: {event.callback_query.from_user.id}")
+                return
         
         return await handler(event, data)
 
