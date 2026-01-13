@@ -165,6 +165,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# Настройки для загрузки больших файлов (видео инструкции)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB - файлы больше этого размера будут сохраняться на диск
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000  # 500MB - максимальный размер данных в запросе
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Увеличиваем лимит полей в форме
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
