@@ -158,7 +158,7 @@ def get_gifts(request):
             # Если telegram_id не передан, показываем только подарки без типа
             gifts_query = gifts_query.filter(user_type__isnull=True)
         
-        gifts = gifts_query.order_by('points_cost')
+        gifts = gifts_query.order_by('order', 'points_cost')
         serializer = GiftSerializer(gifts, many=True, context={'request': request})
         return Response(serializer.data)
     except Exception as e:

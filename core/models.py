@@ -331,6 +331,7 @@ class Gift(models.Model):
         help_text='Agar bo\'sh qoldirilsa, barcha foydalanuvchilar uchun ko\'rsatiladi'
     )
     is_active = models.BooleanField(default=True, verbose_name='Faol')
+    order = models.IntegerField(default=0, verbose_name='Tartib raqami', help_text='Kichikroq raqam yuqorida ko\'rsatiladi')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -339,7 +340,7 @@ class Gift(models.Model):
     class Meta:
         verbose_name = 'Sovg‘a'
         verbose_name_plural = 'Sovg‘alar ro‘yxati'
-        ordering = ['points_cost', 'name_uz_latin']
+        ordering = ['order', 'points_cost', 'name_uz_latin']
         indexes = [
             models.Index(fields=['user_type', 'is_active']),
         ]
@@ -654,5 +655,99 @@ class AdminContactSettings(models.Model):
     @classmethod
     def get_active_contact(cls):
         """Возвращает активную настройку контакта."""
+        return cls.objects.filter(is_active=True).first()
+
+
+class VideoInstruction(models.Model):
+    """Модель для видео инструкций."""
+    video_uz_latin = models.FileField(
+        upload_to='video_instructions/',
+        null=True,
+        blank=True,
+        verbose_name='Video (O\'zbek lotin)',
+        help_text='Video fayl o\'zbek tilida (lotin)'
+    )
+    video_ru = models.FileField(
+        upload_to='video_instructions/',
+        null=True,
+        blank=True,
+        verbose_name='Video (Ruscha)',
+        help_text='Video fayl rus tilida'
+    )
+    # Сохраняем file_id от Telegram для быстрой отправки
+    file_id_uz_latin = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Telegram file_id (O\'zbek)',
+        help_text='Telegram file_id o\'zbek tili uchun (avtomatik to\'ldiriladi)'
+    )
+    file_id_ru = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Telegram file_id (Ruscha)',
+        help_text='Telegram file_id rus tili uchun (avtomatik to\'ldiriladi)'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Faol')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
+    
+    history = HistoricalRecords()
+    
+    class Meta:
+        verbose_name = 'Video ko\'rsatma'
+        verbose_name_plural = 'Video ko\'rsatmalar'
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Video ko'rsatma (Yangilangan: {self.updated_at.strftime('%d.%m.%Y %H:%M')})"
+    
+    def get_video_file(self, language='uz_latin'):
+        """
+        Возвращает видео файл для указанного языка.
+        
+        Args:
+            language: Язык ('uz_latin' или 'ru')
+        
+        Returns:
+            FileField или None
+        """
+        if language == 'ru':
+            return self.video_ru
+        return self.video_uz_latin
+    
+    def get_file_id(self, language='uz_latin'):
+        """
+        Возвращает file_id для указанного языка.
+        
+        Args:
+            language: Язык ('uz_latin' или 'ru')
+        
+        Returns:
+            str или None
+        """
+        if language == 'ru':
+            return self.file_id_ru
+        return self.file_id_uz_latin
+    
+    def set_file_id(self, language, file_id):
+        """
+        Устанавливает file_id для указанного языка.
+        
+        Args:
+            language: Язык ('uz_latin' или 'ru')
+            file_id: file_id от Telegram
+        """
+        if language == 'ru':
+            self.file_id_ru = file_id
+            self.save(update_fields=['file_id_ru'])
+        else:
+            self.file_id_uz_latin = file_id
+            self.save(update_fields=['file_id_uz_latin'])
+    
+    @classmethod
+    def get_active_instruction(cls):
+        """Возвращает активную видео инструкцию."""
         return cls.objects.filter(is_active=True).first()
 

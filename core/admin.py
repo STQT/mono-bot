@@ -15,7 +15,7 @@ from django.db import models
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings
+    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -655,10 +655,11 @@ class QRCodeAdmin(SimpleHistoryAdmin):
 @admin.register(Gift)
 class GiftAdmin(SimpleHistoryAdmin):
     """Админка для подарков."""
-    list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'image_preview', 'status_badge', 'created_at']
+    list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'order', 'image_preview', 'status_badge', 'created_at']
     list_filter = ['is_active', 'user_type', 'created_at']
     search_fields = ['name_uz_latin', 'name_ru', 'description_uz_latin', 'description_ru']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
+    list_editable = ['order']
     list_per_page = 25
     
     def gift_display(self, obj):
@@ -733,7 +734,7 @@ class GiftAdmin(SimpleHistoryAdmin):
             'fields': ('description_uz_latin', 'description_ru')
         }),
         ('Настройки', {
-            'fields': ('user_type', 'points_cost', 'is_active')
+            'fields': ('user_type', 'points_cost', 'order', 'is_active')
         }),
         ('Даты', {
             'fields': ('created_at', 'updated_at')
@@ -1436,6 +1437,80 @@ class AdminContactSettingsAdmin(SimpleHistoryAdmin):
         if obj.is_active:
             # Деактивируем все другие активные настройки
             AdminContactSettings.objects.filter(is_active=True).exclude(pk=obj.pk if obj.pk else None).update(is_active=False)
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(VideoInstruction)
+class VideoInstructionAdmin(SimpleHistoryAdmin):
+    """Админка для видео инструкций."""
+    list_display = ['video_preview_uz', 'video_preview_ru', 'file_id_status', 'is_active', 'updated_at']
+    list_filter = ['is_active', 'updated_at']
+    fieldsets = (
+        ('Video fayllar', {
+            'fields': ('video_uz_latin', 'video_ru')
+        }),
+        ('Telegram file_id (avtomatik to\'ldiriladi)', {
+            'fields': ('file_id_uz_latin', 'file_id_ru'),
+            'description': 'File_id avtomatik to\'ldiriladi video yuborilganda. Qo\'lda o\'zgartirish tavsiya etilmaydi.'
+        }),
+        ('Sozlamalar', {
+            'fields': ('is_active',)
+        }),
+        ('Sana', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+    readonly_fields = ['created_at', 'updated_at', 'file_id_uz_latin', 'file_id_ru']
+    
+    def video_preview_uz(self, obj):
+        """Отображает информацию о видео на узбекском."""
+        if obj.video_uz_latin:
+            file_name = os.path.basename(obj.video_uz_latin.name)
+            file_id_status = '✅' if obj.file_id_uz_latin else '⏳'
+            return format_html(
+                '<span style="font-size: 16px;">🇺🇿</span> <strong>{}</strong><br>'
+                '<span style="color: #718096; font-size: 12px;">File ID: {}</span>',
+                file_name, file_id_status
+            )
+        return format_html('<span style="color: #cbd5e0;">❌ Video yuklanmagan</span>')
+    video_preview_uz.short_description = 'Video (O\'zbek)'
+    
+    def video_preview_ru(self, obj):
+        """Отображает информацию о видео на русском."""
+        if obj.video_ru:
+            file_name = os.path.basename(obj.video_ru.name)
+            file_id_status = '✅' if obj.file_id_ru else '⏳'
+            return format_html(
+                '<span style="font-size: 16px;">🇷🇺</span> <strong>{}</strong><br>'
+                '<span style="color: #718096; font-size: 12px;">File ID: {}</span>',
+                file_name, file_id_status
+            )
+        return format_html('<span style="color: #cbd5e0;">❌ Video yuklanmagan</span>')
+    video_preview_ru.short_description = 'Video (Ruscha)'
+    
+    def file_id_status(self, obj):
+        """Показывает статус file_id."""
+        uz_status = '✅' if obj.file_id_uz_latin else '❌'
+        ru_status = '✅' if obj.file_id_ru else '❌'
+        return format_html(
+            '<span style="font-size: 14px;">🇺🇿 {} | 🇷🇺 {}</span>',
+            uz_status, ru_status
+        )
+    file_id_status.short_description = 'File ID holati'
+    
+    def has_add_permission(self, request):
+        """Разрешаем создание только для superuser."""
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        """Разрешаем удаление только для superuser."""
+        return request.user.is_superuser
+    
+    def save_model(self, request, obj, form, change):
+        """При сохранении деактивируем другие активные инструкции, если эта активна."""
+        if obj.is_active:
+            # Деактивируем все другие активные инструкции
+            VideoInstruction.objects.filter(is_active=True).exclude(pk=obj.pk if obj.pk else None).update(is_active=False)
         super().save_model(request, obj, form, change)
 
 

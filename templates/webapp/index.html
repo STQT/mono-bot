@@ -649,7 +649,9 @@
                 'approved': '✅',
                 'sent': '📦',
                 'rejected': '❌',
-                'completed': '✔️',
+                'completed': `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.6667 5L7.50004 14.1667L3.33337 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
                 'not_received': '🚫'
             };
             return icons[status] || icons['pending'];
@@ -960,8 +962,14 @@
                                 statusText = t('WEBAPP_STATUS_NOT_RECEIVED');
                                 statusClass = 'not_received';
                             } else if (redemption.status === 'completed') {
-                                statusText = t('WEBAPP_STATUS_COMPLETED');
-                                statusClass = 'completed';
+                                // Если пользователь подтвердил получение, показываем "Товар получен"
+                                if (redemption.user_confirmed) {
+                                    statusText = t('WEBAPP_STATUS_RECEIVED');
+                                    statusClass = 'completed';
+                                } else {
+                                    statusText = t('WEBAPP_STATUS_COMPLETED');
+                                    statusClass = 'completed';
+                                }
                             }
                             
                             // Форматируем дату
@@ -1521,6 +1529,9 @@
                     throw new Error('Redemption not found');
                 }
                 
+                // Устанавливаем currentRedemptionId для модалки подтверждения
+                currentRedemptionId = redemptionId;
+                
                 // Устанавливаем заголовок
                 document.getElementById('redemptionDetailTitle').textContent = redemption.gift ? redemption.gift.name : t('WEBAPP_GIFT_NAME');
                 
@@ -1545,9 +1556,16 @@
                     statusClass = 'not_received';
                     statusIcon = getStatusIcon('not_received');
                 } else if (redemption.status === 'completed') {
-                    statusText = t('WEBAPP_STATUS_COMPLETED');
-                    statusClass = 'completed';
-                    statusIcon = getStatusIcon('completed');
+                    // Если пользователь подтвердил получение, показываем "Товар получен"
+                    if (redemption.user_confirmed) {
+                        statusText = t('WEBAPP_STATUS_RECEIVED');
+                        statusClass = 'completed';
+                        statusIcon = getStatusIcon('completed');
+                    } else {
+                        statusText = t('WEBAPP_STATUS_COMPLETED');
+                        statusClass = 'completed';
+                        statusIcon = getStatusIcon('completed');
+                    }
                 }
                 
                 // Обрабатываем URL изображения
@@ -1598,7 +1616,7 @@
                         
                         <!-- Кнопки статуса и связи -->
                         <div class="redemption-actions">
-                            <button class="redemption-status-btn ${statusClass}">
+                            <button class="redemption-status-btn ${statusClass}" ${redemption.status === 'completed' && !redemption.user_confirmed ? 'onclick="openConfirmModal(' + redemptionId + ')"' : ''} ${redemption.status === 'completed' && redemption.user_confirmed ? 'style="cursor: default;"' : ''}>
                                 <span class="status-icon">${statusIcon}</span>
                                 ${statusText}
                             </button>

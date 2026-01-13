@@ -7,14 +7,15 @@ import os
 import django
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, Update
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram import BaseMiddleware
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import transaction
-from core.models import TelegramUser, QRCode, QRCodeScanAttempt, Gift, GiftRedemption
+from core.models import TelegramUser, QRCode, QRCodeScanAttempt, Gift, GiftRedemption, VideoInstruction
 from core.utils import generate_qr_code_image
 from .translations import get_text, TRANSLATIONS
 
@@ -33,6 +34,28 @@ if not bot_token:
 else:
     bot = Bot(token=bot_token)
     dp = Dispatcher(storage=MemoryStorage())
+
+
+class BotFilterMiddleware(BaseMiddleware):
+    """Middleware для фильтрации сообщений от ботов."""
+    
+    async def __call__(self, handler, event: Update, data):
+        # Проверяем, является ли отправитель ботом
+        if event.message and event.message.from_user and event.message.from_user.is_bot:
+            logger.info(f"[BotFilterMiddleware] Игнорируем сообщение от бота: {event.message.from_user.id}")
+            return
+        
+        if event.callback_query and event.callback_query.from_user and event.callback_query.from_user.is_bot:
+            logger.info(f"[BotFilterMiddleware] Игнорируем callback от бота: {event.callback_query.from_user.id}")
+            return
+        
+        return await handler(event, data)
+
+
+# Регистрируем middleware
+if dp:
+    dp.message.middleware(BotFilterMiddleware())
+    dp.callback_query.middleware(BotFilterMiddleware())
 
 
 class RegistrationStates(StatesGroup):
@@ -147,8 +170,13 @@ def is_registration_complete(user):
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
-    logger.info(f"[cmd_start] Получена команда /start от пользователя {message.from_user.id}")
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        logger.info(f"[cmd_start] Игнорируем сообщение от бота: {message.from_user.id}")
+        return
     
+    logger.info(f"[cmd_start] Получена команда /start от пользователя {message.from_user.id}")
+
     # Парсим аргументы команды /start
     # Формат может быть: /start qr_ABC123 или /start EABC123
     args_text = message.text.split()[1:] if len(message.text.split()) > 1 else []
@@ -266,6 +294,10 @@ async def cmd_start(message: Message, state: FSMContext):
 @dp.message(RegistrationStates.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext):
     """Обработчик получения номера телефона."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
     if message.contact:
         phone_number = message.contact.phone_number
         
@@ -292,6 +324,10 @@ async def process_phone(message: Message, state: FSMContext):
 @dp.message(RegistrationStates.waiting_for_location)
 async def process_location(message: Message, state: FSMContext):
     """Обработчик получения локации."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
     if message.location:
         latitude = message.location.latitude
         longitude = message.location.longitude
@@ -358,6 +394,10 @@ async def ask_name(message: Message, user, state: FSMContext):
 @dp.message(RegistrationStates.waiting_for_name)
 async def process_name(message: Message, state: FSMContext):
     """Обработчик получения имени пользователя."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
     name = message.text.strip()
     
     # Проверяем, что имя не пустое и не слишком длинное
@@ -400,6 +440,103 @@ async def ask_user_type(message: Message, user, state: FSMContext):
     ])
     await message.answer(get_text(user, 'SELECT_USER_TYPE'), reply_markup=keyboard)
     await state.set_state(RegistrationStates.waiting_for_user_type)
+
+
+async def send_video_instruction(chat_id: int, language: str):
+    """Отправляет видео инструкцию пользователю."""
+    logger.info(f"[send_video_instruction] Отправка видео инструкции для chat_id={chat_id}, language={language}")
+    
+    @sync_to_async
+    def get_video_instruction():
+        """Получает активную видео инструкцию."""
+        return VideoInstruction.objects.filter(is_active=True).first()
+    
+    instruction = await get_video_instruction()
+    
+    if not instruction:
+        logger.warning(f"[send_video_instruction] Активная видео инструкция не найдена")
+        return
+    
+    # Получаем file_id для языка
+    file_id = instruction.get_file_id(language)
+    
+    if file_id:
+        # Используем сохраненный file_id для быстрой отправки
+        logger.info(f"[send_video_instruction] Используем сохраненный file_id: {file_id}")
+        try:
+            # Увеличиваем таймаут для отправки видео (5 минут)
+            await bot.send_video(chat_id=chat_id, video=file_id, request_timeout=300)
+            logger.info(f"[send_video_instruction] Видео отправлено по file_id")
+        except Exception as e:
+            logger.error(f"[send_video_instruction] Ошибка при отправке по file_id: {e}")
+            # Если file_id не работает, пробуем загрузить файл заново
+            file_id = None
+    
+    if not file_id:
+        # Загружаем файл и сохраняем file_id
+        video_file = instruction.get_video_file(language)
+        
+        if not video_file:
+            logger.warning(f"[send_video_instruction] Видео файл не найден для языка {language}")
+            return
+        
+        try:
+            # Получаем полный путь к файлу
+            video_path = video_file.path
+            logger.info(f"[send_video_instruction] Путь к видео: {video_path}")
+            
+            # Проверяем существование файла
+            if os.path.exists(video_path):
+                logger.info(f"[send_video_instruction] Файл существует, отправляем видео")
+                # Отправляем видео с увеличенным таймаутом (5 минут для больших файлов)
+                sent_message = await bot.send_video(
+                    chat_id=chat_id,
+                    video=types.FSInputFile(video_path),
+                    request_timeout=300  # 5 минут
+                )
+                
+                # Сохраняем file_id для будущего использования
+                if sent_message.video and sent_message.video.file_id:
+                    file_id = sent_message.video.file_id
+                    logger.info(f"[send_video_instruction] Получен file_id: {file_id}")
+                    
+                    @sync_to_async
+                    def save_file_id():
+                        instruction.set_file_id(language, file_id)
+                    
+                    await save_file_id()
+                    logger.info(f"[send_video_instruction] File_id сохранен в базу данных")
+                else:
+                    logger.warning(f"[send_video_instruction] File_id не получен от Telegram")
+            else:
+                # Пробуем альтернативный путь
+                alt_path = os.path.join(settings.MEDIA_ROOT, video_file.name)
+                logger.info(f"[send_video_instruction] Пробуем альтернативный путь: {alt_path}")
+                if os.path.exists(alt_path):
+                    logger.info(f"[send_video_instruction] Файл найден по альтернативному пути, отправляем видео")
+                    sent_message = await bot.send_video(
+                        chat_id=chat_id,
+                        video=types.FSInputFile(alt_path),
+                        request_timeout=300  # 5 минут
+                    )
+                    
+                    # Сохраняем file_id
+                    if sent_message.video and sent_message.video.file_id:
+                        file_id = sent_message.video.file_id
+                        logger.info(f"[send_video_instruction] Получен file_id: {file_id}")
+                        
+                        @sync_to_async
+                        def save_file_id():
+                            instruction.set_file_id(language, file_id)
+                        
+                        await save_file_id()
+                        logger.info(f"[send_video_instruction] File_id сохранен в базу данных")
+                else:
+                    logger.error(f"[send_video_instruction] Видео файл не найден на диске. Путь: {video_path}, Альтернативный: {alt_path}")
+        except asyncio.TimeoutError:
+            logger.error(f"[send_video_instruction] Таймаут при отправке видео. Файл слишком большой или медленное соединение.")
+        except Exception as e:
+            logger.error(f"[send_video_instruction] Ошибка при отправке видео: {e}", exc_info=True)
 
 
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
@@ -550,6 +687,10 @@ async def ask_promo_code(message: Message, user, state: FSMContext):
 @dp.message(RegistrationStates.waiting_for_promo_code)
 async def process_promo_code(message: Message, state: FSMContext):
     """Обработчик получения промокода."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
     promo_code = message.text.strip() if message.text else ""
     
     @sync_to_async
@@ -659,6 +800,10 @@ async def process_promo_code(message: Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data.startswith('lang_'))
 async def process_language_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор языка."""
+    # Игнорируем callback от ботов
+    if callback.from_user.is_bot:
+        return
+    
     logger.info(f"[process_language_selection] Получен callback: {callback.data} от пользователя {callback.from_user.id}")
     
     try:
@@ -690,6 +835,12 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
         await callback.message.delete()
         
+        # Отправляем видео инструкцию только при первом выборе языка (если пользователь еще не зарегистрирован)
+        # Отправляем асинхронно в фоне, чтобы не блокировать процесс регистрации
+        if not is_registered:
+            logger.info(f"[process_language_selection] Пользователь не зарегистрирован, отправляем видео инструкцию в фоне")
+            # Создаем задачу для отправки видео в фоне
+            asyncio.create_task(send_video_instruction(callback.from_user.id, language))
         if is_registered:
             # Пользователь уже зарегистрирован - показываем обновленное меню
             logger.info(f"[process_language_selection] Пользователь зарегистрирован, показываем меню")
@@ -764,6 +915,10 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
 @dp.callback_query(lambda c: c.data.startswith('user_type_'))
 async def process_user_type_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор типа пользователя."""
+    # Игнорируем callback от ботов
+    if callback.from_user.is_bot:
+        return
+    
     user_type = callback.data.split('_')[2]  # electrician или seller
     
     @sync_to_async
@@ -785,6 +940,10 @@ async def process_user_type_selection(callback: CallbackQuery, state: FSMContext
 @dp.callback_query(lambda c: c.data in ['accept_privacy', 'decline_privacy'])
 async def process_privacy_acceptance(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает согласие на политику конфиденциальности."""
+    # Игнорируем callback от ботов
+    if callback.from_user.is_bot:
+        return
+    
     if callback.data == 'decline_privacy':
         @sync_to_async
         def get_user():
@@ -1053,6 +1212,10 @@ async def show_main_menu(message: Message, user: TelegramUser):
 @dp.message()
 async def handle_message(message: Message, state: FSMContext = None):
     """Универсальный обработчик сообщений."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
     @sync_to_async
     def get_user():
         return TelegramUser.objects.get(telegram_id=message.from_user.id)
@@ -1141,7 +1304,7 @@ async def show_gifts(message: Message, state: FSMContext):
             # Если у пользователя нет типа, показываем только подарки без типа
             gifts_query = Gift.objects.filter(is_active=True, user_type__isnull=True)
         
-        gifts = list(gifts_query.order_by('points_cost'))
+        gifts = list(gifts_query.order_by('order', 'points_cost'))
         return user, gifts
     
     user, gifts = await get_gifts_and_user()
@@ -1178,6 +1341,10 @@ async def show_gifts(message: Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data.startswith("gift_"))
 async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает выбор подарка."""
+    # Игнорируем callback от ботов
+    if callback.from_user.is_bot:
+        return
+    
     gift_id = int(callback.data.split("_")[1])
     
     @sync_to_async

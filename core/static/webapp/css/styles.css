@@ -2643,7 +2643,7 @@ body {
 }
 
 .redemption-status-btn.approved {
-    background: #D4EDDA;
+    background: #EAB208;
     color: #155724;
 }
 
@@ -2654,7 +2654,7 @@ body {
 
 .redemption-status-btn.completed {
     background: #4CAF50;
-    color: #0C5460;
+    color: #ffffff;
 }
 
 .redemption-status-btn.rejected {
