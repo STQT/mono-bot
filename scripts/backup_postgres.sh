@@ -10,27 +10,54 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Функция для логирования
-log() {
-    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-error() {
-    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1" | tee -a "$LOG_FILE"
-}
-
-warning() {
-    echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1" | tee -a "$LOG_FILE"
-}
-
 # Определяем директорию скрипта и корень проекта
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Директория для бэкапов (определяем до загрузки .env, чтобы можно было переопределить)
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/postgres}"
+# Количество дней хранения бэкапов
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
+
+# Создаем директорию для бэкапов если её нет
+mkdir -p "$BACKUP_DIR"
+
+# Файл лога (определяем до использования функций логирования)
+LOG_FILE="${LOG_FILE:-$BACKUP_DIR/backup.log}"
+
+# Функция для логирования
+log() {
+    if [ -n "$LOG_FILE" ]; then
+        echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
+    else
+        echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+    fi
+}
+
+error() {
+    if [ -n "$LOG_FILE" ]; then
+        echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1" | tee -a "$LOG_FILE"
+    else
+        echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1"
+    fi
+}
+
+warning() {
+    if [ -n "$LOG_FILE" ]; then
+        echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1" | tee -a "$LOG_FILE"
+    else
+        echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1"
+    fi
+}
 
 # Загрузка переменных окружения из .env файла
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
 if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | xargs)
+    # Обновляем BACKUP_DIR и LOG_FILE если они были переопределены в .env
+    BACKUP_DIR="${BACKUP_DIR:-/var/backups/postgres}"
+    mkdir -p "$BACKUP_DIR"
+    LOG_FILE="${LOG_FILE:-$BACKUP_DIR/backup.log}"
     log "Загружен .env файл: $ENV_FILE"
 else
     warning ".env файл не найден: $ENV_FILE (используются значения по умолчанию)"
@@ -47,17 +74,6 @@ DB_PORT="${DB_PORT:-5432}"
 DOCKER_CONTAINER="${DOCKER_CONTAINER:-}"
 USE_DOCKER="${USE_DOCKER:-auto}"  # auto, yes, no
 DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_FILE:-}"
-
-# Директория для бэкапов
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/postgres}"
-# Количество дней хранения бэкапов
-RETENTION_DAYS="${RETENTION_DAYS:-30}"
-
-# Создаем директорию для бэкапов если её нет
-mkdir -p "$BACKUP_DIR"
-
-# Файл лога
-LOG_FILE="${LOG_FILE:-$BACKUP_DIR/backup.log}"
 
 # Функция определения Docker Compose проекта и контейнера
 detect_docker_compose() {
