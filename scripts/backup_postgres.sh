@@ -44,8 +44,9 @@ DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 
 # Настройки Docker (если используется Docker)
-DOCKER_CONTAINER="${DOCKER_CONTAINER:-db}"
+DOCKER_CONTAINER="${DOCKER_CONTAINER:-}"
 USE_DOCKER="${USE_DOCKER:-auto}"  # auto, yes, no
+DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_FILE:-}"
 
 # Директория для бэкапов
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/postgres}"
@@ -58,32 +59,141 @@ mkdir -p "$BACKUP_DIR"
 # Файл лога
 LOG_FILE="${LOG_FILE:-$BACKUP_DIR/backup.log}"
 
+# Функция определения Docker Compose проекта и контейнера
+detect_docker_compose() {
+    # Используем явно docker-compose.prod.yml
+    local compose_file="docker-compose.prod.yml"
+    local compose_path="$PROJECT_ROOT/$compose_file"
+    
+    if [ -f "$compose_path" ]; then
+        DOCKER_COMPOSE_FILE="$compose_path"
+        log "Найден Docker Compose файл: $compose_file"
+        
+        # Пытаемся найти контейнер БД через docker-compose
+        if command -v docker-compose > /dev/null 2>&1; then
+            # Используем docker-compose (старая версия)
+            local container_name=$(cd "$PROJECT_ROOT" && docker-compose -f "$compose_file" ps -q db 2>/dev/null | head -1)
+            if [ -n "$container_name" ]; then
+                DOCKER_CONTAINER=$(docker ps --format '{{.Names}}' --filter "id=$container_name" 2>/dev/null | head -1)
+            fi
+        elif command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then
+            # Используем docker compose (новая версия)
+            local container_name=$(cd "$PROJECT_ROOT" && docker compose -f "$compose_file" ps -q db 2>/dev/null | head -1)
+            if [ -n "$container_name" ]; then
+                DOCKER_CONTAINER=$(docker ps --format '{{.Names}}' --filter "id=$container_name" 2>/dev/null | head -1)
+            fi
+        fi
+        
+        if [ -n "$DOCKER_CONTAINER" ]; then
+            log "Найден контейнер БД через Docker Compose: $DOCKER_CONTAINER"
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# Функция получения настроек БД из Docker контейнера
+get_db_config_from_container() {
+    if [ -z "$DOCKER_CONTAINER" ]; then
+        return 1
+    fi
+    
+    # Получаем переменные окружения из контейнера
+    local env_vars=$(docker inspect "$DOCKER_CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+    
+    if [ -z "$env_vars" ]; then
+        return 1
+    fi
+    
+    # Извлекаем настройки БД из переменных окружения контейнера
+    local postgres_db=$(echo "$env_vars" | grep "^POSTGRES_DB=" | cut -d'=' -f2 | head -1)
+    local postgres_user=$(echo "$env_vars" | grep "^POSTGRES_USER=" | cut -d'=' -f2 | head -1)
+    local postgres_password=$(echo "$env_vars" | grep "^POSTGRES_PASSWORD=" | cut -d'=' -f2 | head -1)
+    
+    if [ -n "$postgres_db" ]; then
+        DB_NAME="$postgres_db"
+        log "Получено DB_NAME из контейнера: $DB_NAME"
+    fi
+    if [ -n "$postgres_user" ]; then
+        DB_USER="$postgres_user"
+        log "Получено DB_USER из контейнера: $DB_USER"
+    fi
+    if [ -n "$postgres_password" ]; then
+        DB_PASSWORD="$postgres_password"
+        log "Получено DB_PASSWORD из контейнера (скрыто)"
+    fi
+    
+    return 0
+}
+
 # Определяем, используется ли Docker
 if [ "$USE_DOCKER" = "auto" ]; then
-    if command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -q "^${DOCKER_CONTAINER}$"; then
+    # Сначала пытаемся найти через Docker Compose
+    if detect_docker_compose; then
         USE_DOCKER="yes"
-        log "Обнаружен Docker контейнер: $DOCKER_CONTAINER"
-        # Если используется Docker, но скрипт запускается на хосте, используем localhost
-        if [ "$DB_HOST" = "db" ]; then
-            DB_HOST="localhost"
-            log "Исправлен DB_HOST на localhost для подключения с хоста"
+        # Получаем настройки БД из контейнера
+        get_db_config_from_container || warning "Не удалось получить настройки БД из контейнера, используем значения по умолчанию"
+    elif command -v docker > /dev/null 2>&1; then
+        # Пытаемся найти контейнер по имени "db"
+        found_container=$(docker ps --format '{{.Names}}' | grep -E "^(.*_)?db(_.*)?$" | head -1)
+        if [ -n "$found_container" ]; then
+            DOCKER_CONTAINER="$found_container"
+            USE_DOCKER="yes"
+            log "Найден Docker контейнер БД: $DOCKER_CONTAINER"
+            get_db_config_from_container || warning "Не удалось получить настройки БД из контейнера"
+        else
+            USE_DOCKER="no"
+            log "Docker контейнер БД не найден, используем прямое подключение к PostgreSQL"
+            # Если DB_HOST = "db" (имя Docker контейнера), меняем на localhost
+            if [ "$DB_HOST" = "db" ]; then
+                DB_HOST="localhost"
+                log "Исправлен DB_HOST на localhost (имя контейнера 'db' не работает на хосте)"
+            fi
         fi
     else
         USE_DOCKER="no"
-        log "Docker контейнер не найден, используем прямое подключение к PostgreSQL"
-        # Если DB_HOST = "db" (имя Docker контейнера), меняем на localhost
+        log "Docker не установлен, используем прямое подключение к PostgreSQL"
         if [ "$DB_HOST" = "db" ]; then
             DB_HOST="localhost"
-            log "Исправлен DB_HOST на localhost (имя контейнера 'db' не работает на хосте)"
+            log "Исправлен DB_HOST на localhost"
         fi
     fi
+elif [ "$USE_DOCKER" = "yes" ]; then
+    # Принудительное использование Docker
+    if [ -z "$DOCKER_CONTAINER" ]; then
+        DOCKER_CONTAINER="db"
+    fi
+    if ! docker ps --format '{{.Names}}' | grep -q "^${DOCKER_CONTAINER}$"; then
+        error "Указанный Docker контейнер не найден: $DOCKER_CONTAINER"
+        exit 1
+    fi
+    get_db_config_from_container || warning "Не удалось получить настройки БД из контейнера"
 fi
+
+# Функция выполнения команды в Docker контейнере
+docker_exec() {
+    local cmd="$1"
+    if [ -n "$DOCKER_COMPOSE_FILE" ]; then
+        # Используем docker-compose если доступно
+        local compose_file=$(basename "$DOCKER_COMPOSE_FILE")
+        if command -v docker-compose > /dev/null 2>&1; then
+            (cd "$PROJECT_ROOT" && docker-compose -f "$compose_file" exec -T db sh -c "$cmd")
+        elif command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then
+            (cd "$PROJECT_ROOT" && docker compose -f "$compose_file" exec -T db sh -c "$cmd")
+        else
+            docker exec "$DOCKER_CONTAINER" sh -c "$cmd"
+        fi
+    else
+        docker exec "$DOCKER_CONTAINER" sh -c "$cmd"
+    fi
+}
 
 # Функция проверки подключения к базе данных
 check_db_connection() {
     log "Проверка подключения к базе данных..."
     if [ "$USE_DOCKER" = "yes" ]; then
-        if docker exec "$DOCKER_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" > /dev/null 2>&1; then
+        if docker_exec "pg_isready -U \"$DB_USER\" -d \"$DB_NAME\"" > /dev/null 2>&1; then
             log "Подключение к базе данных успешно"
             return 0
         else
@@ -107,9 +217,7 @@ check_db_connection() {
 # Функция получения размера базы данных
 get_db_size() {
     if [ "$USE_DOCKER" = "yes" ]; then
-        export PGPASSWORD="$DB_PASSWORD"
-        SIZE=$(docker exec "$DOCKER_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT pg_size_pretty(pg_database_size('$DB_NAME'));" 2>/dev/null | xargs)
-        unset PGPASSWORD
+        SIZE=$(docker_exec "PGPASSWORD=\"$DB_PASSWORD\" psql -U \"$DB_USER\" -d \"$DB_NAME\" -t -c \"SELECT pg_size_pretty(pg_database_size('$DB_NAME'));\"" 2>/dev/null | xargs)
     else
         export PGPASSWORD="$DB_PASSWORD"
         SIZE=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT pg_size_pretty(pg_database_size('$DB_NAME'));" 2>/dev/null | xargs)
@@ -142,9 +250,13 @@ log "Начало бэкапа базы данных: $DB_NAME"
 BACKUP_START_TIME=$(date +%s)
 if [ "$USE_DOCKER" = "yes" ]; then
     # Бэкап через Docker
-    log "Выполняю бэкап через Docker контейнер: $DOCKER_CONTAINER"
+    if [ -n "$DOCKER_COMPOSE_FILE" ]; then
+        log "Выполняю бэкап через Docker Compose: $(basename "$DOCKER_COMPOSE_FILE")"
+    else
+        log "Выполняю бэкап через Docker контейнер: $DOCKER_CONTAINER"
+    fi
     
-    if docker exec "$DOCKER_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" --verbose 2>&1 | gzip > "$BACKUP_FILE"; then
+    if docker_exec "pg_dump -U \"$DB_USER\" -d \"$DB_NAME\" --verbose" 2>&1 | gzip > "$BACKUP_FILE"; then
         BACKUP_EXIT_CODE=${PIPESTATUS[0]}
         if [ $BACKUP_EXIT_CODE -eq 0 ]; then
             log "Бэкап успешно создан: $BACKUP_FILE"
@@ -247,4 +359,5 @@ log "Всего бэкапов: $TOTAL_BACKUPS"
 log "Общий размер: $TOTAL_SIZE"
 
 log "Бэкап завершен успешно!"
+
 
