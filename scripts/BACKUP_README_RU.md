@@ -2,9 +2,10 @@
 
 ## Быстрый старт
 
-### 1. Сделайте скрипт исполняемым:
+### 1. Сделайте скрипты исполняемыми:
 ```bash
 chmod +x scripts/backup_postgres.sh
+chmod +x scripts/check_db.sh
 ```
 
 ### 2. Создайте директорию для бэкапов:
@@ -99,6 +100,47 @@ unset PGPASSWORD
 3. Проверить crontab:
    ```bash
    crontab -l
+   ```
+
+4. **Проверить состояние базы данных** (если размер бэкапов подозрительно мал):
+   ```bash
+   chmod +x scripts/check_db.sh
+   ./scripts/check_db.sh
+   ```
+
+## Диагностика проблем
+
+### Проблема: Размер бэкапа слишком маленький (< 10KB)
+
+Если размер бэкапа подозрительно мал, это может означать:
+
+1. **База данных пустая или почти пустая** - проверьте:
+   ```bash
+   ./scripts/check_db.sh
+   ```
+
+2. **Проблема с подключением** - скрипт автоматически исправляет `DB_HOST=db` на `localhost` при работе на хосте
+
+3. **Неправильные параметры подключения** - проверьте `.env` файл:
+   ```bash
+   cat .env | grep DB_
+   ```
+
+4. **Проверьте содержимое бэкапа**:
+   ```bash
+   gunzip -c /var/backups/postgres/mona_db_backup_*.sql.gz | head -50
+   ```
+
+5. **Проверьте подключение к базе данных вручную**:
+   
+   Если используется Docker:
+   ```bash
+   docker exec db psql -U mona_user -d mona_db -c "SELECT COUNT(*) FROM information_schema.tables;"
+   ```
+   
+   Если PostgreSQL локально:
+   ```bash
+   psql -h localhost -p 5432 -U mona_user -d mona_db -c "SELECT COUNT(*) FROM information_schema.tables;"
    ```
 
 ## Другие расписания
