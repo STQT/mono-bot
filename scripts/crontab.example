@@ -1,0 +1,18 @@
+# Пример crontab для автоматического бэкапа PostgreSQL
+# 
+# Установка:
+# 1. Скопируйте эту строку в ваш crontab: crontab -e
+# 2. Замените /path/to/mono-bot на реальный путь к проекту
+# 3. Убедитесь, что скрипт исполняемый: chmod +x scripts/backup_postgres.sh
+#
+# Формат: минута час день месяц день_недели команда
+
+# Бэкап каждый день в 00:00 (полночь)
+0 0 * * * cd /path/to/mono-bot && /path/to/mono-bot/scripts/backup_postgres.sh >> /var/backups/postgres/cron.log 2>&1
+
+# Альтернативный вариант с явным указанием переменных окружения:
+# 0 0 * * * cd /path/to/mono-bot && export ENV_FILE=/path/to/mono-bot/.env && /path/to/mono-bot/scripts/backup_postgres.sh >> /var/backups/postgres/cron.log 2>&1
+
+# Если используете Docker и нужно указать контейнер явно:
+# 0 0 * * * cd /path/to/mono-bot && export USE_DOCKER=yes && export DOCKER_CONTAINER=db && /path/to/mono-bot/scripts/backup_postgres.sh >> /var/backups/postgres/cron.log 2>&1
+
