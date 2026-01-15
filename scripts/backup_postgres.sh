@@ -23,10 +23,17 @@ warning() {
     echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1" | tee -a "$LOG_FILE"
 }
 
+# Определяем директорию скрипта и корень проекта
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Загрузка переменных окружения из .env файла
-ENV_FILE="${ENV_FILE:-.env}"
+ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
 if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | xargs)
+    log "Загружен .env файл: $ENV_FILE"
+else
+    warning ".env файл не найден: $ENV_FILE (используются значения по умолчанию)"
 fi
 
 # Настройки базы данных (можно переопределить через переменные окружения)

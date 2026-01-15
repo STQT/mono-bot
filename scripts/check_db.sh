@@ -11,10 +11,17 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Определяем директорию скрипта и корень проекта
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Загрузка переменных окружения из .env файла
-ENV_FILE="${ENV_FILE:-.env}"
+ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
 if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | xargs)
+    echo -e "${GREEN}✓${NC} Загружен .env файл: $ENV_FILE"
+else
+    echo -e "${YELLOW}⚠${NC} .env файл не найден: $ENV_FILE (используются значения по умолчанию)"
 fi
 
 # Настройки базы данных
