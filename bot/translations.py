@@ -80,6 +80,7 @@ TRANSLATIONS = {
         'LANGUAGE_CHANGED': "✅ Til o'zgartirildi!",
         'UZBEK_LATIN': "🇺🇿 O'zbek (Lotin)",
         'RUSSIAN': "🇷🇺 Русский",
+        'VIDEO_INSTRUCTION_CAPTION': "Botning funksiyalarini o'rganish va undan to'g'ri foydalanishni o'rganish uchun video qo'llanmani ko'ring.",
         
         # Ошибки
         'ERROR_OCCURRED': "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.",
@@ -239,6 +240,7 @@ TRANSLATIONS = {
         'LANGUAGE_CHANGED': "✅ Язык изменен!",
         'UZBEK_LATIN': "🇺🇿 O'zbek (Lotin)",
         'RUSSIAN': "🇷🇺 Русский",
+        'VIDEO_INSTRUCTION_CAPTION': "Просмотрите видеоинструкцию, чтобы ознакомиться с функционалом бота и научиться им пользоваться",
         
         # Ошибки
         'ERROR_OCCURRED': "❌ Произошла ошибка. Попробуйте позже.",

@@ -473,12 +473,16 @@ async def send_video_instruction(chat_id: int, language: str):
     # Получаем file_id для языка
     file_id = instruction.get_file_id(language)
     
+    # Получаем caption для видео инструкции
+    from .translations import TRANSLATIONS
+    caption = TRANSLATIONS.get(language, TRANSLATIONS['uz_latin']).get('VIDEO_INSTRUCTION_CAPTION', '')
+    
     if file_id:
         # Используем сохраненный file_id для быстрой отправки
         logger.info(f"[send_video_instruction] Используем сохраненный file_id: {file_id}")
         try:
             # Увеличиваем таймаут для отправки видео (5 минут)
-            await bot.send_video(chat_id=chat_id, video=file_id, request_timeout=300)
+            await bot.send_video(chat_id=chat_id, video=file_id, caption=caption, request_timeout=300)
             logger.info(f"[send_video_instruction] Видео отправлено по file_id")
         except Exception as e:
             logger.error(f"[send_video_instruction] Ошибка при отправке по file_id: {e}")
@@ -505,6 +509,7 @@ async def send_video_instruction(chat_id: int, language: str):
                 sent_message = await bot.send_video(
                     chat_id=chat_id,
                     video=types.FSInputFile(video_path),
+                    caption=caption,
                     request_timeout=300  # 5 минут
                 )
                 
@@ -530,6 +535,7 @@ async def send_video_instruction(chat_id: int, language: str):
                     sent_message = await bot.send_video(
                         chat_id=chat_id,
                         video=types.FSInputFile(alt_path),
+                        caption=caption,
                         request_timeout=300  # 5 минут
                     )
                     

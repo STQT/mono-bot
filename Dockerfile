@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Устанавливаем браузеры Playwright
 # Зависимости уже установлены выше, поэтому install-deps не нужен
-RUN python -m playwright install chromium
+# RUN python -m playwright install chromium
 
 # Копируем проект
 COPY . .
