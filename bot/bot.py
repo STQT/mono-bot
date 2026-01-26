@@ -1303,7 +1303,7 @@ async def handle_message(message: Message, state: FSMContext = None):
     if message.text in all_balance_texts:
         await show_balance(message, user)
     elif message.text in all_gifts_texts:
-        await show_gifts(message, state)
+        await cmd_start(message, state)
     elif message.text in all_leaders_texts:
         await show_leaders(message)
     elif message.text in all_language_texts:

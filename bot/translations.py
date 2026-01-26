@@ -132,7 +132,7 @@ TRANSLATIONS = {
         'WEBAPP_CONFIRM_RECEIPT_BUTTON': "Qabul qilishni tasdiqlash",
         'WEBAPP_BACK': "Orqaga",
         'WEBAPP_PARTNER_TEXT': "Mono Electric bilan hamkorlik qilib va sovg’alarga erishing",
-        'WEBAPP_CONTACT_ADMIN': "Admin bilan bog’lanamiz",
+        'WEBAPP_CONTACT_ADMIN': "Admin bilan bog’laning",
         'WEBAPP_INFO_TEXT': "Ballar promokodni skanerdan oʻtkazganingizdan soʻng darhol hisobingizga tushadi. Agar ballar tushmagan boʻlsa, iltimos, administratorga murojaat qiling.",
         'WEBAPP_REGISTER': "Ro’yxatdan o’tkazish",
         'WEBAPP_VIEW_GIFTS': "Sovg’alarni ko’rish",
