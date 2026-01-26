@@ -1303,7 +1303,27 @@ async def handle_message(message: Message, state: FSMContext = None):
     if message.text in all_balance_texts:
         await show_balance(message, user)
     elif message.text in all_gifts_texts:
-        await message.answer(get_text(user, 'OPEN_WEB_APP'))
+        # Определяем URL для Web App
+        web_app_url = get_web_app_url()
+        
+        # Создаем inline кнопку для Web App
+        inline_keyboard = None
+        if web_app_url:
+            try:
+                web_app_button = types.InlineKeyboardButton(
+                    text=get_text(user, 'MY_GIFTS'),
+                    web_app=types.WebAppInfo(url=web_app_url)
+                )
+                inline_keyboard = types.InlineKeyboardMarkup(
+                    inline_keyboard=[[web_app_button]]
+                )
+            except Exception as e:
+                logger.warning(f"Не удалось создать Web App inline кнопку: {e}")
+        
+        await message.answer(
+            get_text(user, 'OPEN_WEB_APP'),
+            reply_markup=inline_keyboard
+        )
     elif message.text in all_leaders_texts:
         await show_leaders(message)
     elif message.text in all_language_texts:
