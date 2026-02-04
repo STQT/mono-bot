@@ -45,6 +45,7 @@ class TelegramUser(models.Model):
         verbose_name='Til'
     )
     privacy_accepted = models.BooleanField(default=False, verbose_name='Maxfiylik siyosatiga rozilik')
+    smartup_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='SmartUP ID')
     last_message_sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Oxirgi xabar yuborilgan vaqt')
     blocked_bot_at = models.DateTimeField(null=True, blank=True, verbose_name='Botni bloklagan vaqt')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -750,4 +751,21 @@ class VideoInstruction(models.Model):
     def get_active_instruction(cls):
         """Возвращает активную видео инструкцию."""
         return cls.objects.filter(is_active=True).first()
+
+
+class SmartUPId(models.Model):
+    """Модель для хранения ID SmartUP."""
+    id_value = models.IntegerField(unique=True, db_index=True, verbose_name='SmartUP ID')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
+    
+    class Meta:
+        verbose_name = 'SmartUP ID'
+        verbose_name_plural = 'SmartUP IDlar'
+        ordering = ['id_value']
+        indexes = [
+            models.Index(fields=['id_value']),
+        ]
+    
+    def __str__(self):
+        return f"SmartUP ID: {self.id_value}"
 

@@ -15,7 +15,7 @@ from django.db import models
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction
+    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction, SmartUPId
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -156,7 +156,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             'fields': ('phone_number', 'latitude', 'longitude', 'region', 'district')
         }),
         ('Тип и баллы', {
-            'fields': ('user_type', 'points')
+            'fields': ('user_type', 'points', 'smartup_id')
         }),
         ('Настройки', {
             'fields': ('language',)
@@ -1512,6 +1512,23 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
             # Деактивируем все другие активные инструкции
             VideoInstruction.objects.filter(is_active=True).exclude(pk=obj.pk if obj.pk else None).update(is_active=False)
         super().save_model(request, obj, form, change)
+
+
+@admin.register(SmartUPId)
+class SmartUPIdAdmin(admin.ModelAdmin):
+    """Админка для SmartUP ID."""
+    list_display = ['id_value', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['id_value']
+    ordering = ['id_value']
+    readonly_fields = ['created_at']
+    list_per_page = 100
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('id_value', 'created_at')
+        }),
+    )
 
 
 # Кастомная админка для дашборда

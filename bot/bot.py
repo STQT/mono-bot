@@ -79,6 +79,7 @@ class RegistrationStates(StatesGroup):
     waiting_for_privacy = State()
     waiting_for_phone = State()
     waiting_for_location = State()
+    waiting_for_smartup_id = State()
     waiting_for_promo_code = State()
 
 
@@ -161,7 +162,8 @@ def get_or_create_user(telegram_id: int, username: str = None, first_name: str =
 @sync_to_async
 def is_registration_complete(user):
     """Проверяет, завершена ли регистрация пользователя."""
-    result = (
+    # Базовые проверки
+    base_checks = (
         user.language and
         user.first_name and  # Добавляем проверку имени
         user.user_type and
@@ -171,10 +173,17 @@ def is_registration_complete(user):
         user.longitude is not None
     )
     
+    # Для типа "seller" (предприниматель) требуется SmartUP ID
+    if user.user_type == 'seller':
+        result = base_checks and (user.smartup_id is not None)
+    else:
+        result = base_checks
+    
     logger.info(f"[is_registration_complete] Проверка регистрации для user_id={user.id}: "
                 f"language={bool(user.language)}, first_name={bool(user.first_name)}, "
                 f"user_type={bool(user.user_type)}, privacy_accepted={user.privacy_accepted}, "
                 f"phone_number={bool(user.phone_number)}, location={user.latitude is not None and user.longitude is not None}, "
+                f"smartup_id={user.smartup_id if user.user_type == 'seller' else 'N/A'}, "
                 f"result={result}")
     
     return result
@@ -358,14 +367,19 @@ async def process_location(message: Message, state: FSMContext):
         # Убираем клавиатуру с кнопкой геолокации
         remove_keyboard = types.ReplyKeyboardRemove()
         
-        # Сообщение об успешной регистрации
-        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_keyboard)
-        
-        # Очищаем состояние и показываем главное меню
-        await state.clear()
-        await show_main_menu(message, user)
-        # Затем обычным текстом просим ввести промокод (без установки состояния)
-        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+        # Если пользователь типа "seller" (предприниматель), запрашиваем SmartUP ID
+        if user.user_type == 'seller':
+            await message.answer(get_text(user, 'LOCATION_SAVED'), reply_markup=remove_keyboard)
+            await ask_smartup_id(message, user, state)
+        else:
+            # Сообщение об успешной регистрации
+            await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_keyboard)
+            
+            # Очищаем состояние и показываем главное меню
+            await state.clear()
+            await show_main_menu(message, user)
+            # Затем обычным текстом просим ввести промокод (без установки состояния)
+            await message.answer(get_text(user, 'SEND_PROMO_CODE'))
     else:
         @sync_to_async
         def get_user_for_location():
@@ -697,6 +711,99 @@ async def ask_location(message: Message, user, state: FSMContext):
     await state.set_state(RegistrationStates.waiting_for_location)
 
 
+async def ask_smartup_id(message: Message, user, state: FSMContext):
+    """Спрашивает SmartUP ID у пользователя типа seller."""
+    remove_keyboard = types.ReplyKeyboardRemove()
+    await message.answer(get_text(user, 'ASK_SMARTUP_ID'), reply_markup=remove_keyboard)
+    await state.set_state(RegistrationStates.waiting_for_smartup_id)
+
+
+@dp.message(RegistrationStates.waiting_for_smartup_id)
+async def process_smartup_id(message: Message, state: FSMContext):
+    """Обработчик получения SmartUP ID."""
+    # Игнорируем сообщения от ботов
+    if message.from_user.is_bot:
+        return
+    
+    smartup_id_str = message.text.strip() if message.text else ""
+    
+    @sync_to_async
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=message.from_user.id)
+    
+    user = await get_user()
+    
+    # Проверяем, не является ли это командой меню
+    all_menu_commands = [
+        TRANSLATIONS['uz_latin']['MY_BALANCE'],
+        TRANSLATIONS['ru']['MY_BALANCE'],
+        TRANSLATIONS['uz_latin']['GIFTS'],
+        TRANSLATIONS['ru']['GIFTS'],
+        TRANSLATIONS['uz_latin']['TOP_LEADERS'],
+        TRANSLATIONS['ru']['TOP_LEADERS'],
+        TRANSLATIONS['uz_latin']['LANGUAGE'],
+        TRANSLATIONS['ru']['LANGUAGE'],
+        TRANSLATIONS['uz_latin']['ENTER_PROMO_CODE'],
+        TRANSLATIONS['ru']['ENTER_PROMO_CODE'],
+    ]
+    
+    # Если это команда меню, выходим из состояния и обрабатываем как обычное сообщение
+    if message.text in all_menu_commands:
+        await state.clear()
+        await handle_message(message, state)
+        return
+    
+    if not smartup_id_str:
+        await message.answer(get_text(user, 'ASK_SMARTUP_ID'))
+        return
+    
+    try:
+        smartup_id = int(smartup_id_str)
+        
+        # Проверяем существование ID в базе SmartUP
+        @sync_to_async
+        def check_smartup_id():
+            from core.models import SmartUPId
+            return SmartUPId.objects.filter(id_value=smartup_id).exists()
+        
+        id_exists = await check_smartup_id()
+        
+        if not id_exists:
+            await message.answer(get_text(user, 'SMARTUP_ID_NOT_FOUND'))
+            await ask_smartup_id(message, user, state)
+            return
+        
+        # Сохраняем SmartUP ID
+        @sync_to_async
+        def save_smartup_id():
+            user_obj = TelegramUser.objects.get(telegram_id=message.from_user.id)
+            user_obj.smartup_id = smartup_id
+            user_obj.save(update_fields=['smartup_id'])
+            return user_obj
+        
+        user = await save_smartup_id()
+        
+        # Убираем клавиатуру
+        remove_keyboard = types.ReplyKeyboardRemove()
+        
+        # Сообщение об успешной регистрации
+        await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_keyboard)
+        
+        # Очищаем состояние и показываем главное меню
+        await state.clear()
+        await show_main_menu(message, user)
+        # Затем обычным текстом просим ввести промокод (без установки состояния)
+        await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+        
+    except ValueError:
+        await message.answer(get_text(user, 'SMARTUP_ID_NOT_FOUND'))
+        await ask_smartup_id(message, user, state)
+    except Exception as e:
+        logger.error(f"[process_smartup_id] Ошибка при обработке SmartUP ID: {e}", exc_info=True)
+        await message.answer(get_text(user, 'ERROR_OCCURRED'))
+        await ask_smartup_id(message, user, state)
+
+
 async def ask_promo_code(message: Message, user, state: FSMContext):
     """Спрашивает промокод."""
     await message.answer(get_text(user, 'SEND_PROMO_CODE'))
@@ -783,18 +890,11 @@ async def process_promo_code(message: Message, state: FSMContext):
         
         # Проверяем, завершена ли регистрация после обработки QR-кода
         @sync_to_async
-        def check_registration_complete():
-            user_obj = TelegramUser.objects.get(telegram_id=message.from_user.id)
-            return (
-                user_obj.language and
-                user_obj.user_type and
-                user_obj.privacy_accepted and
-                user_obj.phone_number and
-                user_obj.latitude is not None and
-                user_obj.longitude is not None
-            )
+        def get_user_for_check():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
         
-        registration_complete = await check_registration_complete()
+        user_for_check = await get_user_for_check()
+        registration_complete = await is_registration_complete(user_for_check)
         
         if registration_complete:
             # Регистрация завершена, handle_qr_code_scan уже обработал QR-код и показал меню
@@ -837,7 +937,8 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
             user.save(update_fields=['language'])
             logger.info(f"[process_language_selection] Язык пользователя обновлен на: {user.language}")
             # Проверяем, завершена ли регистрация
-            is_registered = (
+            # Для типа "seller" требуется smartup_id
+            base_checks = (
                 user.language and
                 user.first_name and
                 user.user_type and
@@ -846,6 +947,10 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
                 user.latitude is not None and
                 user.longitude is not None
             )
+            if user.user_type == 'seller':
+                is_registered = base_checks and (user.smartup_id is not None)
+            else:
+                is_registered = base_checks
             return user, is_registered
         
         user, is_registered = await update_language_and_check_registration()
@@ -946,7 +1051,11 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
             elif user.latitude is None or user.longitude is None:
                 logger.info(f"[process_language_selection] Локация не указана, вызываем ask_location")
                 await ask_location(callback.message, user, state)
-            # Шаг 7: Промокод (не обязателен)
+            # Шаг 7: SmartUP ID (только для типа seller)
+            elif user.user_type == 'seller' and user.smartup_id is None:
+                logger.info(f"[process_language_selection] SmartUP ID не указан для seller, вызываем ask_smartup_id")
+                await ask_smartup_id(callback.message, user, state)
+            # Шаг 8: Промокод (не обязателен)
             else:
                 logger.info(f"[process_language_selection] Все шаги регистрации пройдены, показываем главное меню")
                 await state.clear()
@@ -1134,18 +1243,12 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         
         # Проверяем, завершена ли регистрация (для определения, нужно ли показывать меню или продолжать регистрацию)
         @sync_to_async
-        def is_reg_complete():
-            user_obj = TelegramUser.objects.get(telegram_id=message.from_user.id)
-            return (
-                user_obj.language and
-                user_obj.user_type and
-                user_obj.privacy_accepted and
-                user_obj.phone_number and
-                user_obj.latitude is not None and
-                user_obj.longitude is not None
-            )
+        @sync_to_async
+        def get_user_for_reg_check():
+            return TelegramUser.objects.get(telegram_id=message.from_user.id)
         
-        registration_complete = await is_reg_complete()
+        user_for_reg_check = await get_user_for_reg_check()
+        registration_complete = await is_registration_complete(user_for_reg_check)
         
         if result.get('error') == 'max_attempts':
             await message.answer(get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=settings.QR_CODE_MAX_ATTEMPTS))

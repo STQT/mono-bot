@@ -32,6 +32,8 @@ TRANSLATIONS = {
         'REGISTRATION_COMPLETE_MESSAGE': "✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi! Endi botdan foydalanishingiz mumkin.",
         'SEND_PROMO_CODE': "Iltimos, o'z promo-kodingizni kiriting.",
         'PROMO_CODE_SAVED': "✅ Promo-kod saqlandi!",
+        'ASK_SMARTUP_ID': "SmartUp ID raqamingizni kiriting",
+        'SMARTUP_ID_NOT_FOUND': "ID topilmadi. Iltimos, boshqasini sinab ko'ring.",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ Promokod muvaffaqiyatli faollashtirildi!\n\n💰 Sizga {points} ball qo'shildi.\n📊 Joriy balansingiz: {total_points} ball.",
@@ -192,6 +194,8 @@ TRANSLATIONS = {
         'REGISTRATION_COMPLETE_MESSAGE': "✅ Регистрация успешно завершена! Теперь вы можете пользоваться ботом.",
         'SEND_PROMO_CODE': "Пожалуйста, введите ваш промокод.",
         'PROMO_CODE_SAVED': "✅ Промокод сохранен!",
+        'ASK_SMARTUP_ID': "Введите ID вашего SmartUp",
+        'SMARTUP_ID_NOT_FOUND': "ID не найден. Пожалуйста, попробуйте другой.",
         
         # QR-код сообщения
         'QR_ACTIVATED': "✅ Промокод успешно активирован!\n\n💰 Вам начислено {points} баллов.\n📊 Ваш текущий баланс: {total_points} баллов.",
