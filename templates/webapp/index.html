@@ -940,8 +940,11 @@
                             if (orderA !== orderB) {
                                 return orderA - orderB;
                             }
-                            // Если статусы одинаковые, сортируем по дате (новые сверху)
-                            return new Date(b.requested_at) - new Date(a.requested_at);
+                            // Если статусы одинаковые, сортируем по дате последнего изменения статуса (новые сверху)
+                            // Используем processed_at если есть, иначе requested_at
+                            const dateA = a.processed_at || a.requested_at;
+                            const dateB = b.processed_at || b.requested_at;
+                            return new Date(dateB) - new Date(dateA);
                         });
                         
                         ordersList.innerHTML = '';
@@ -972,8 +975,10 @@
                                 }
                             }
                             
-                            // Форматируем дату
-                            const date = new Date(redemption.requested_at);
+                            // Форматируем дату - используем processed_at (время последнего изменения статуса), 
+                            // если его нет, используем requested_at
+                            const dateToShow = redemption.processed_at || redemption.requested_at;
+                            const date = new Date(dateToShow);
                             const dateStr = date.toLocaleDateString('ru-RU', { 
                                 year: 'numeric', 
                                 month: '2-digit', 

@@ -34,7 +34,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
         'last_message_sent_at', 'blocked_bot_at', 'region', 'district'
     ]
     ordering = ['region', 'district', '-created_at']
-    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive', 'update_locations_action']
+    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
     list_per_page = 50
     date_hierarchy = 'created_at'
     
@@ -170,7 +170,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     )
     
     def get_readonly_fields(self, request, obj=None):
-        """Делает все поля readonly для Call Center, кроме user_type."""
+        """Управляет readonly полями в зависимости от роли пользователя."""
         readonly = list(super().get_readonly_fields(request, obj))
         
         # Если пользователь имеет пермишн call center и не является superuser
@@ -187,6 +187,8 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             for field in fields_to_make_readonly:
                 if field not in readonly:
                     readonly.append(field)
+        # Для обычных админов (не superuser и не Call Center) user_type доступен для редактирования
+        # Он не в списке readonly_fields, поэтому будет доступен по умолчанию
         
         return readonly
     
@@ -321,6 +323,26 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             messages.SUCCESS
         )
     update_locations_action.short_description = 'Обновить локации (область и район)'
+    
+    def change_user_type_to_electrician(self, request, queryset):
+        """Массовое изменение типа пользователя на Электрик."""
+        updated = queryset.update(user_type='electrician')
+        self.message_user(
+            request,
+            f'Тип пользователя изменен на "Электрик" для {updated} пользователей.',
+            messages.SUCCESS
+        )
+    change_user_type_to_electrician.short_description = 'Изменить тип на: ⚡ Электрик'
+    
+    def change_user_type_to_seller(self, request, queryset):
+        """Массовое изменение типа пользователя на Продавец (Предприниматель)."""
+        updated = queryset.update(user_type='seller')
+        self.message_user(
+            request,
+            f'Тип пользователя изменен на "Продавец (Предприниматель)" для {updated} пользователей.',
+            messages.SUCCESS
+        )
+    change_user_type_to_seller.short_description = 'Изменить тип на: 🛒 Продавец (Предприниматель)'
 
 
 class QRCodeScanAttemptInline(admin.TabularInline):
@@ -990,7 +1012,7 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
         'title', 'status', 'user_type_filter', 'total_users',
         'sent_count', 'failed_count', 'created_at', 'completed_at'
     ]
-    list_filter = ['status', 'user_type_filter', 'region_filter', 'language_filter', 'created_at']
+    list_filter = ['status', 'user_type_filter', 'region_filter', 'created_at']
     search_fields = ['title', 'message_text']
     readonly_fields = [
         'status', 'total_users', 'sent_count', 'failed_count',
@@ -1005,10 +1027,6 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
             'fields': ('region_filter',),
             'description': 'Выберите область для фильтрации пользователей. Если не выбрано, сообщение будет отправлено всем пользователям.'
         }),
-        ('Дополнительные фильтры', {
-            'fields': ('language_filter',),
-            'classes': ('collapse',),
-        }),
         ('Статистика', {
             'fields': (
                 'status', 'total_users', 'sent_count', 'failed_count',
@@ -1018,6 +1036,18 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     )
     
     actions = ['send_broadcast_action']
+    
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """Добавляет опцию 'Всем' в фильтр по типу пользователя."""
+        if db_field.name == 'user_type_filter':
+            # Получаем текущие choices из модели
+            from core.models import TelegramUser
+            choices = list(TelegramUser.USER_TYPE_CHOICES)
+            # Добавляем опцию "Всем" в начало списка
+            choices.insert(0, ('', 'Всем'))
+            kwargs['choices'] = choices
+            kwargs['required'] = False
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
     
     def send_broadcast_action(self, request, queryset):
         """Действие для отправки рассылки."""
@@ -1041,8 +1071,6 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
             users_query = TelegramUser.objects.filter(is_active=True)
             if broadcast.user_type_filter:
                 users_query = users_query.filter(user_type=broadcast.user_type_filter)
-            if broadcast.language_filter:
-                users_query = users_query.filter(language=broadcast.language_filter)
             
             estimated_users = users_query.count()
             
