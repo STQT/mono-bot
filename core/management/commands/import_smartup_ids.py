@@ -29,14 +29,61 @@ class Command(BaseCommand):
         skipped_count = 0
         error_count = 0
         
+        # Пробуем разные кодировки и определяем разделитель
+        encodings = ['utf-8', 'utf-8-sig', 'cp1251', 'latin-1']
+        file_encoding = None
+        delimiter = ','
+        
+        for encoding in encodings:
+            try:
+                with open(csv_file_path, 'r', encoding=encoding) as f:
+                    # Читаем первые строки для анализа
+                    sample_lines = []
+                    for i in range(10):
+                        line = f.readline()
+                        if not line:
+                            break
+                        sample_lines.append(line)
+                    
+                    if not sample_lines:
+                        raise CommandError('Файл пуст')
+                    
+                    # Пробуем определить разделитель
+                    sample = ''.join(sample_lines[:5])  # Используем первые 5 строк для анализа
+                    
+                    try:
+                        sniffer = csv.Sniffer()
+                        detected_delimiter = sniffer.sniff(sample).delimiter
+                        # Проверяем, что разделитель действительно есть в файле
+                        if detected_delimiter and detected_delimiter in sample:
+                            delimiter = detected_delimiter
+                    except (csv.Error, AttributeError, TypeError):
+                        pass
+                    
+                    # Если не удалось определить автоматически, пробуем стандартные разделители
+                    if delimiter == ',':
+                        common_delimiters = [',', ';', '\t', '|']
+                        delimiter_counts = {}
+                        for delim in common_delimiters:
+                            delimiter_counts[delim] = sample.count(delim)
+                        
+                        # Выбираем разделитель, который встречается чаще всего
+                        if delimiter_counts and max(delimiter_counts.values()) > 0:
+                            delimiter = max(delimiter_counts, key=delimiter_counts.get)
+                    
+                    file_encoding = encoding
+                    break
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                if 'encoding' not in str(e).lower():
+                    raise
+        
+        if not file_encoding:
+            raise CommandError(f'Не удалось открыть файл с кодировками: {", ".join(encodings)}')
+        
         try:
-            with open(csv_file_path, 'r', encoding='utf-8') as f:
-                # Пробуем определить разделитель
-                sample = f.read(1024)
-                f.seek(0)
-                sniffer = csv.Sniffer()
-                delimiter = sniffer.sniff(sample).delimiter
-                
+            with open(csv_file_path, 'r', encoding=file_encoding) as f:
                 reader = csv.reader(f, delimiter=delimiter)
                 
                 # Пропускаем заголовок, если есть
