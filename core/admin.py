@@ -1076,7 +1076,7 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     """Админка для массовых рассылок."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
-        'sent_count', 'failed_count', 'created_at', 'completed_at', 'send_button'
+        'sent_count', 'failed_count', 'created_at', 'completed_at'
     ]
     list_filter = ['status', 'user_type_filter', 'region_filter', 'created_at']
     search_fields = ['title', 'message_text']
