@@ -128,6 +128,51 @@ class TelegramUser(models.Model):
         from core.regions import get_district_name
         return get_district_name(district_code, region_code, language)
     
+    def calculate_points(self, force=False):
+        """
+        Вычисляет баллы пользователя на основе промокодов и активных заказов.
+        Использует Redis кеш (1 минута).
+        
+        points = сумма QR-кодов - сумма активных заказов
+        Отмененные, отклоненные и невыданные заказы НЕ учитываются (возвращаются).
+        """
+        from django.core.cache import cache
+        
+        cache_key = f'user_points_{self.id}'
+        if not force:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
+        
+        # Сумма всех баллов с отсканированных QR-кодов
+        total_earned = QRCode.objects.filter(
+            scanned_by=self, is_scanned=True
+        ).aggregate(total=models.Sum('points'))['total'] or 0
+        
+        # Сумма стоимости активных заказов (не отмененных/отклоненных)
+        total_spent = GiftRedemption.objects.filter(
+            user=self
+        ).exclude(
+            status__in=['rejected', 'cancelled_by_user', 'not_received']
+        ).aggregate(
+            total=models.Sum('gift__points_cost')
+        )['total'] or 0
+        
+        calculated = max(0, total_earned - total_spent)
+        
+        # Синхронизируем денормализованное поле
+        if self.points != calculated:
+            TelegramUser.objects.filter(id=self.id).update(points=calculated)
+            self.points = calculated
+        
+        cache.set(cache_key, calculated, 60)  # 1 минута кеш
+        return calculated
+    
+    def invalidate_points_cache(self):
+        """Инвалидирует кеш баллов пользователя."""
+        from django.core.cache import cache
+        cache.delete(f'user_points_{self.id}')
+    
     def __str__(self):
         return f"{self.first_name or 'Unknown'} (@{self.username or 'no_username'})"
 
@@ -373,6 +418,7 @@ class GiftRedemption(models.Model):
         ('completed', 'Mahsulotni qabul qilganingizni tasdiqlang'),  # Подтверждение получения продукта
         ('rejected', 'So\'rov bekor qilindi (administrator bilan bog\'laning)'),  # Запрос отменен
         ('not_received', 'Sovg\'a berilmagan (foydalanuvchi olmadi)'),  # Подарок не выдан (пользователь не получил)
+        ('cancelled_by_user', 'Foydalanuvchi tomonidan bekor qilindi'),  # Отменен пользователем
     ]
     
     user = models.ForeignKey(
@@ -394,7 +440,6 @@ class GiftRedemption(models.Model):
         verbose_name='Holat'
     )
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name='So\'ralgan vaqt')
-    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Qayta ishlangan vaqt')
     admin_notes = models.TextField(blank=True, verbose_name='Administrator eslatmalari')
     # Поле delivery_status удалено - теперь используется только status
     user_confirmed = models.BooleanField(default=False, verbose_name='Foydalanuvchi tomonidan tasdiqlandi')

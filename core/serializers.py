@@ -103,10 +103,10 @@ class GiftRedemptionSerializer(serializers.ModelSerializer):
         model = GiftRedemption
         fields = [
             'id', 'user', 'gift', 'status',
-            'requested_at', 'processed_at', 'admin_notes',
+            'requested_at', 'admin_notes',
             'user_confirmed', 'user_comment', 'confirmed_at'
         ]
-        read_only_fields = ['id', 'requested_at', 'processed_at', 'confirmed_at']
+        read_only_fields = ['id', 'requested_at', 'confirmed_at']
     
     def get_gift(self, obj):
         """Возвращает подарок с учетом языка пользователя."""

@@ -25,16 +25,16 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
     list_display = [
         'user_display', 'phone_number', 'region_display', 'district_display', 
-        'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at'
+        'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at', 'send_message_button'
     ]
     list_filter = ['user_type', 'is_active', 'language', 'region', 'district', 'created_at']
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
-        'last_message_sent_at', 'blocked_bot_at', 'region', 'district'
+        'last_message_sent_at', 'blocked_bot_at', 'region', 'district', 'points'
     ]
     ordering = ['region', 'district', '-created_at']
-    actions = ['send_personal_message_action', 'mark_as_active', 'mark_as_inactive', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
+    actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
     list_per_page = 50
     date_hierarchy = 'created_at'
     
@@ -68,8 +68,12 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     user_type_badge.admin_order_field = 'user_type'
     
     def points_display(self, obj):
-        """Отображает баллы с цветом."""
-        points_formatted = f"{obj.points:,}".replace(",", " ")
+        """Отображает баллы с цветом (вычисляются динамически)."""
+        try:
+            calculated = obj.calculate_points()
+        except Exception:
+            calculated = obj.points
+        points_formatted = f"{calculated:,}".replace(",", " ")
         return format_html(
             '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
             points_formatted
@@ -263,18 +267,6 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
         return TemplateResponse(request, 'admin/core/telegramuser/send_message.html', context)
     send_personal_message_action.short_description = 'Отправить персональное сообщение выбранным пользователям'
     
-    def mark_as_active(self, request, queryset):
-        """Пометить пользователей как активных."""
-        queryset.update(is_active=True, blocked_bot_at=None)
-        self.message_user(request, f'{queryset.count()} пользователей помечено как активные')
-    mark_as_active.short_description = 'Пометить как активных'
-    
-    def mark_as_inactive(self, request, queryset):
-        """Пометить пользователей как неактивных."""
-        queryset.update(is_active=False)
-        self.message_user(request, f'{queryset.count()} пользователей помечено как неактивные')
-    mark_as_inactive.short_description = 'Пометить как неактивных'
-    
     def get_search_results(self, request, queryset, search_term):
         """Кастомный поиск с поддержкой поиска по последним 4 цифрам номера телефона."""
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
@@ -343,6 +335,78 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             messages.SUCCESS
         )
     change_user_type_to_seller.short_description = 'Изменить тип на: 🛒 Продавец (Предприниматель)'
+    
+    def send_message_button(self, obj):
+        """Кнопка отправки сообщения в списке."""
+        from django.urls import reverse
+        url = reverse('admin:core_telegramuser_send_single_message', args=[obj.pk])
+        return format_html(
+            '<a href="{}" style="background: #667eea; color: white; padding: 6px 12px; '
+            'border-radius: 4px; text-decoration: none; white-space: nowrap; font-size: 12px;">💬 Написать</a>',
+            url
+        )
+    send_message_button.short_description = 'Сообщение'
+    
+    def get_urls(self):
+        """Добавляет кастомные URL."""
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:user_id>/send_message/', self.admin_site.admin_view(self.send_single_message_view), name='core_telegramuser_send_single_message'),
+        ]
+        return custom_urls + urls
+    
+    def send_single_message_view(self, request, user_id):
+        """Страница отправки сообщения конкретному пользователю."""
+        from django import forms
+        
+        user = TelegramUser.objects.get(pk=user_id)
+        
+        class MessageForm(forms.Form):
+            message = forms.CharField(widget=forms.Textarea, label='Текст сообщения')
+            parse_mode = forms.ChoiceField(
+                choices=[('', 'Без форматирования'), ('HTML', 'HTML'), ('Markdown', 'Markdown')],
+                required=False,
+                label='Режим парсинга'
+            )
+        
+        if request.method == 'POST':
+            form = MessageForm(request.POST)
+            if form.is_valid():
+                message_text = form.cleaned_data['message']
+                parse_mode = form.cleaned_data['parse_mode'] or None
+                
+                import asyncio
+                from core.messaging import send_personal_message
+                
+                async def send():
+                    from aiogram import Bot
+                    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+                    try:
+                        return await send_personal_message(bot=bot, telegram_id=user.telegram_id, text=message_text, parse_mode=parse_mode)
+                    finally:
+                        await bot.session.close()
+                
+                success, error = asyncio.run(send())
+                if success:
+                    self.message_user(request, f'Сообщение отправлено пользователю {user}', messages.SUCCESS)
+                else:
+                    self.message_user(request, f'Ошибка: {error}', messages.ERROR)
+                return redirect('admin:core_telegramuser_changelist')
+        else:
+            form = MessageForm()
+        
+        context = {
+            **self.admin_site.each_context(request),
+            'form': form,
+            'users': TelegramUser.objects.filter(pk=user_id),
+            'title': f'Отправить сообщение: {user}',
+            'opts': self.model._meta,
+            'has_view_permission': True,
+            'has_add_permission': False,
+            'has_change_permission': False,
+            'has_delete_permission': False,
+        }
+        return TemplateResponse(request, 'admin/core/telegramuser/send_message.html', context)
 
 
 class QRCodeScanAttemptInline(admin.TabularInline):
@@ -769,7 +833,7 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
         'redemption_display', 'telegram_id_display', 'phone_number_display', 'status_badge', 
-        'user_confirmed_badge', 'requested_at', 'processed_at'
+        'user_confirmed_badge', 'requested_at'
     ]
     list_filter = ['status', 'user_confirmed', 'requested_at']
     search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name']
@@ -818,6 +882,8 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
             'sent': ('#dbeafe', '#1e40af', '📦'),
             'completed': ('#d1ecf1', '#0c5460', '✔️'),
             'rejected': ('#f8d7da', '#721c24', '❌'),
+            'cancelled_by_user': ('#fce4ec', '#c62828', '🚫'),
+            'not_received': ('#fff3e0', '#e65100', '⚠️'),
         }
         bg, text, icon = colors.get(obj.status, ('#f3f4f6', '#374151', '📋'))
         label = dict(obj._meta.get_field('status').choices).get(obj.status, obj.status)
@@ -858,7 +924,7 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
             'fields': ('user', 'gift', 'requested_at')
         }),
         ('Обработка', {
-            'fields': ('status', 'processed_at', 'admin_notes')
+            'fields': ('status', 'admin_notes')
         }),
         ('Подтверждение пользователем', {
             'fields': ('user_confirmed', 'user_comment', 'confirmed_at')
@@ -931,15 +997,15 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
             # Получаем старые значения статуса
             old_obj = GiftRedemption.objects.get(pk=obj.pk)
             old_status = old_obj.status
-            
-            # Устанавливаем processed_at при изменении статуса
-            if 'status' in form.changed_data:
-                if obj.status != 'pending' and not obj.processed_at:
-                    from django.utils import timezone
-                    obj.processed_at = timezone.now()
         
         # Сохраняем объект
         super().save_model(request, obj, form, change)
+        
+        # Инвалидируем кеш баллов при изменении статуса на отмену/отклонение
+        if change and 'status' in form.changed_data:
+            if obj.status in ['rejected', 'cancelled_by_user', 'not_received']:
+                obj.user.invalidate_points_cache()
+                obj.user.calculate_points(force=True)
         
         # Отправляем уведомления после сохранения
         if change:
@@ -1010,7 +1076,7 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     """Админка для массовых рассылок."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
-        'sent_count', 'failed_count', 'created_at', 'completed_at'
+        'sent_count', 'failed_count', 'created_at', 'completed_at', 'send_button'
     ]
     list_filter = ['status', 'user_type_filter', 'region_filter', 'created_at']
     search_fields = ['title', 'message_text']

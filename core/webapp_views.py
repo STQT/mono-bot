@@ -101,7 +101,7 @@ def get_user_data(request):
             'telegram_id': user.telegram_id,
             'first_name': user.first_name,
             'username': user.username,
-            'points': user.points,
+            'points': user.calculate_points(),
             'user_type': user.user_type,
             'language': user.language,
         }
@@ -220,8 +220,9 @@ def request_gift(request):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        if user.points < gift.points_cost:
-            # Получаем перевод ошибки
+        # Проверяем баланс (вычисляемый, без кеша для точности)
+        current_points = user.calculate_points(force=True)
+        if current_points < gift.points_cost:
             from bot.translations import get_text
             error_message = get_text(user, 'INSUFFICIENT_POINTS')
             return Response(
@@ -236,9 +237,9 @@ def request_gift(request):
             status='pending'
         )
         
-        # Списываем баллы
-        user.points -= gift.points_cost
-        user.save(update_fields=['points'])
+        # Инвалидируем кеш и пересчитываем баллы
+        user.invalidate_points_cache()
+        user.calculate_points(force=True)
         
         serializer = GiftRedemptionSerializer(redemption, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -251,6 +252,67 @@ def request_gift(request):
     except Gift.DoesNotExist:
         return Response(
             {'error': 'Gift not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@no_cache_response
+def cancel_order(request):
+    """Отмена заказа пользователем (в течение 1 часа после создания)."""
+    redemption_id = request.data.get('redemption_id')
+    telegram_id = request.data.get('telegram_id')
+    
+    if not redemption_id or not telegram_id:
+        return Response(
+            {'error': 'redemption_id and telegram_id are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+        redemption = GiftRedemption.objects.get(id=redemption_id, user=user)
+        
+        # Проверяем статус - можно отменить только pending
+        if redemption.status != 'pending':
+            return Response(
+                {'error': 'Можно отменить только заказы в статусе ожидания'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Проверяем 1-часовое окно
+        time_diff = timezone.now() - redemption.requested_at
+        if time_diff.total_seconds() > 3600:  # 1 час = 3600 секунд
+            from bot.translations import get_text
+            return Response(
+                {'error': get_text(user, 'WEBAPP_CANCEL_ORDER_EXPIRED')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Отменяем заказ
+        redemption.status = 'cancelled_by_user'
+        redemption.save(update_fields=['status'])
+        
+        # Инвалидируем кеш и пересчитываем баллы (баллы возвращаются автоматически)
+        user.invalidate_points_cache()
+        user.calculate_points(force=True)
+        
+        serializer = GiftRedemptionSerializer(redemption, context={'request': request})
+        return Response({
+            'success': True,
+            'redemption': serializer.data,
+            'new_points': user.calculate_points()
+        })
+        
+    except TelegramUser.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except GiftRedemption.DoesNotExist:
+        return Response(
+            {'error': 'Redemption not found'},
             status=status.HTTP_404_NOT_FOUND
         )
 
@@ -636,10 +698,6 @@ def register_qr_code(request):
             user.user_type = qr_code.code_type
             user.save(update_fields=['user_type'])
         
-        # Начисляем баллы
-        user.points += qr_code.points
-        user.save(update_fields=['points'])
-        
         # Отмечаем QR-код как отсканированный
         qr_code.is_scanned = True
         qr_code.scanned_at = timezone.now()
@@ -653,17 +711,21 @@ def register_qr_code(request):
             is_successful=True
         )
         
+        # Инвалидируем кеш и пересчитываем баллы
+        user.invalidate_points_cache()
+        total_points = user.calculate_points(force=True)
+        
         from bot.translations import get_text
         success_message = get_text(user, 'QR_ACTIVATED',
             points=qr_code.points,
-            total_points=user.points
+            total_points=total_points
         )
         
         return Response({
             'success': True,
             'message': success_message,
             'points': qr_code.points,
-            'total_points': user.points
+            'total_points': total_points
         })
         
     except Exception as e:

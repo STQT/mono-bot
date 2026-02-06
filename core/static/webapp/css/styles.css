@@ -912,6 +912,10 @@ body {
     color: #EAB208;
 }
 
+.order-status.cancelled_by_user {
+    color: #7C3AED;
+}
+
 .order-date {
     font-size: 0.75rem; /* 12px */
     color: #999999;
@@ -1373,6 +1377,11 @@ body {
 .gift-status.not_received {
     background: #FEE2E2;
     color: #DC2626;
+}
+
+.gift-status.cancelled_by_user {
+    background: #EDE9FE;
+    color: #7C3AED;
 }
 
 .gift-status.sent {
