@@ -1076,7 +1076,7 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     """Админка для массовых рассылок."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
-        'sent_count', 'failed_count', 'created_at', 'completed_at'
+        'sent_count', 'failed_count', 'created_at', 'completed_at', 'send_button'
     ]
     list_filter = ['status', 'user_type_filter', 'region_filter', 'created_at']
     search_fields = ['title', 'message_text']
@@ -1102,6 +1102,74 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     )
     
     actions = ['send_broadcast_action']
+    
+    def send_button(self, obj):
+        """Кнопка отправки рассылки в списке."""
+        if obj.status == 'pending':
+            from django.urls import reverse
+            url = reverse('admin:core_broadcastmessage_send_single', args=[obj.pk])
+            return format_html(
+                '<a href="{}" style="background: #28a745; color: white; padding: 6px 12px; '
+                'border-radius: 4px; text-decoration: none; white-space: nowrap; font-size: 12px;" '
+                'onclick="return confirm(\'Отправить рассылку?\');">📤 Отправить</a>',
+                url
+            )
+        elif obj.status == 'sending':
+            return format_html(
+                '<span style="color: #1e40af; font-size: 12px;">🔄 Отправляется...</span>'
+            )
+        elif obj.status == 'completed':
+            return format_html(
+                '<span style="color: #155724; font-size: 12px;">✅ Отправлено</span>'
+            )
+        return '-'
+    send_button.short_description = 'Действие'
+    
+    def get_urls(self):
+        """Добавляет кастомные URL."""
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:broadcast_id>/send/', self.admin_site.admin_view(self.send_single_broadcast_view), name='core_broadcastmessage_send_single'),
+        ]
+        return custom_urls + urls
+    
+    def send_single_broadcast_view(self, request, broadcast_id):
+        """Отправка конкретной рассылки."""
+        import subprocess
+        
+        try:
+            broadcast = BroadcastMessage.objects.get(pk=broadcast_id)
+        except BroadcastMessage.DoesNotExist:
+            self.message_user(request, 'Рассылка не найдена', messages.ERROR)
+            return redirect('admin:core_broadcastmessage_changelist')
+        
+        if broadcast.status != 'pending':
+            self.message_user(request, f'Рассылка "{broadcast.title}" уже была отправлена', messages.WARNING)
+            return redirect('admin:core_broadcastmessage_changelist')
+        
+        # Предварительно оцениваем количество пользователей
+        users_query = TelegramUser.objects.filter(is_active=True)
+        if broadcast.user_type_filter:
+            users_query = users_query.filter(user_type=broadcast.user_type_filter)
+        estimated_users = users_query.count()
+        
+        LARGE_BROADCAST_THRESHOLD = 20000
+        
+        if estimated_users >= LARGE_BROADCAST_THRESHOLD:
+            try:
+                from core.tasks import send_broadcast_chained
+                send_broadcast_chained.delay(broadcast.id)
+                self.message_user(request, f'Рассылка "{broadcast.title}" запущена через Celery ({estimated_users} пользователей)', messages.SUCCESS)
+            except Exception as e:
+                self.message_user(request, f'Ошибка: {e}', messages.ERROR)
+        else:
+            try:
+                subprocess.Popen(['python', 'manage.py', 'send_broadcast', str(broadcast.id)])
+                self.message_user(request, f'Рассылка "{broadcast.title}" запущена', messages.SUCCESS)
+            except Exception as e:
+                self.message_user(request, f'Ошибка: {e}', messages.ERROR)
+        
+        return redirect('admin:core_broadcastmessage_changelist')
     
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         """Добавляет опцию 'Всем' в фильтр по типу пользователя."""
