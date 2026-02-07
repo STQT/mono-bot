@@ -836,7 +836,7 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
         'user_confirmed_badge', 'requested_at'
     ]
     list_filter = ['status', 'user_confirmed', 'requested_at']
-    search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name']
+    search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name_uz_latin', 'gift__name_ru']
     readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
     list_per_page = 50
     date_hierarchy = 'requested_at'
