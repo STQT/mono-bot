@@ -948,7 +948,9 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
                     kwargs['choices'] = filtered_choices
                 # Call Center видит только 'pending', 'approved', 'sent'
                 elif is_call_center:
-                    filtered_choices = [choice for choice in choices if choice[0] in ['pending', 'approved', 'sent', 'rejected']]
+                    filtered_choices = [choice for choice in choices if choice[0] in 
+                    ['pending', 'approved', 'sent', 'completed', 'rejected', 'cancelled_by_user']
+                    ]
                 kwargs['choices'] = filtered_choices
             
         return super().formfield_for_dbfield(db_field, request, **kwargs)
