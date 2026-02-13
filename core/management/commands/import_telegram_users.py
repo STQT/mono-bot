@@ -208,97 +208,122 @@ class Command(BaseCommand):
                 continue
             
             try:
+                # Подготавливаем данные для обновления/создания
+                defaults_data = {
+                    'username': user_data.get('username'),
+                    'first_name': user_data.get('first_name'),
+                    'last_name': user_data.get('last_name'),
+                    'phone_number': user_data.get('phone_number'),
+                    'latitude': user_data.get('latitude'),
+                    'longitude': user_data.get('longitude'),
+                    'user_type': user_data.get('user_type'),
+                    'points': user_data.get('points', 0),
+                    'is_active': user_data.get('is_active', True),
+                    'last_message_sent_at': user_data.get('last_message_sent_at'),
+                    'blocked_bot_at': user_data.get('blocked_bot_at'),
+                    'language': user_data.get('language', 'uz_latin'),
+                    'privacy_accepted': user_data.get('privacy_accepted', False),
+                    'district': user_data.get('district'),
+                    'region': user_data.get('region'),
+                    'smartup_id': user_data.get('smartup_id'),
+                }
+                
                 if dry_run:
                     # В режиме dry-run только проверяем существование
                     try:
-                        user = TelegramUser.objects.get(telegram_id=telegram_id)
+                        existing_user = TelegramUser.objects.get(telegram_id=telegram_id)
                         created = False
-                    except TelegramUser.DoesNotExist:
-                        created = True
-                        user = None
-                else:
-                    # Ищем существующего пользователя по telegram_id
-                    user, created = TelegramUser.objects.get_or_create(
-                        telegram_id=telegram_id,
-                        defaults={
-                            'username': user_data.get('username'),
-                            'first_name': user_data.get('first_name'),
-                            'last_name': user_data.get('last_name'),
-                            'phone_number': user_data.get('phone_number'),
-                            'latitude': user_data.get('latitude'),
-                            'longitude': user_data.get('longitude'),
-                            'user_type': user_data.get('user_type'),
-                            'points': user_data.get('points', 0),
-                            'is_active': user_data.get('is_active', True),
-                            'last_message_sent_at': user_data.get('last_message_sent_at'),
-                            'blocked_bot_at': user_data.get('blocked_bot_at'),
-                            'language': user_data.get('language', 'uz_latin'),
-                            'privacy_accepted': user_data.get('privacy_accepted', False),
-                            'district': user_data.get('district'),
-                            'region': user_data.get('region'),
-                            'smartup_id': user_data.get('smartup_id'),
-                        }
-                    )
-                
-                if created:
-                    imported_count += 1
-                    if not dry_run:
-                        # Устанавливаем created_at и updated_at если они есть в данных
-                        if user_data.get('created_at'):
-                            user.created_at = user_data['created_at']
+                        # Проверяем нужно ли обновление
+                        should_update = False
                         if user_data.get('updated_at'):
-                            user.updated_at = user_data['updated_at']
-                        user.save()
-                else:
-                    # Обновляем существующего пользователя только если данные новее
-                    should_update = False
-                    if user_data.get('updated_at'):
-                        # Убеждаемся, что оба datetime являются timezone-aware
-                        new_updated_at = user_data['updated_at']
-                        existing_updated_at = user.updated_at if user else None
-                        
-                        if existing_updated_at:
-                            # Если существующий updated_at не aware, делаем его aware
-                            if timezone.is_naive(existing_updated_at):
-                                existing_updated_at = timezone.make_aware(existing_updated_at, dt_timezone.utc)
+                            new_updated_at = user_data['updated_at']
+                            existing_updated_at = existing_user.updated_at
                             
-                            if new_updated_at and new_updated_at > existing_updated_at:
+                            if existing_updated_at:
+                                if timezone.is_naive(existing_updated_at):
+                                    existing_updated_at = timezone.make_aware(existing_updated_at, dt_timezone.utc)
+                                if new_updated_at and new_updated_at > existing_updated_at:
+                                    should_update = True
+                            else:
                                 should_update = True
                         else:
-                            # Если нет существующего updated_at, обновляем
                             should_update = True
-                    else:
-                        # Если нет updated_at в данных, всегда обновляем
-                        should_update = True
+                        
+                        if should_update:
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    except TelegramUser.DoesNotExist:
+                        created = True
+                        imported_count += 1
+                else:
+                    # Используем update_or_create с telegram_id как уникальным ключом
+                    # НЕ передаем id из бэкапа - пусть Django сам генерирует новый id
+                    user, created = TelegramUser.objects.update_or_create(
+                        telegram_id=telegram_id,
+                        defaults=defaults_data
+                    )
                     
-                    if should_update:
-                        if not dry_run:
-                            # Обновляем поля
-                            for field in [
-                                'username', 'first_name', 'last_name', 'phone_number',
-                                'latitude', 'longitude', 'user_type', 'points',
-                                'is_active', 'last_message_sent_at', 'blocked_bot_at',
-                                'language', 'privacy_accepted', 'district', 'region', 'smartup_id'
-                            ]:
-                                if user_data.get(field) is not None:
-                                    setattr(user, field, user_data[field])
+                    if created:
+                        imported_count += 1
+                        # Для новых пользователей устанавливаем created_at и updated_at через update()
+                        # чтобы избежать создания истории через save()
+                        update_fields = {}
+                        if user_data.get('created_at'):
+                            update_fields['created_at'] = user_data['created_at']
+                        if user_data.get('updated_at'):
+                            update_fields['updated_at'] = user_data['updated_at']
+                        
+                        if update_fields:
+                            TelegramUser.objects.filter(telegram_id=telegram_id).update(**update_fields)
+                    else:
+                        # Для существующих пользователей проверяем нужно ли обновление
+                        should_update = False
+                        if user_data.get('updated_at'):
+                            new_updated_at = user_data['updated_at']
+                            existing_updated_at = user.updated_at
+                            
+                            if existing_updated_at:
+                                if timezone.is_naive(existing_updated_at):
+                                    existing_updated_at = timezone.make_aware(existing_updated_at, dt_timezone.utc)
+                                if new_updated_at and new_updated_at > existing_updated_at:
+                                    should_update = True
+                            else:
+                                should_update = True
+                        else:
+                            should_update = True
+                        
+                        if should_update:
+                            # Используем QuerySet.update() чтобы избежать создания истории через save()
+                            # Обновляем только те поля, которые не None
+                            update_fields = {}
+                            for field, value in defaults_data.items():
+                                if value is not None:
+                                    update_fields[field] = value
                             
                             if user_data.get('updated_at'):
-                                user.updated_at = user_data['updated_at']
+                                update_fields['updated_at'] = user_data['updated_at']
                             
-                            user.save()
-                        
-                        updated_count += 1
-                    else:
-                        skipped_count += 1
+                            if update_fields:
+                                TelegramUser.objects.filter(telegram_id=telegram_id).update(**update_fields)
+                            
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
                         
             except Exception as e:
                 error_count += 1
-                self.stdout.write(
-                    self.style.ERROR(
-                        f'Строка {line_num}: Ошибка при обработке telegram_id {telegram_id}: {e}'
+                # Ограничиваем количество сообщений об ошибках
+                if error_count <= 10:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'Строка {line_num}: Ошибка при обработке telegram_id {telegram_id}: {e}'
+                        )
                     )
-                )
+                elif error_count == 11:
+                    self.stdout.write(
+                        self.style.WARNING('... (остальные ошибки скрыты для краткости)')
+                    )
         
         # Выводим статистику
         self.stdout.write('\n' + '='*60)
