@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone as dt_timezone
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+from django.db import connection
 from core.models import TelegramUser
 
 
@@ -257,31 +258,63 @@ class Command(BaseCommand):
                         created = True
                         imported_count += 1
                 else:
-                    # Используем update_or_create с telegram_id как уникальным ключом
-                    # НЕ передаем id из бэкапа - пусть Django сам генерирует новый id
-                    user, created = TelegramUser.objects.update_or_create(
-                        telegram_id=telegram_id,
-                        defaults=defaults_data
-                    )
+                    # Проверяем существование пользователя по telegram_id
+                    user_exists = TelegramUser.objects.filter(telegram_id=telegram_id).exists()
                     
-                    if created:
-                        imported_count += 1
-                        # Для новых пользователей устанавливаем created_at и updated_at через update()
-                        # чтобы избежать создания истории через save()
-                        update_fields = {}
-                        if user_data.get('created_at'):
-                            update_fields['created_at'] = user_data['created_at']
-                        if user_data.get('updated_at'):
-                            update_fields['updated_at'] = user_data['updated_at']
+                    if not user_exists:
+                        # Создаем нового пользователя через прямой SQL чтобы избежать создания истории
+                        # Используем INSERT напрямую в таблицу core_telegramuser
+                        with connection.cursor() as cursor:
+                            # Подготавливаем значения для INSERT
+                            # Всегда добавляем обязательные поля и поля со значениями по умолчанию
+                            fields = ['telegram_id', 'points', 'is_active', 'language', 'privacy_accepted']
+                            values = [
+                                telegram_id,
+                                defaults_data.get('points', 0),
+                                defaults_data.get('is_active', True),
+                                defaults_data.get('language', 'uz_latin'),
+                                defaults_data.get('privacy_accepted', False)
+                            ]
+                            placeholders = ['%s', '%s', '%s', '%s', '%s']
+                            
+                            # Добавляем опциональные поля из defaults_data (только если не None)
+                            optional_fields = [
+                                'username', 'first_name', 'last_name', 'phone_number',
+                                'latitude', 'longitude', 'user_type',
+                                'last_message_sent_at', 'blocked_bot_at',
+                                'district', 'region', 'smartup_id'
+                            ]
+                            for field in optional_fields:
+                                value = defaults_data.get(field)
+                                if value is not None:
+                                    fields.append(field)
+                                    values.append(value)
+                                    placeholders.append('%s')
+                            
+                            # Добавляем created_at и updated_at если они есть
+                            if user_data.get('created_at'):
+                                fields.append('created_at')
+                                values.append(user_data['created_at'])
+                                placeholders.append('%s')
+                            if user_data.get('updated_at'):
+                                fields.append('updated_at')
+                                values.append(user_data['updated_at'])
+                                placeholders.append('%s')
+                            
+                            # Выполняем INSERT напрямую в таблицу
+                            fields_str = ', '.join(fields)
+                            placeholders_str = ', '.join(placeholders)
+                            sql = f"INSERT INTO core_telegramuser ({fields_str}) VALUES ({placeholders_str})"
+                            cursor.execute(sql, values)
                         
-                        if update_fields:
-                            TelegramUser.objects.filter(telegram_id=telegram_id).update(**update_fields)
+                        imported_count += 1
                     else:
-                        # Для существующих пользователей проверяем нужно ли обновление
+                        # Пользователь существует - проверяем нужно ли обновление
                         should_update = False
                         if user_data.get('updated_at'):
+                            existing_user = TelegramUser.objects.get(telegram_id=telegram_id)
                             new_updated_at = user_data['updated_at']
-                            existing_updated_at = user.updated_at
+                            existing_updated_at = existing_user.updated_at
                             
                             if existing_updated_at:
                                 if timezone.is_naive(existing_updated_at):
