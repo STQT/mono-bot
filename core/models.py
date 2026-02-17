@@ -343,7 +343,7 @@ class QRCodeScanAttempt(models.Model):
         verbose_name = 'Skanerlash urinishi'
         verbose_name_plural = 'Skanerlash urinishlari'
         ordering = ['-attempted_at']
-        unique_together = [['user', 'qr_code']]
+        # Удален unique_together, так как пользователь может делать несколько попыток сканирования одного QR-кода
     
     def __str__(self):
         status = 'Muvaffaqiyatli' if self.is_successful else 'Muvaffaqiyatsiz'

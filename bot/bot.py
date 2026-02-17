@@ -1182,121 +1182,91 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         @sync_to_async
         def process_qr_scan():
             from django.utils import timezone
+            from django.db import transaction
             from datetime import datetime, time as dt_time
             
-            # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
-            # Это предотвращает создание новых попыток, если лимит уже превышен
-            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_attempts = QRCodeScanAttempt.objects.filter(
-                user=user,
-                attempted_at__gte=today_start,
-                is_successful=False
-            ).count()
-            
-            if today_attempts >= settings.QR_CODE_MAX_ATTEMPTS:
-                # Лимит превышен - сразу возвращаем ошибку без создания новой попытки
-                return {'error': 'max_attempts'}
-            
-            # Нормализуем ввод: приводим к верхнему регистру для поиска
-            qr_code_str_normalized = qr_code_str.upper().strip()
-            
-            # Ищем QR-код по коду или hash_code (case-insensitive)
-            try:
-                # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
-                qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
-                # Сначала ищем по полному коду (EABC123 или DABC123)
-                qr_code = QRCode.objects.get(code=qr_code_str)
-            except QRCode.DoesNotExist:
-                # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
+            # Используем транзакцию для атомарности операций
+            with transaction.atomic():
+                # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
+                # Это предотвращает создание новых попыток, если лимит уже превышен
+                today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_attempts = QRCodeScanAttempt.objects.filter(
+                    user=user,
+                    attempted_at__gte=today_start,
+                    is_successful=False
+                ).count()
+                
+                if today_attempts >= settings.QR_CODE_MAX_ATTEMPTS:
+                    # Лимит превышен - сразу возвращаем ошибку без создания новой попытки
+                    return {'error': 'max_attempts'}
+                
+                # Нормализуем ввод: приводим к верхнему регистру для поиска
+                qr_code_str_normalized = qr_code_str.upper().strip()
+                
+                # Ищем QR-код по коду или hash_code (case-insensitive)
+                qr_code = None
                 try:
-                    qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
+                    # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
+                    qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
                 except QRCode.DoesNotExist:
-                    # Создаем запись о неудачной попытке только если лимит еще не превышен
-                    # Но сначала проверяем, не превысили ли мы лимит после предыдущей проверки
-                    today_attempts_after = QRCodeScanAttempt.objects.filter(
-                        user=user,
-                        attempted_at__gte=today_start,
-                        is_successful=False
-                    ).count()
-                    if today_attempts_after < settings.QR_CODE_MAX_ATTEMPTS:
-                        # Создаем временный QR-код для записи попытки (если нужно)
-                        # Но так как QR-код не найден, просто возвращаем ошибку
+                    # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
+                    try:
+                        qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
+                    except QRCode.DoesNotExist:
+                        # QR-код не найден, возвращаем ошибку без создания попытки
                         return {'error': 'not_found'}
-                    else:
-                        return {'error': 'max_attempts'}
-            
-            # Проверяем, не был ли уже отсканирован
-            if qr_code.is_scanned:
-                # Проверяем лимит еще раз перед созданием попытки
-                today_attempts_before_scan = QRCodeScanAttempt.objects.filter(
-                    user=user,
-                    attempted_at__gte=today_start,
-                    is_successful=False
-                ).count()
                 
-                if today_attempts_before_scan >= settings.QR_CODE_MAX_ATTEMPTS:
-                    return {'error': 'max_attempts'}
+                # Проверяем, не был ли уже отсканирован
+                if qr_code.is_scanned:
+                    # Создаем запись о неудачной попытке
+                    QRCodeScanAttempt.objects.create(
+                        user=user,
+                        qr_code=qr_code,
+                        is_successful=False
+                    )
+                    return {'error': 'already_scanned'}
                 
-                # Создаем запись о неудачной попытке
+                # Валидация типа кода - проверяем соответствие типу пользователя
+                if user.user_type and user.user_type != qr_code.code_type:
+                    # Создаем запись о неудачной попытке (несоответствие типа)
+                    QRCodeScanAttempt.objects.create(
+                        user=user,
+                        qr_code=qr_code,
+                        is_successful=False
+                    )
+                    return {'error': 'wrong_type'}
+                
+                # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
+                if not user.user_type:
+                    user.user_type = qr_code.code_type
+                    user.save(update_fields=['user_type'])
+                
+                # Начисляем баллы
+                user.points += qr_code.points
+                user.save(update_fields=['points'])
+                
+                # Отмечаем QR-код как отсканированный
+                qr_code.is_scanned = True
+                qr_code.scanned_at = timezone.now()
+                qr_code.scanned_by = user
+                qr_code.save(update_fields=['is_scanned', 'scanned_at', 'scanned_by'])
+                
+                # Создаем запись об успешной попытке
                 QRCodeScanAttempt.objects.create(
                     user=user,
                     qr_code=qr_code,
-                    is_successful=False
+                    is_successful=True
                 )
-                return {'error': 'already_scanned'}
-            
-            # Валидация типа кода - проверяем соответствие типу пользователя
-            if user.user_type and user.user_type != qr_code.code_type:
-                # Проверяем лимит перед созданием попытки
-                today_attempts_before_type_check = QRCodeScanAttempt.objects.filter(
-                    user=user,
-                    attempted_at__gte=today_start,
-                    is_successful=False
-                ).count()
                 
-                if today_attempts_before_type_check >= settings.QR_CODE_MAX_ATTEMPTS:
-                    return {'error': 'max_attempts'}
-                
-                # Создаем запись о неудачной попытке (несоответствие типа)
-                QRCodeScanAttempt.objects.create(
-                    user=user,
-                    qr_code=qr_code,
-                    is_successful=False
-                )
-                return {'error': 'wrong_type'}
-            
-            # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
-            if not user.user_type:
-                user.user_type = qr_code.code_type
-                user.save(update_fields=['user_type'])
-            
-            # Начисляем баллы
-            user.points += qr_code.points
-            user.save(update_fields=['points'])
-            
-            # Отмечаем QR-код как отсканированный
-            qr_code.is_scanned = True
-            qr_code.scanned_at = timezone.now()
-            qr_code.scanned_by = user
-            qr_code.save(update_fields=['is_scanned', 'scanned_at', 'scanned_by'])
-            
-            # Создаем запись об успешной попытке
-            QRCodeScanAttempt.objects.create(
-                user=user,
-                qr_code=qr_code,
-                is_successful=True
-            )
-            
-            return {
-                'success': True,
-                'points': qr_code.points,
-                'total_points': user.points
-            }
+                return {
+                    'success': True,
+                    'points': qr_code.points,
+                    'total_points': user.points
+                }
         
         result = await process_qr_scan()
         
         # Проверяем, завершена ли регистрация (для определения, нужно ли показывать меню или продолжать регистрацию)
-        @sync_to_async
         @sync_to_async
         def get_user_for_reg_check():
             return TelegramUser.objects.get(telegram_id=message.from_user.id)

@@ -583,153 +583,116 @@ def register_qr_code(request):
             status=status.HTTP_404_NOT_FOUND
         )
     
+    from django.db import transaction
+    from bot.translations import get_text
+    
     try:
-        # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
-        # Это предотвращает создание новых попыток, если лимит уже превышен
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_attempts = QRCodeScanAttempt.objects.filter(
-            user=user,
-            attempted_at__gte=today_start,
-            is_successful=False
-        ).count()
-        
-        max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 5)
-        if today_attempts >= max_attempts:
-            from bot.translations import get_text
-            error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
-            return Response(
-                {'error': error_message, 'error_code': 'max_attempts'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Ищем QR-код по коду или hash_code
-        try:
-            # Сначала ищем по полному коду (EABC123 или DABC123)
-            qr_code = QRCode.objects.get(code=qr_code_str)
-        except QRCode.DoesNotExist:
-            # Если не нашли, пробуем найти по hash_code (без префикса)
+        # Используем транзакцию для атомарности операций
+        with transaction.atomic():
+            # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
+            # Это предотвращает создание новых попыток, если лимит уже превышен
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_attempts = QRCodeScanAttempt.objects.filter(
+                user=user,
+                attempted_at__gte=today_start,
+                is_successful=False
+            ).count()
+            
+            max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 5)
+            if today_attempts >= max_attempts:
+                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+                return Response(
+                    {'error': error_message, 'error_code': 'max_attempts'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Нормализуем ввод: приводим к верхнему регистру для поиска
+            qr_code_str_normalized = qr_code_str.upper().strip()
+            
+            # Ищем QR-код по коду или hash_code (case-insensitive)
+            qr_code = None
             try:
-                qr_code = QRCode.objects.get(hash_code=qr_code_str)
+                # Сначала ищем по полному коду (E-ABC123 или D-ABC123) - нечувствительно к регистру
+                qr_code = QRCode.objects.get(code__iexact=qr_code_str_normalized)
             except QRCode.DoesNotExist:
-                # Проверяем лимит еще раз перед возвратом ошибки
-                today_attempts_after = QRCodeScanAttempt.objects.filter(
-                    user=user,
-                    attempted_at__gte=today_start,
-                    is_successful=False
-                ).count()
-                
-                if today_attempts_after >= max_attempts:
-                    from bot.translations import get_text
-                    error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+                # Если не нашли, пробуем найти по hash_code (без префикса) - нечувствительно к регистру
+                try:
+                    qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
+                except QRCode.DoesNotExist:
+                    # QR-код не найден, возвращаем ошибку без создания попытки
+                    error_message = get_text(user, 'QR_NOT_FOUND')
                     return Response(
-                        {'error': error_message, 'error_code': 'max_attempts'},
-                        status=status.HTTP_400_BAD_REQUEST
+                        {'error': error_message, 'error_code': 'not_found'},
+                        status=status.HTTP_404_NOT_FOUND
                     )
-                
-                from bot.translations import get_text
-                error_message = get_text(user, 'QR_NOT_FOUND')
-                return Response(
-                    {'error': error_message, 'error_code': 'not_found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        
-        # Проверяем, не был ли уже отсканирован
-        if qr_code.is_scanned:
-            # Проверяем лимит еще раз перед созданием попытки
-            today_attempts_before_scan = QRCodeScanAttempt.objects.filter(
-                user=user,
-                attempted_at__gte=today_start,
-                is_successful=False
-            ).count()
             
-            if today_attempts_before_scan >= max_attempts:
-                from bot.translations import get_text
-                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+            # Проверяем, не был ли уже отсканирован
+            if qr_code.is_scanned:
+                # Создаем запись о неудачной попытке
+                QRCodeScanAttempt.objects.create(
+                    user=user,
+                    qr_code=qr_code,
+                    is_successful=False
+                )
+                error_message = get_text(user, 'QR_ALREADY_SCANNED')
                 return Response(
-                    {'error': error_message, 'error_code': 'max_attempts'},
+                    {'error': error_message, 'error_code': 'already_scanned'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Создаем запись о неудачной попытке
-            QRCodeScanAttempt.objects.create(
-                user=user,
-                qr_code=qr_code,
-                is_successful=False
-            )
-            from bot.translations import get_text
-            error_message = get_text(user, 'QR_ALREADY_SCANNED')
-            return Response(
-                {'error': error_message, 'error_code': 'already_scanned'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Валидация типа кода - проверяем соответствие типу пользователя
-        if user.user_type and user.user_type != qr_code.code_type:
-            # Проверяем лимит перед созданием попытки
-            today_attempts_before_type_check = QRCodeScanAttempt.objects.filter(
-                user=user,
-                attempted_at__gte=today_start,
-                is_successful=False
-            ).count()
-            
-            if today_attempts_before_type_check >= max_attempts:
-                from bot.translations import get_text
-                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
+            # Валидация типа кода - проверяем соответствие типу пользователя
+            if user.user_type and user.user_type != qr_code.code_type:
+                # Создаем запись о неудачной попытке (несоответствие типа)
+                QRCodeScanAttempt.objects.create(
+                    user=user,
+                    qr_code=qr_code,
+                    is_successful=False
+                )
+                error_message = get_text(user, 'QR_WRONG_TYPE')
                 return Response(
-                    {'error': error_message, 'error_code': 'max_attempts'},
+                    {'error': error_message, 'error_code': 'wrong_type'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Создаем запись о неудачной попытке (несоответствие типа)
+            # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
+            if not user.user_type:
+                user.user_type = qr_code.code_type
+                user.save(update_fields=['user_type'])
+            
+            # Отмечаем QR-код как отсканированный
+            qr_code.is_scanned = True
+            qr_code.scanned_at = timezone.now()
+            qr_code.scanned_by = user
+            qr_code.save(update_fields=['is_scanned', 'scanned_at', 'scanned_by'])
+            
+            # Создаем запись об успешной попытке
             QRCodeScanAttempt.objects.create(
                 user=user,
                 qr_code=qr_code,
-                is_successful=False
+                is_successful=True
             )
-            from bot.translations import get_text
-            error_message = get_text(user, 'QR_WRONG_TYPE')
-            return Response(
-                {'error': error_message, 'error_code': 'wrong_type'},
-                status=status.HTTP_400_BAD_REQUEST
+            
+            # Инвалидируем кеш и пересчитываем баллы
+            user.invalidate_points_cache()
+            total_points = user.calculate_points(force=True)
+            
+            success_message = get_text(user, 'QR_ACTIVATED',
+                points=qr_code.points,
+                total_points=total_points
             )
-        
-        # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
-        if not user.user_type:
-            user.user_type = qr_code.code_type
-            user.save(update_fields=['user_type'])
-        
-        # Отмечаем QR-код как отсканированный
-        qr_code.is_scanned = True
-        qr_code.scanned_at = timezone.now()
-        qr_code.scanned_by = user
-        qr_code.save(update_fields=['is_scanned', 'scanned_at', 'scanned_by'])
-        
-        # Создаем запись об успешной попытке
-        QRCodeScanAttempt.objects.create(
-            user=user,
-            qr_code=qr_code,
-            is_successful=True
-        )
-        
-        # Инвалидируем кеш и пересчитываем баллы
-        user.invalidate_points_cache()
-        total_points = user.calculate_points(force=True)
-        
-        from bot.translations import get_text
-        success_message = get_text(user, 'QR_ACTIVATED',
-            points=qr_code.points,
-            total_points=total_points
-        )
-        
-        return Response({
-            'success': True,
-            'message': success_message,
-            'points': qr_code.points,
-            'total_points': total_points
-        })
+            
+            return Response({
+                'success': True,
+                'message': success_message,
+                'points': qr_code.points,
+                'total_points': total_points
+            })
         
     except Exception as e:
-        from bot.translations import get_text
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error processing QR code scan in webapp: {e}")
+        
         error_message = get_text(user, 'QR_ERROR')
         return Response(
             {'error': error_message},
