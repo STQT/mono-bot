@@ -291,7 +291,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             # с возможными разделителями (пробелы, дефисы, скобки и т.д.) перед ними
             phone_query |= Q(phone_number__iregex=rf'[\s\-\(\)\.]*{search_term}$')
             
-            phone_results = self.model.objects.filter(phone_query).distinct()
+            phone_results = self.model.objects.filter(phone_query)
             
             # Объединяем результаты
             queryset = queryset | phone_results
