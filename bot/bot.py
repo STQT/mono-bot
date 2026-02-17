@@ -689,25 +689,59 @@ async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
 
 async def ask_phone(message: Message, user, state: FSMContext):
     """Спрашивает номер телефона."""
-    keyboard = types.ReplyKeyboardMarkup(
+    # ReplyKeyboard с кнопкой запроса контакта
+    reply_keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text=get_text(user, 'SEND_PHONE_BUTTON'), request_contact=True)]
         ],
         resize_keyboard=True
     )
-    await message.answer(get_text(user, 'SEND_PHONE'), reply_markup=keyboard)
+    
+    # InlineKeyboard с подсказкой для пользователей TelegramPlus
+    inline_text = "👇 " + (get_text(user, 'HINT_USE_BUTTON_BELOW') if user.language == 'ru' 
+                          else "Quyidagi tugmani bosing")
+    inline_keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text=inline_text, callback_data='hint_phone')]
+    ])
+    
+    await message.answer(
+        get_text(user, 'SEND_PHONE'), 
+        reply_markup=reply_keyboard
+    )
+    # Отправляем дополнительное сообщение с InlineKeyboard-подсказкой
+    await message.answer(
+        "⬇️ " + (get_text(user, 'USE_BUTTON_PHONE') if hasattr(user, 'language') else "Используйте кнопку внизу"),
+        reply_markup=inline_keyboard
+    )
     await state.set_state(RegistrationStates.waiting_for_phone)
 
 
 async def ask_location(message: Message, user, state: FSMContext):
     """Спрашивает локацию."""
-    keyboard = types.ReplyKeyboardMarkup(
+    # ReplyKeyboard с кнопкой запроса локации
+    reply_keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text="📍 " + get_text(user, 'SEND_LOCATION').replace('📍 ', ''), request_location=True)]
         ],
         resize_keyboard=True
     )
-    await message.answer(get_text(user, 'SEND_LOCATION'), reply_markup=keyboard)
+    
+    # InlineKeyboard с подсказкой для пользователей TelegramPlus
+    inline_text = "👇 " + (get_text(user, 'HINT_USE_BUTTON_BELOW') if user.language == 'ru' 
+                          else "Quyidagi tugmani bosing")
+    inline_keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text=inline_text, callback_data='hint_location')]
+    ])
+    
+    await message.answer(
+        get_text(user, 'SEND_LOCATION'), 
+        reply_markup=reply_keyboard
+    )
+    # Отправляем дополнительное сообщение с InlineKeyboard-подсказкой
+    await message.answer(
+        "⬇️ " + (get_text(user, 'USE_BUTTON_LOCATION') if hasattr(user, 'language') else "Используйте кнопку внизу"),
+        reply_markup=inline_keyboard
+    )
     await state.set_state(RegistrationStates.waiting_for_location)
 
 
@@ -1088,6 +1122,26 @@ async def process_user_type_selection(callback: CallbackQuery, state: FSMContext
     
     # Переходим к следующему шагу - согласие на политику конфиденциальности
     await ask_privacy_acceptance(callback.message, user, state)
+
+
+@dp.callback_query(lambda c: c.data in ['hint_phone', 'hint_location'])
+async def process_hint_callback(callback: CallbackQuery):
+    """Обрабатывает нажатия на подсказки для телефона и локации."""
+    if callback.from_user.is_bot:
+        return
+    
+    @sync_to_async
+    def get_user():
+        return TelegramUser.objects.get(telegram_id=callback.from_user.id)
+    
+    user = await get_user()
+    
+    if callback.data == 'hint_phone':
+        hint_text = get_text(user, 'USE_BUTTON_PHONE')
+    else:  # hint_location
+        hint_text = get_text(user, 'USE_BUTTON_LOCATION')
+    
+    await callback.answer(hint_text, show_alert=True)
 
 
 @dp.callback_query(lambda c: c.data in ['accept_privacy', 'decline_privacy'])
