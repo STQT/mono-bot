@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'channels',
     'simple_history',  # История изменений моделей
+    'rangefilter',  # Фильтр по диапазону дат в админке
     'core',
     'bot',
 ]

@@ -502,9 +502,9 @@
 </div>
 
 <div class="reports-section">
-    <div class="report-card">
+    <div class="report-card" style="border-left: 4px solid #f59e0b;">
         <div class="report-header">
-            📍 Статистика по вилоятам (месяц)
+            ⚡ Электрики — вилояты (месяц)
             <div class="report-period">{{ current_month }}</div>
         </div>
         <table class="report-table">
@@ -515,7 +515,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, points in regions_month %}
+                {% for region_name, points in regions_month_electrician %}
                 <tr>
                     <td>{{ region_name }}</td>
                     <td>{{ points|format_number }}</td>
@@ -531,10 +531,41 @@
             </tbody>
         </table>
     </div>
-    
-    <div class="report-card">
+    <div class="report-card" style="border-left: 4px solid #3b82f6;">
         <div class="report-header">
-            📍 Статистика по вилоятам (год)
+            🛒 Продавцы — вилояты (месяц)
+            <div class="report-period">{{ current_month }}</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, points in regions_month_seller %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот месяц</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="reports-section">
+    <div class="report-card" style="border-left: 4px solid #f59e0b;">
+        <div class="report-header">
+            ⚡ Электрики — вилояты (год)
             <div class="report-period">{{ current_year }} год</div>
         </div>
         <table class="report-table">
@@ -545,7 +576,36 @@
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, points in regions_year %}
+                {% for region_name, points in regions_year_electrician %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот год</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="report-card" style="border-left: 4px solid #3b82f6;">
+        <div class="report-header">
+            🛒 Продавцы — вилояты (год)
+            <div class="report-period">{{ current_year }} год</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, points in regions_year_seller %}
                 <tr>
                     <td>{{ region_name }}</td>
                     <td>{{ points|format_number }}</td>
@@ -564,9 +624,9 @@
 </div>
 
 <div class="reports-section">
-    <div class="report-card">
+    <div class="report-card" style="border-left: 4px solid #f59e0b;">
         <div class="report-header">
-            🏘️ Статистика по районам (месяц)
+            ⚡ Электрики — районы (месяц)
             <div class="report-period">{{ current_month }}</div>
         </div>
         <table class="report-table">
@@ -578,7 +638,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, district_name, points in districts_month %}
+                {% for region_name, district_name, points in districts_month_electrician %}
                 <tr>
                     <td>{{ region_name }}</td>
                     <td>{{ district_name }}</td>
@@ -595,10 +655,43 @@
             </tbody>
         </table>
     </div>
-    
-    <div class="report-card">
+    <div class="report-card" style="border-left: 4px solid #3b82f6;">
         <div class="report-header">
-            🏘️ Статистика по районам (год)
+            🛒 Продавцы — районы (месяц)
+            <div class="report-period">{{ current_month }}</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th>Район</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, district_name, points in districts_month_seller %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ district_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот месяц</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="reports-section">
+    <div class="report-card" style="border-left: 4px solid #f59e0b;">
+        <div class="report-header">
+            ⚡ Электрики — районы (год)
             <div class="report-period">{{ current_year }} год</div>
         </div>
         <table class="report-table">
@@ -610,7 +703,38 @@
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, district_name, points in districts_year %}
+                {% for region_name, district_name, points in districts_year_electrician %}
+                <tr>
+                    <td>{{ region_name }}</td>
+                    <td>{{ district_name }}</td>
+                    <td>{{ points|format_number }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="empty-state">
+                        <span class="empty-state-icon">😔</span>
+                        <div>Нет данных за этот год</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="report-card" style="border-left: 4px solid #3b82f6;">
+        <div class="report-header">
+            🛒 Продавцы — районы (год)
+            <div class="report-period">{{ current_year }} год</div>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Вилоят</th>
+                    <th>Район</th>
+                    <th style="text-align: right;">Баллы</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for region_name, district_name, points in districts_year_seller %}
                 <tr>
                     <td>{{ region_name }}</td>
                     <td>{{ district_name }}</td>

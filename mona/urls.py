@@ -70,64 +70,69 @@ def dashboard_view(request):
         scanned_at__gte=current_year_start
     ).select_related('scanned_by')
     
-    # Статистика по вилоятам за месяц
-    region_stats_month = defaultdict(int)
+    # Статистика по вилоятам за месяц/год — раздельно по типу пользователя
+    region_stats_month_electrician = defaultdict(int)
+    region_stats_month_seller = defaultdict(int)
+    region_stats_year_electrician = defaultdict(int)
+    region_stats_year_seller = defaultdict(int)
     for qr in qrcodes_month:
         if qr.scanned_by and qr.scanned_by.region:
-            region_stats_month[qr.scanned_by.region] += qr.points
-    
-    # Статистика по вилоятам за год
-    region_stats_year = defaultdict(int)
+            if qr.scanned_by.user_type == 'electrician':
+                region_stats_month_electrician[qr.scanned_by.region] += qr.points
+            elif qr.scanned_by.user_type == 'seller':
+                region_stats_month_seller[qr.scanned_by.region] += qr.points
     for qr in qrcodes_year:
         if qr.scanned_by and qr.scanned_by.region:
-            region_stats_year[qr.scanned_by.region] += qr.points
-    
-    # Статистика по районам за месяц
-    district_stats_month = defaultdict(int)
+            if qr.scanned_by.user_type == 'electrician':
+                region_stats_year_electrician[qr.scanned_by.region] += qr.points
+            elif qr.scanned_by.user_type == 'seller':
+                region_stats_year_seller[qr.scanned_by.region] += qr.points
+
+    # Статистика по районам за месяц/год — раздельно по типу пользователя
+    district_stats_month_electrician = defaultdict(int)
+    district_stats_month_seller = defaultdict(int)
+    district_stats_year_electrician = defaultdict(int)
+    district_stats_year_seller = defaultdict(int)
     for qr in qrcodes_month:
         if qr.scanned_by and qr.scanned_by.region and qr.scanned_by.district:
             key = (qr.scanned_by.region, qr.scanned_by.district)
-            district_stats_month[key] += qr.points
-    
-    # Статистика по районам за год
-    district_stats_year = defaultdict(int)
+            if qr.scanned_by.user_type == 'electrician':
+                district_stats_month_electrician[key] += qr.points
+            elif qr.scanned_by.user_type == 'seller':
+                district_stats_month_seller[key] += qr.points
     for qr in qrcodes_year:
         if qr.scanned_by and qr.scanned_by.region and qr.scanned_by.district:
             key = (qr.scanned_by.region, qr.scanned_by.district)
-            district_stats_year[key] += qr.points
-    
-    # Формируем списки для отображения
-    regions_month = sorted(
-        [(get_region_name(region_code, 'ru') or region_code, points) 
-         for region_code, points in region_stats_month.items()],
-        key=lambda x: x[1],
-        reverse=True
-    )
-    
-    regions_year = sorted(
-        [(get_region_name(region_code, 'ru') or region_code, points) 
-         for region_code, points in region_stats_year.items()],
-        key=lambda x: x[1],
-        reverse=True
-    )
-    
-    districts_month = sorted(
-        [(get_region_name(region_code, 'ru') or region_code, 
-          get_district_name(district_code, region_code, 'ru') or district_code, 
-          points) 
-         for (region_code, district_code), points in district_stats_month.items()],
-        key=lambda x: x[2],
-        reverse=True
-    )
-    
-    districts_year = sorted(
-        [(get_region_name(region_code, 'ru') or region_code, 
-          get_district_name(district_code, region_code, 'ru') or district_code, 
-          points) 
-         for (region_code, district_code), points in district_stats_year.items()],
-        key=lambda x: x[2],
-        reverse=True
-    )
+            if qr.scanned_by.user_type == 'electrician':
+                district_stats_year_electrician[key] += qr.points
+            elif qr.scanned_by.user_type == 'seller':
+                district_stats_year_seller[key] += qr.points
+
+    def sort_regions(stats):
+        return sorted(
+            [(get_region_name(rc, 'ru') or rc, pts) for rc, pts in stats.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+    def sort_districts(stats):
+        return sorted(
+            [(get_region_name(rc, 'ru') or rc,
+              get_district_name(dc, rc, 'ru') or dc,
+              pts)
+             for (rc, dc), pts in stats.items()],
+            key=lambda x: x[2],
+            reverse=True
+        )
+
+    regions_month_electrician = sort_regions(region_stats_month_electrician)
+    regions_month_seller = sort_regions(region_stats_month_seller)
+    regions_year_electrician = sort_regions(region_stats_year_electrician)
+    regions_year_seller = sort_regions(region_stats_year_seller)
+    districts_month_electrician = sort_districts(district_stats_month_electrician)
+    districts_month_seller = sort_districts(district_stats_month_seller)
+    districts_year_electrician = sort_districts(district_stats_year_electrician)
+    districts_year_seller = sort_districts(district_stats_year_seller)
     
     context = {
         **admin.site.each_context(request),
@@ -145,10 +150,14 @@ def dashboard_view(request):
         'total_gifts': total_gifts,
         'active_gifts': active_gifts,
         'pending_redemptions': pending_redemptions,
-        'regions_month': regions_month,
-        'regions_year': regions_year,
-        'districts_month': districts_month,
-        'districts_year': districts_year,
+        'regions_month_electrician': regions_month_electrician,
+        'regions_month_seller': regions_month_seller,
+        'regions_year_electrician': regions_year_electrician,
+        'regions_year_seller': regions_year_seller,
+        'districts_month_electrician': districts_month_electrician,
+        'districts_month_seller': districts_month_seller,
+        'districts_year_electrician': districts_year_electrician,
+        'districts_year_seller': districts_year_seller,
         'current_month': current_month_start.strftime('%B %Y'),
         'current_year': current_year_start.year,
     }

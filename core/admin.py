@@ -4,6 +4,7 @@ Admin configuration for core models.
 import zipfile
 import os
 from django.contrib import admin
+from rangefilter.filters import DateTimeRangeFilterBuilder, DateRangeFilterBuilder
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import path
@@ -20,6 +21,25 @@ from .models import (
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
 
+class SmartUPFilter(admin.SimpleListFilter):
+    """Фильтр: пользователи со SmartUP ID и без."""
+    title = 'SmartUP'
+    parameter_name = 'has_smartup'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', 'Со SmartUP'),
+            ('no', 'Без SmartUP'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(smartup_id__isnull=False).exclude(smartup_id=0)
+        if self.value() == 'no':
+            return queryset.filter(models.Q(smartup_id__isnull=True) | models.Q(smartup_id=0))
+        return queryset
+
+
 @admin.register(TelegramUser)
 class TelegramUserAdmin(SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
@@ -27,7 +47,11 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
         'user_display', 'phone_number', 'region_display', 'district_display', 
         'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at', 'send_message_button'
     ]
-    list_filter = ['user_type', 'is_active', 'language', 'region', 'district', 'created_at']
+    list_filter = [
+        'user_type', 'is_active', 'language', 'region', 'district',
+        SmartUPFilter,
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата регистрации (диапазон)')),
+    ]
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
@@ -424,7 +448,10 @@ class QRCodeAdmin(SimpleHistoryAdmin):
         'qr_display', 'code_type_badge', 'points_display', 
         'status_badge', 'scanned_by_display', 'generated_at'
     ]
-    list_filter = ['code_type', 'is_scanned', 'generated_at']
+    list_filter = [
+        'code_type', 'is_scanned',
+        ('generated_at', DateTimeRangeFilterBuilder(title='Дата генерации (диапазон)')),
+    ]
     search_fields = ['code', 'hash_code', 'serial_number']
     readonly_fields = [
         'code', 'code_type', 'hash_code', 'serial_number',
@@ -742,7 +769,10 @@ class QRCodeAdmin(SimpleHistoryAdmin):
 class GiftAdmin(SimpleHistoryAdmin):
     """Админка для подарков."""
     list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'order', 'image_preview', 'status_badge', 'created_at']
-    list_filter = ['is_active', 'user_type', 'created_at']
+    list_filter = [
+        'is_active', 'user_type',
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
+    ]
     search_fields = ['name_uz_latin', 'name_ru', 'description_uz_latin', 'description_ru']
     readonly_fields = ['created_at', 'updated_at', 'image_preview']
     list_editable = ['order']
@@ -835,7 +865,10 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
         'redemption_display', 'telegram_id_display', 'phone_number_display', 'status_badge', 
         'user_confirmed_badge', 'requested_at'
     ]
-    list_filter = ['status', 'user_confirmed', 'requested_at']
+    list_filter = [
+        'status', 'user_confirmed',
+        ('requested_at', DateTimeRangeFilterBuilder(title='Дата запроса (диапазон)')),
+    ]
     search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name_uz_latin', 'gift__name_ru']
     readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
     list_per_page = 50
@@ -1080,7 +1113,10 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
         'title', 'status', 'user_type_filter', 'total_users',
         'sent_count', 'failed_count', 'created_at', 'completed_at', 'send_button'
     ]
-    list_filter = ['status', 'user_type_filter', 'region_filter', 'created_at']
+    list_filter = [
+        'status', 'user_type_filter', 'region_filter',
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
+    ]
     search_fields = ['title', 'message_text']
     readonly_fields = [
         'status', 'total_users', 'sent_count', 'failed_count',
@@ -1252,7 +1288,11 @@ class PromotionAdmin(SimpleHistoryAdmin):
     list_display = [
         'image_preview', 'title', 'date_display', 'order', 'is_active', 'status_badge', 'created_at'
     ]
-    list_filter = ['is_active', 'created_at', 'date']
+    list_filter = [
+        'is_active',
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
+        ('date', DateRangeFilterBuilder(title='Дата акции (диапазон)')),
+    ]
     search_fields = ['title']
     list_editable = ['order', 'is_active']
     ordering = ['order', '-created_at']
@@ -1308,7 +1348,10 @@ class QRCodeGenerationAdmin(SimpleHistoryAdmin):
         'points_display', 'status_badge', 'created_by_display',
         'created_at', 'completed_at_display', 'download_button'
     ]
-    list_filter = ['status', 'code_type', 'created_at']
+    list_filter = [
+        'status', 'code_type',
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
+    ]
     search_fields = ['id']
     readonly_fields = [
         'code_type', 'quantity', 'points', 'status', 'zip_file',
@@ -1516,7 +1559,11 @@ class PrivacyPolicyAdmin(SimpleHistoryAdmin):
     """Админка для политики конфиденциальности."""
     list_display = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
     list_display_links = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
-    list_filter = ['is_active', 'created_at', 'updated_at']
+    list_filter = [
+        'is_active',
+        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
+        ('updated_at', DateTimeRangeFilterBuilder(title='Дата обновления (диапазон)')),
+    ]
     fieldsets = (
         ('Узбекский язык (Латиница)', {
             'fields': ('pdf_uz_latin',),
@@ -1561,7 +1608,10 @@ class PrivacyPolicyAdmin(SimpleHistoryAdmin):
 class AdminContactSettingsAdmin(SimpleHistoryAdmin):
     """Админка для настроек контакта администратора."""
     list_display = ['contact_type_display', 'contact_value_display', 'is_active', 'updated_at']
-    list_filter = ['contact_type', 'is_active', 'updated_at']
+    list_filter = [
+        'contact_type', 'is_active',
+        ('updated_at', DateTimeRangeFilterBuilder(title='Дата обновления (диапазон)')),
+    ]
     search_fields = ['contact_value']
     fields = ['contact_type', 'contact_value', 'is_active']
     readonly_fields = ['created_at', 'updated_at']
@@ -1608,7 +1658,10 @@ class AdminContactSettingsAdmin(SimpleHistoryAdmin):
 class VideoInstructionAdmin(SimpleHistoryAdmin):
     """Админка для видео инструкций."""
     list_display = ['video_preview_uz', 'video_preview_ru', 'file_id_status', 'is_active', 'updated_at']
-    list_filter = ['is_active', 'updated_at']
+    list_filter = [
+        'is_active',
+        ('updated_at', DateTimeRangeFilterBuilder(title='Дата обновления (диапазон)')),
+    ]
     fieldsets = (
         ('Video fayllar', {
             'fields': ('video_uz_latin', 'video_ru')
@@ -1682,7 +1735,7 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
 class SmartUPIdAdmin(admin.ModelAdmin):
     """Админка для SmartUP ID."""
     list_display = ['id_value', 'created_at']
-    list_filter = ['created_at']
+    list_filter = [('created_at', DateTimeRangeFilterBuilder(title='Дата (диапазон)'))]
     search_fields = ['id_value']
     ordering = ['id_value']
     readonly_fields = ['created_at']

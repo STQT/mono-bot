@@ -5,7 +5,7 @@
 import os
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mona.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mona.settings.prodctuion')
 django.setup()
 
 from django.db import connection
