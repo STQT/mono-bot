@@ -1607,7 +1607,11 @@ async def show_leaders(message: Message):
     @sync_to_async
     def get_leaders_and_user():
         user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        leaders = list(TelegramUser.objects.order_by('-points')[:10])
+        # Фильтруем лидеров по типу пользователя
+        leaders_query = TelegramUser.objects.all()
+        if user.user_type:
+            leaders_query = leaders_query.filter(user_type=user.user_type)
+        leaders = list(leaders_query.order_by('-points')[:10])
         return user, leaders
     
     user, leaders = await get_leaders_and_user()
@@ -1620,7 +1624,7 @@ async def show_leaders(message: Message):
     position = 1
     
     for leader in leaders:
-        emoji = "🥇" if position == 1 else "🥈" if position == 2 else "🥉" if position == 3 else f"{position}."
+        emoji = "🥇" if position == 1 else "🥈" if position == 2 else "🥉" if position == 3 else f"{position}"
         name = leader.first_name or get_text(user, 'USER')
         text += get_text(user, 'LEADER_ENTRY', position=emoji, name=name, points=leader.points)
         position += 1
