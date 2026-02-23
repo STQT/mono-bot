@@ -1,0 +1,12 @@
+{% load i18n admin_extra %}
+<div class="form-group">
+    <label class="small text-muted">{{ title }}</label>
+    <select class="form-control search-filter" style="width: 100%;" tabindex="-1" aria-hidden="true" data-filter-param="{{ spec.parameter_name|default:'' }}">
+        <option value="" data-name="">---------</option>
+        {% for choice in choices %}
+            <option data-name="{{ choice.query_string|query_param_name }}" value="{{ choice.query_string|query_param_value }}" {% if choice.selected %}selected{% endif %}>
+                {{ choice.display }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
