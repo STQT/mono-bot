@@ -1,0 +1,19 @@
+/* Фильтр «Дата регистрации (диапазон)» по умолчанию свёрнут */
+.admin-rangefilter-collapsed .rangefilter-content,
+#changelist-filter .rangefilter-wrapper.rangefilter-collapsed .rangefilter-content {
+    display: none !important;
+}
+#changelist-filter .rangefilter-wrapper .rangefilter-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+#changelist-filter .rangefilter-wrapper.rangefilter-collapsed .rangefilter-toggle::after {
+    content: " ▶ Развернуть";
+    font-size: 12px;
+    color: #417690;
+}
+#changelist-filter .rangefilter-wrapper:not(.rangefilter-collapsed) .rangefilter-toggle::after {
+    content: " ▼ Свернуть";
+    font-size: 12px;
+    color: #417690;
+}

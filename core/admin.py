@@ -61,7 +61,11 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
     list_per_page = 50
     date_hierarchy = 'created_at'
-    
+
+    class Media:
+        css = {'all': ('core_admin/css/changelist_filters.css',)}
+        js = ('core_admin/js/changelist_filters.js',)
+
     def user_display(self, obj):
         """Отображает пользователя с иконкой и ссылкой."""
         icon = "⚡" if obj.user_type == 'electrician' else "🛒"
