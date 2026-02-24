@@ -4,6 +4,7 @@ Telegram bot implementation using aiogram.
 import asyncio
 import logging
 import os
+from types import SimpleNamespace
 import django
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
@@ -1391,7 +1392,13 @@ async def handle_message(message: Message, state: FSMContext = None):
     def get_user():
         return TelegramUser.objects.get(telegram_id=message.from_user.id)
     
-    user = await get_user()
+    try:
+        user = await get_user()
+    except TelegramUser.DoesNotExist:
+        # Пользователь ещё не зарегистрирован — просим отправить /start
+        no_user = SimpleNamespace(language='uz_latin')
+        await message.answer(get_text(no_user, 'PLEASE_START'))
+        return
     
     # Если пользователь в состоянии регистрации, не обрабатываем как QR-код
     if state:

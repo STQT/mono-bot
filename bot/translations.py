@@ -88,6 +88,7 @@ TRANSLATIONS = {
         # Ошибки
         'ERROR_OCCURRED': "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.",
         'UNKNOWN_COMMAND': "Men bu buyruqni tushunmayapman. Menyu tugmalaridan foydalaning.",
+        'PLEASE_START': "👋 Botdan foydalanish uchun avval ro'yxatdan o'ting.\n\nIltimos, /start buyrug'ini yuboring.",
         
         # Web App переводы
         'WEBAPP_MY_GIFTS': "Mening sovg’alarim",
@@ -256,6 +257,7 @@ TRANSLATIONS = {
         # Ошибки
         'ERROR_OCCURRED': "❌ Произошла ошибка. Попробуйте позже.",
         'UNKNOWN_COMMAND': "Я не понимаю эту команду. Используйте кнопки меню.",
+        'PLEASE_START': "👋 Чтобы пользоваться ботом, сначала зарегистрируйтесь.\n\nОтправьте команду /start",
         
         # Web App переводы
         'WEBAPP_MY_GIFTS': "Мои подарки",
