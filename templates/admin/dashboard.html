@@ -7,349 +7,172 @@
 {% block extrastyle %}
 {{ block.super }}
 <style>
-    .dashboard-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 30px;
+    /* ── Глобальный фильтр ── */
+    .global-filter-bar {
+        background: white;
         border-radius: 12px;
-        margin-bottom: 30px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+        margin-bottom: 20px;
+        padding: 14px 24px;
+        border-left: 4px solid #667eea;
     }
-    
-    .dashboard-header h1 {
-        margin: 0;
-        font-size: 32px;
-        font-weight: 700;
+    .global-filter-form {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
+        flex-wrap: wrap;
     }
-    
-    .stats-grid {
+    .gf-label { font-size: 14px; font-weight: 700; color: #4a5568; white-space: nowrap; }
+    .global-filter-form label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #4a5568; }
+    .global-filter-form input[type="date"] { padding: 7px 11px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; background: white; }
+    .gf-btn { padding: 8px 18px; background: linear-gradient(135deg,#667eea,#764ba2); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.15s; }
+    .gf-btn:hover { transform: translateY(-1px); }
+    .gf-reset { color: #718096; font-size: 13px; text-decoration: none; }
+    .gf-reset:hover { color: #667eea; text-decoration: underline; }
+    .gf-badge { margin-left: auto; font-size: 13px; color: #667eea; font-weight: 600; background: #ede9fe; padding: 4px 14px; border-radius: 20px; white-space: nowrap; }
+
+    /* ── Единая сетка дашборда ── */
+    .dashboard-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        align-items: start;
     }
-    
+    /* Panel-карточки занимают 2 из 4 колонок → попарно рядом */
+    .panel-card { grid-column: span 2; }
+
+    @media (max-width: 1200px) {
+        .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .panel-card { grid-column: span 1; }
+    }
+    @media (max-width: 600px) {
+        .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Карточки со статистикой (Пользователи / QR / Баллы / Подарки) ── */
     .dashboard-card {
         background: white;
         border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        padding: 18px 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
         border-left: 4px solid;
         position: relative;
         overflow: hidden;
     }
-    
     .dashboard-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 100px;
-        height: 100px;
-        background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
-        border-radius: 50%;
-        transform: translate(30px, -30px);
+        content: ''; position: absolute; top: 0; right: 0;
+        width: 80px; height: 80px;
+        background: radial-gradient(circle, rgba(102,126,234,0.08) 0%, transparent 70%);
+        border-radius: 50%; transform: translate(25px,-25px);
     }
-    
-    .dashboard-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-    }
-    
-    .dashboard-card.users {
-        border-left-color: #667eea;
-    }
-    
-    .dashboard-card.qrcodes {
-        border-left-color: #48bb78;
-    }
-    
-    .dashboard-card.points {
-        border-left-color: #fbbf24;
-    }
-    
-    .dashboard-card.gifts {
-        border-left-color: #ed64a6;
-    }
-    
-    .card-icon {
-        font-size: 32px;
-        margin-bottom: 12px;
-        display: block;
-    }
-    
-    .card-title {
-        color: #718096;
-        font-size: 14px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-    }
-    
-    .stat-value {
-        font-size: 36px;
-        font-weight: 700;
-        color: #2d3748;
-        margin: 8px 0;
-        line-height: 1;
-    }
-    
-    .stat-details {
-        margin-top: 12px;
-        padding-top: 12px;
-        border-top: 1px solid #e0e0e0;
-    }
-    
-    .stat-detail-item {
+    .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); }
+    .dashboard-card.users   { border-left-color: #667eea; }
+    .dashboard-card.qrcodes { border-left-color: #48bb78; }
+    .dashboard-card.points  { border-left-color: #fbbf24; }
+    .dashboard-card.gifts   { border-left-color: #ed64a6; }
+
+    /* Заголовок карточки: иконка + название + значение в одну строку */
+    .card-title-row {
         display: flex;
-        justify-content: space-between;
-        padding: 4px 0;
-        font-size: 14px;
-        color: #4a5568;
-    }
-    
-    .stat-detail-label {
-        color: #718096;
-    }
-    
-    .stat-detail-value {
-        font-weight: 600;
-        color: #2d3748;
-    }
-    
-    .leaders-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 24px;
-        margin-top: 30px;
-    }
-    
-    .leaders-card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-    }
-    
-    .leaders-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        font-size: 18px;
-        font-weight: 600;
-    }
-    
-    .leaders-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    .leaders-table thead {
-        background: #f8f9fa;
-    }
-    
-    .leaders-table th {
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 600;
-        color: #4a5568;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #e0e0e0;
-    }
-    
-    .leaders-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #f0f0f0;
-        color: #2d3748;
-    }
-    
-    .leaders-table tbody tr:hover {
-        background: #f8f9fa;
-    }
-    
-    .leaders-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .rank {
-        font-size: 20px;
-        font-weight: 700;
-        color: #667eea;
-        width: 50px;
-    }
-    
-    .leader-name {
-        font-weight: 500;
-    }
-    
-    .leader-username {
-        color: #718096;
-        font-size: 12px;
-        margin-left: 8px;
-    }
-    
-    .leader-points {
-        color: #667eea;
-        font-weight: 700;
-        font-size: 18px;
-        text-align: right;
-    }
-    
-    .empty-state {
-        padding: 40px;
-        text-align: center;
-        color: #718096;
-    }
-    
-    .empty-state-icon {
-        font-size: 48px;
-        margin-bottom: 12px;
-        display: block;
-    }
-    
-    .filter-buttons {
-        display: flex;
-        gap: 12px;
-        margin-top: 16px;
-        flex-wrap: wrap;
-    }
-    
-    .filter-button {
-        display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        text-decoration: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e0e0e0;
     }
-    
-    .filter-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
-        color: white;
-        text-decoration: none;
+    .card-icon  { font-size: 20px; flex-shrink: 0; }
+    .card-title { flex: 1; color: #718096; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-weight: 700; color: #2d3748; font-size: 18px; white-space: nowrap; }
+
+    .stat-details { margin-top: 0; }
+    .stat-detail-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #4a5568; }
+    .stat-detail-label { color: #718096; }
+    .stat-detail-value  { font-weight: 600; color: #2d3748; }
+    .filter-buttons { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .filter-button {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+        color: white; text-decoration: none;
+        background: linear-gradient(135deg,#667eea,#764ba2);
+        box-shadow: 0 2px 4px rgba(102,126,234,0.3);
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    
-    .filter-button.electrician {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-        box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
-    }
-    
-    .filter-button.electrician:hover {
-        box-shadow: 0 4px 8px rgba(251, 191, 36, 0.4);
-    }
-    
-    .filter-button.seller {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-    }
-    
-    .filter-button.seller:hover {
-        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
-    }
-    
-    .reports-section {
-        margin-top: 30px;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-        gap: 24px;
-    }
-    
-    .report-card {
+    .filter-button:hover { transform: translateY(-2px); color: white; text-decoration: none; box-shadow: 0 4px 8px rgba(102,126,234,0.4); }
+    .filter-button.electrician { background: linear-gradient(135deg,#fbbf24,#f59e0b); box-shadow: 0 2px 4px rgba(251,191,36,0.3); }
+    .filter-button.electrician:hover { box-shadow: 0 4px 8px rgba(251,191,36,0.4); }
+    .filter-button.seller { background: linear-gradient(135deg,#3b82f6,#2563eb); box-shadow: 0 2px 4px rgba(59,130,246,0.3); }
+    .filter-button.seller:hover { box-shadow: 0 4px 8px rgba(59,130,246,0.4); }
+
+    /* ── Панельные карточки (Топ лидеры / Вилояты) ── */
+    .panel-card {
         background: white;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         overflow: hidden;
     }
-    
-    .report-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .panel-header {
+        padding: 16px 20px;
+        font-size: 16px;
+        font-weight: 600;
         color: white;
-        padding: 20px;
-        font-size: 18px;
-        font-weight: 600;
+        background: linear-gradient(135deg,#667eea,#764ba2);
     }
-    
-    .report-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    .report-table thead {
-        background: #f8f9fa;
-    }
-    
-    .report-table th {
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 600;
-        color: #4a5568;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #e0e0e0;
-    }
-    
-    .report-table th:last-child {
-        text-align: right;
-    }
-    
-    .report-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #f0f0f0;
-        color: #2d3748;
-    }
-    
-    .report-table td:last-child {
-        text-align: right;
-        font-weight: 600;
-        color: #667eea;
-    }
-    
-    .report-table tbody tr:hover {
-        background: #f8f9fa;
-    }
-    
-    .report-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .report-period {
-        font-size: 14px;
-        color: rgba(255, 255, 255, 0.9);
-        margin-top: 5px;
-        font-weight: 400;
-    }
+    .panel-header.electrician { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .panel-header.seller      { background: linear-gradient(135deg,#6366f1,#4338ca); }
+
+    /* ── Таблица лидеров ── */
+    .leaders-table { width: 100%; border-collapse: collapse; }
+    .leaders-table thead { background: #f8f9fa; }
+    .leaders-table th { padding: 12px 16px; text-align: left; font-weight: 600; color: #4a5568; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e0e0e0; }
+    .leaders-table td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; color: #2d3748; }
+    .leaders-table tbody tr:hover { background: #f8f9fa; }
+    .leaders-table tbody tr:last-child td { border-bottom: none; }
+    .rank { font-size: 20px; font-weight: 700; color: #667eea; width: 50px; }
+    .leader-name    { font-weight: 500; }
+    .leader-username { color: #718096; font-size: 12px; margin-left: 8px; }
+    .leader-points  { color: #667eea; font-weight: 700; font-size: 18px; text-align: right; }
+
+    /* ── Таблица регионов ── */
+    .report-table { width: 100%; border-collapse: collapse; }
+    .report-table thead { background: #f8f9fa; }
+    .report-table th { padding: 12px 16px; text-align: left; font-weight: 600; color: #4a5568; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e0e0e0; }
+    .report-table th:last-child { text-align: right; }
+    .report-table td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; color: #2d3748; }
+    .report-table td:last-child { text-align: right; font-weight: 600; color: #667eea; }
+    .report-table tbody tr:hover { background: #f8f9fa; }
+    .report-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Пустое состояние ── */
+    .empty-state { padding: 40px; text-align: center; color: #718096; }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="dashboard-header">
-    <h1>
-        <span>📊</span>
-        <span>Дашборд</span>
-    </h1>
-    <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">Общая статистика и аналитика системы</p>
+
+<!-- ── Глобальный фильтр периода ── -->
+<div class="global-filter-bar">
+    <form method="get" action="" class="global-filter-form">
+        <span class="gf-label">📅 Период:</span>
+        <label>С <input type="date" name="date_from" value="{{ date_from }}"></label>
+        <label>По <input type="date" name="date_to" value="{{ date_to }}"></label>
+        <button type="submit" class="gf-btn">Применить</button>
+        <a href="?" class="gf-reset">✕ Сбросить</a>
+        <span class="gf-badge">{{ period_label }}</span>
+    </form>
 </div>
 
-<div class="stats-grid">
+<!-- ── Единая сетка дашборда ── -->
+<div class="dashboard-grid">
+
+    <!-- Пользователи -->
     <div class="dashboard-card users">
-        <span class="card-icon">👥</span>
-        <div class="card-title">Пользователи</div>
-        <div class="stat-value">{{ total_users }}</div>
+        <div class="card-title-row">
+            <span class="card-icon">👥</span>
+            <span class="card-title">Пользователи</span>
+            <span class="stat-value">{{ total_users }}</span>
+        </div>
         <div class="stat-details">
             <div class="stat-detail-item">
                 <span class="stat-detail-label">⚡ Электрики:</span>
@@ -361,395 +184,167 @@
             </div>
         </div>
         <div class="filter-buttons">
-            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=electrician" class="filter-button electrician">
-                <span>⚡</span>
-                <span>Показать электриков</span>
-            </a>
-            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=seller" class="filter-button seller">
-                <span>🛒</span>
-                <span>Показать продавцов</span>
-            </a>
+            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=electrician" class="filter-button electrician">⚡ Электрики</a>
+            <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=seller" class="filter-button seller">🛒 Продавцы</a>
         </div>
     </div>
-    
+
+    <!-- QR-коды -->
     <div class="dashboard-card qrcodes">
-        <span class="card-icon">📱</span>
-        <div class="card-title">QR-коды</div>
-        <div class="stat-value">{{ total_qrcodes }}</div>
+        <div class="card-title-row">
+            <span class="card-icon">📱</span>
+            <span class="card-title">QR-коды</span>
+            <span class="stat-value">{{ total_qrcodes }}</span>
+        </div>
         <div class="stat-details">
             <div class="stat-detail-item">
                 <span class="stat-detail-label">✅ Отсканировано:</span>
-                <span class="stat-detail-value" style="color: #48bb78;">{{ scanned_qrcodes }}</span>
+                <span class="stat-detail-value" style="color:#48bb78;">{{ scanned_qrcodes }}</span>
             </div>
             <div class="stat-detail-item">
                 <span class="stat-detail-label">⏳ Не использовано:</span>
-                <span class="stat-detail-value" style="color: #fbbf24;">{{ unscanned_qrcodes }}</span>
+                <span class="stat-detail-value" style="color:#fbbf24;">{{ unscanned_qrcodes }}</span>
             </div>
         </div>
     </div>
-    
+
+    <!-- Баллы -->
     <div class="dashboard-card points">
-        <span class="card-icon">💰</span>
-        <div class="card-title">Баллы</div>
-        <div class="stat-value">{{ total_points_electricians|add:total_points_sellers|format_number }}</div>
+        <div class="card-title-row">
+            <span class="card-icon">💰</span>
+            <span class="card-title">Баллы</span>
+            <span class="stat-value">{{ total_points_electricians|add:total_points_sellers|format_number }}</span>
+        </div>
         <div class="stat-details">
             <div class="stat-detail-item">
                 <span class="stat-detail-label">⚡ Электрики:</span>
-                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_electricians|format_number }}</span>
+                <span class="stat-detail-value" style="color:#fbbf24;">{{ total_points_electricians|format_number }}</span>
             </div>
             <div class="stat-detail-item">
                 <span class="stat-detail-label">🛒 Продавцы:</span>
-                <span class="stat-detail-value" style="color: #fbbf24;">{{ total_points_sellers|format_number }}</span>
+                <span class="stat-detail-value" style="color:#fbbf24;">{{ total_points_sellers|format_number }}</span>
             </div>
         </div>
     </div>
-    
+
+    <!-- Подарки -->
     <div class="dashboard-card gifts">
-        <span class="card-icon">🎁</span>
-        <div class="card-title">Подарки</div>
-        <div class="stat-value">{{ total_gifts }}</div>
+        <div class="card-title-row">
+            <span class="card-icon">🎁</span>
+            <span class="card-title">Подарки</span>
+            <span class="stat-value">{{ total_gifts }}</span>
+        </div>
         <div class="stat-details">
             <div class="stat-detail-item">
                 <span class="stat-detail-label">✅ Активных:</span>
-                <span class="stat-detail-value" style="color: #48bb78;">{{ active_gifts }}</span>
+                <span class="stat-detail-value" style="color:#48bb78;">{{ active_gifts }}</span>
             </div>
             <div class="stat-detail-item">
                 <span class="stat-detail-label">⏳ Ожидают обработки:</span>
-                <span class="stat-detail-value" style="color: #ed64a6;">{{ pending_redemptions }}</span>
+                <span class="stat-detail-value" style="color:#ed64a6;">{{ pending_redemptions }}</span>
             </div>
         </div>
     </div>
-</div>
 
-<div class="leaders-section">
-    <div class="leaders-card">
-        <div class="leaders-header">
-            🏆 ТОП-10 Лидеров (Электрики)
-        </div>
+    <!-- ТОП-10 Электрики -->
+    <div class="panel-card">
+        <div class="panel-header electrician">🏆 ТОП-10 Лидеров (Электрики)</div>
         <table class="leaders-table">
             <thead>
                 <tr>
-                    <th style="width: 60px;">Место</th>
+                    <th style="width:60px;">Место</th>
                     <th>Пользователь</th>
-                    <th style="text-align: right;">Баллы</th>
+                    <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
                 {% for leader in top_electricians %}
                 <tr>
-                    <td class="rank">
-                        {% if forloop.counter == 1 %}🥇
-                        {% elif forloop.counter == 2 %}🥈
-                        {% elif forloop.counter == 3 %}🥉
-                        {% else %}{{ forloop.counter }}{% endif %}
-                    </td>
-                    <td class="leader-name">
-                        {{ leader.first_name|default:"Пользователь" }}
-                        <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
-                    </td>
+                    <td class="rank">{% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
+                    <td class="leader-name">{{ leader.first_name|default:"Пользователь" }}<span class="leader-username">@{{ leader.username|default:"N/A" }}</span></td>
                     <td class="leader-points">{{ leader.points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных</div>
-                    </td>
-                </tr>
+                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    
-    <div class="leaders-card">
-        <div class="leaders-header">
-            🏆 ТОП-10 Лидеров (Продавцы)
-        </div>
+
+    <!-- ТОП-10 Продавцы -->
+    <div class="panel-card">
+        <div class="panel-header seller">🏆 ТОП-10 Лидеров (Продавцы)</div>
         <table class="leaders-table">
             <thead>
                 <tr>
-                    <th style="width: 60px;">Место</th>
+                    <th style="width:60px;">Место</th>
                     <th>Пользователь</th>
-                    <th style="text-align: right;">Баллы</th>
+                    <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
                 {% for leader in top_sellers %}
                 <tr>
-                    <td class="rank">
-                        {% if forloop.counter == 1 %}🥇
-                        {% elif forloop.counter == 2 %}🥈
-                        {% elif forloop.counter == 3 %}🥉
-                        {% else %}{{ forloop.counter }}{% endif %}
-                    </td>
-                    <td class="leader-name">
-                        {{ leader.first_name|default:"Пользователь" }}
-                        <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
-                    </td>
+                    <td class="rank">{% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
+                    <td class="leader-name">{{ leader.first_name|default:"Пользователь" }}<span class="leader-username">@{{ leader.username|default:"N/A" }}</span></td>
                     <td class="leader-points">{{ leader.points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных</div>
-                    </td>
-                </tr>
+                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
 
-<div class="reports-section">
-    <div class="report-card" style="border-left: 4px solid #f59e0b;">
-        <div class="report-header">
-            ⚡ Электрики — вилояты (месяц)
-            <div class="report-period">{{ current_month }}</div>
-        </div>
+    <!-- Вилояты: Электрики -->
+    <div class="panel-card">
+        <div class="panel-header electrician">⚡ Электрики — вилояты</div>
         <table class="report-table">
             <thead>
                 <tr>
                     <th>Вилоят</th>
-                    <th style="text-align: right;">Баллы</th>
+                    <th style="text-align:right;">Пользователей</th>
+                    <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, points in regions_month_electrician %}
+                {% for region_name, user_count, points in regions_electrician %}
                 <tr>
                     <td>{{ region_name }}</td>
-                    <td>{{ points|format_number }}</td>
+                    <td style="text-align:right;">{{ user_count|format_number }}</td>
+                    <td style="text-align:right;">{{ points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="2" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот месяц</div>
-                    </td>
-                </tr>
+                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <div class="report-card" style="border-left: 4px solid #3b82f6;">
-        <div class="report-header">
-            🛒 Продавцы — вилояты (месяц)
-            <div class="report-period">{{ current_month }}</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, points in regions_month_seller %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="2" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот месяц</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
 
-<div class="reports-section">
-    <div class="report-card" style="border-left: 4px solid #f59e0b;">
-        <div class="report-header">
-            ⚡ Электрики — вилояты (год)
-            <div class="report-period">{{ current_year }} год</div>
-        </div>
+    <!-- Вилояты: Продавцы -->
+    <div class="panel-card">
+        <div class="panel-header seller">🛒 Продавцы — вилояты</div>
         <table class="report-table">
             <thead>
                 <tr>
                     <th>Вилоят</th>
-                    <th style="text-align: right;">Баллы</th>
+                    <th style="text-align:right;">Пользователей</th>
+                    <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, points in regions_year_electrician %}
+                {% for region_name, user_count, points in regions_seller %}
                 <tr>
                     <td>{{ region_name }}</td>
-                    <td>{{ points|format_number }}</td>
+                    <td style="text-align:right;">{{ user_count|format_number }}</td>
+                    <td style="text-align:right;">{{ points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="2" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот год</div>
-                    </td>
-                </tr>
+                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <div class="report-card" style="border-left: 4px solid #3b82f6;">
-        <div class="report-header">
-            🛒 Продавцы — вилояты (год)
-            <div class="report-period">{{ current_year }} год</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, points in regions_year_seller %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="2" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот год</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
 
-<div class="reports-section">
-    <div class="report-card" style="border-left: 4px solid #f59e0b;">
-        <div class="report-header">
-            ⚡ Электрики — районы (месяц)
-            <div class="report-period">{{ current_month }}</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th>Район</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, district_name, points in districts_month_electrician %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ district_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот месяц</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="report-card" style="border-left: 4px solid #3b82f6;">
-        <div class="report-header">
-            🛒 Продавцы — районы (месяц)
-            <div class="report-period">{{ current_month }}</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th>Район</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, district_name, points in districts_month_seller %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ district_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот месяц</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="reports-section">
-    <div class="report-card" style="border-left: 4px solid #f59e0b;">
-        <div class="report-header">
-            ⚡ Электрики — районы (год)
-            <div class="report-period">{{ current_year }} год</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th>Район</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, district_name, points in districts_year_electrician %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ district_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот год</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="report-card" style="border-left: 4px solid #3b82f6;">
-        <div class="report-header">
-            🛒 Продавцы — районы (год)
-            <div class="report-period">{{ current_year }} год</div>
-        </div>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Вилоят</th>
-                    <th>Район</th>
-                    <th style="text-align: right;">Баллы</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for region_name, district_name, points in districts_year_seller %}
-                <tr>
-                    <td>{{ region_name }}</td>
-                    <td>{{ district_name }}</td>
-                    <td>{{ points|format_number }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        <span class="empty-state-icon">😔</span>
-                        <div>Нет данных за этот год</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 </div>
 {% endblock %}

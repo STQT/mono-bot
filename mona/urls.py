@@ -11,157 +11,144 @@ from django.shortcuts import redirect
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from collections import defaultdict
 from core.models import TelegramUser, QRCode, Gift, GiftRedemption
-from core.regions import get_region_name, get_district_name
+from core.regions import get_region_name
+
+
+def _parse_date(s):
+    """Парсит строку YYYY-MM-DD в date или None."""
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s.strip())
+    except (ValueError, TypeError):
+        return None
 
 
 def dashboard_view(request):
-    """Дашборд с ТОП лидерами по продажам."""
-    # ТОП лидеры по баллам (электрики)
-    top_electricians = TelegramUser.objects.filter(
-        user_type='electrician'
-    ).order_by('-points')[:10]
-    
-    # ТОП лидеры по баллам (продавцы)
-    top_sellers = TelegramUser.objects.filter(
-        user_type='seller'
-    ).order_by('-points')[:10]
-    
-    # Общая статистика
-    total_users = TelegramUser.objects.count()
-    total_electricians = TelegramUser.objects.filter(user_type='electrician').count()
-    total_sellers = TelegramUser.objects.filter(user_type='seller').count()
-    
-    # Статистика по QR-кодам
-    total_qrcodes = QRCode.objects.count()
-    scanned_qrcodes = QRCode.objects.filter(is_scanned=True).count()
-    unscanned_qrcodes = total_qrcodes - scanned_qrcodes
-    
-    # Статистика по баллам
-    total_points_electricians = TelegramUser.objects.filter(
-        user_type='electrician'
-    ).aggregate(total=Sum('points'))['total'] or 0
-    
-    total_points_sellers = TelegramUser.objects.filter(
-        user_type='seller'
-    ).aggregate(total=Sum('points'))['total'] or 0
-    
-    # Статистика по подаркам
-    total_gifts = Gift.objects.count()
-    active_gifts = Gift.objects.filter(is_active=True).count()
-    pending_redemptions = GiftRedemption.objects.filter(status='pending').count()
-    
-    # Статистика по вилоятам и районам за месяц и год
-    now = timezone.now()
-    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    current_year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    # QR-коды за текущий месяц
-    qrcodes_month = QRCode.objects.filter(
-        is_scanned=True,
-        scanned_at__gte=current_month_start
-    ).select_related('scanned_by')
-    
-    # QR-коды за текущий год
-    qrcodes_year = QRCode.objects.filter(
-        is_scanned=True,
-        scanned_at__gte=current_year_start
-    ).select_related('scanned_by')
-    
-    # Статистика по вилоятам за месяц/год — раздельно по типу пользователя
-    region_stats_month_electrician = defaultdict(int)
-    region_stats_month_seller = defaultdict(int)
-    region_stats_year_electrician = defaultdict(int)
-    region_stats_year_seller = defaultdict(int)
-    for qr in qrcodes_month:
-        if qr.scanned_by and qr.scanned_by.region:
-            if qr.scanned_by.user_type == 'electrician':
-                region_stats_month_electrician[qr.scanned_by.region] += qr.points
-            elif qr.scanned_by.user_type == 'seller':
-                region_stats_month_seller[qr.scanned_by.region] += qr.points
-    for qr in qrcodes_year:
-        if qr.scanned_by and qr.scanned_by.region:
-            if qr.scanned_by.user_type == 'electrician':
-                region_stats_year_electrician[qr.scanned_by.region] += qr.points
-            elif qr.scanned_by.user_type == 'seller':
-                region_stats_year_seller[qr.scanned_by.region] += qr.points
+    """Дашборд — единый daterange-фильтр для всех блоков."""
+    date_from = _parse_date(request.GET.get('date_from'))
+    date_to   = _parse_date(request.GET.get('date_to'))
 
-    # Статистика по районам за месяц/год — раздельно по типу пользователя
-    district_stats_month_electrician = defaultdict(int)
-    district_stats_month_seller = defaultdict(int)
-    district_stats_year_electrician = defaultdict(int)
-    district_stats_year_seller = defaultdict(int)
-    for qr in qrcodes_month:
-        if qr.scanned_by and qr.scanned_by.region and qr.scanned_by.district:
-            key = (qr.scanned_by.region, qr.scanned_by.district)
+    # Подпись периода
+    if date_from is None and date_to is None:
+        period_label = 'За весь период'
+    elif date_from is not None and date_to is not None:
+        period_label = f'с {date_from.strftime("%d.%m.%Y")} по {date_to.strftime("%d.%m.%Y")}'
+    elif date_from is not None:
+        period_label = f'с {date_from.strftime("%d.%m.%Y")}'
+    else:
+        period_label = f'по {date_to.strftime("%d.%m.%Y")}'
+
+    # ── QR-коды периода ──────────────────────────────────────────────
+    qr_period = QRCode.objects.filter(is_scanned=True)
+    if date_from:
+        qr_period = qr_period.filter(scanned_at__date__gte=date_from)
+    if date_to:
+        qr_period = qr_period.filter(scanned_at__date__lte=date_to)
+
+    # ── Пользователи (зарегистрированные в периоде) ──────────────────
+    user_qs = TelegramUser.objects.all()
+    if date_from:
+        user_qs = user_qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        user_qs = user_qs.filter(created_at__date__lte=date_to)
+    total_users        = user_qs.count()
+    total_electricians = user_qs.filter(user_type='electrician').count()
+    total_sellers      = user_qs.filter(user_type='seller').count()
+
+    # ── QR-статистика ────────────────────────────────────────────────
+    total_qrcodes    = QRCode.objects.count()            # всего сгенерировано (всегда)
+    scanned_qrcodes  = qr_period.count()                 # отсканировано в периоде
+    unscanned_qrcodes = QRCode.objects.filter(is_scanned=False).count()  # не использовано (всегда)
+
+    # ── Баллы (начислено через QR в периоде) ─────────────────────────
+    total_points_electricians = (
+        qr_period.filter(scanned_by__user_type='electrician')
+        .aggregate(total=Sum('points'))['total'] or 0
+    )
+    total_points_sellers = (
+        qr_period.filter(scanned_by__user_type='seller')
+        .aggregate(total=Sum('points'))['total'] or 0
+    )
+
+    # ── Подарки ──────────────────────────────────────────────────────
+    total_gifts   = Gift.objects.count()
+    active_gifts  = Gift.objects.filter(is_active=True).count()
+    gift_qs = GiftRedemption.objects.all()
+    if date_from:
+        gift_qs = gift_qs.filter(requested_at__date__gte=date_from)
+    if date_to:
+        gift_qs = gift_qs.filter(requested_at__date__lte=date_to)
+    pending_redemptions = gift_qs.filter(status='pending').count()
+
+    # ── ТОП лидеры (по баллам QR в периоде) ─────────────────────────
+    def get_top_leaders(user_type):
+        qs = (
+            qr_period
+            .filter(scanned_by__user_type=user_type, scanned_by__isnull=False)
+            .values('scanned_by__first_name', 'scanned_by__username')
+            .annotate(points=Sum('points'))
+            .order_by('-points')[:10]
+        )
+        return [
+            {'first_name': r['scanned_by__first_name'],
+             'username':   r['scanned_by__username'],
+             'points':     r['points']}
+            for r in qs
+        ]
+
+    top_electricians = get_top_leaders('electrician')
+    top_sellers      = get_top_leaders('seller')
+
+    # ── Вилояты ──────────────────────────────────────────────────────
+    region_stats_electrician = defaultdict(lambda: {'points': 0, 'user_ids': set()})
+    region_stats_seller      = defaultdict(lambda: {'points': 0, 'user_ids': set()})
+    for qr in qr_period.select_related('scanned_by'):
+        if qr.scanned_by and qr.scanned_by.region:
+            uid = qr.scanned_by_id
             if qr.scanned_by.user_type == 'electrician':
-                district_stats_month_electrician[key] += qr.points
+                region_stats_electrician[qr.scanned_by.region]['points'] += qr.points
+                region_stats_electrician[qr.scanned_by.region]['user_ids'].add(uid)
             elif qr.scanned_by.user_type == 'seller':
-                district_stats_month_seller[key] += qr.points
-    for qr in qrcodes_year:
-        if qr.scanned_by and qr.scanned_by.region and qr.scanned_by.district:
-            key = (qr.scanned_by.region, qr.scanned_by.district)
-            if qr.scanned_by.user_type == 'electrician':
-                district_stats_year_electrician[key] += qr.points
-            elif qr.scanned_by.user_type == 'seller':
-                district_stats_year_seller[key] += qr.points
+                region_stats_seller[qr.scanned_by.region]['points'] += qr.points
+                region_stats_seller[qr.scanned_by.region]['user_ids'].add(uid)
 
     def sort_regions(stats):
         return sorted(
-            [(get_region_name(rc, 'ru') or rc, pts) for rc, pts in stats.items()],
-            key=lambda x: x[1],
-            reverse=True
+            [(get_region_name(rc, 'ru') or rc, len(d['user_ids']), d['points'])
+             for rc, d in stats.items()],
+            key=lambda x: x[2], reverse=True
         )
 
-    def sort_districts(stats):
-        return sorted(
-            [(get_region_name(rc, 'ru') or rc,
-              get_district_name(dc, rc, 'ru') or dc,
-              pts)
-             for (rc, dc), pts in stats.items()],
-            key=lambda x: x[2],
-            reverse=True
-        )
+    regions_electrician = sort_regions(region_stats_electrician)
+    regions_seller      = sort_regions(region_stats_seller)
 
-    regions_month_electrician = sort_regions(region_stats_month_electrician)
-    regions_month_seller = sort_regions(region_stats_month_seller)
-    regions_year_electrician = sort_regions(region_stats_year_electrician)
-    regions_year_seller = sort_regions(region_stats_year_seller)
-    districts_month_electrician = sort_districts(district_stats_month_electrician)
-    districts_month_seller = sort_districts(district_stats_month_seller)
-    districts_year_electrician = sort_districts(district_stats_year_electrician)
-    districts_year_seller = sort_districts(district_stats_year_seller)
-    
     context = {
         **admin.site.each_context(request),
-        'title': 'Boshqaruv paneli',
-        'top_electricians': top_electricians,
-        'top_sellers': top_sellers,
-        'total_users': total_users,
-        'total_electricians': total_electricians,
-        'total_sellers': total_sellers,
-        'total_qrcodes': total_qrcodes,
-        'scanned_qrcodes': scanned_qrcodes,
-        'unscanned_qrcodes': unscanned_qrcodes,
+        'title': 'Дашборд',
+        'period_label':             period_label,
+        'date_from':                date_from.isoformat() if date_from else '',
+        'date_to':                  date_to.isoformat()   if date_to   else '',
+        'total_users':              total_users,
+        'total_electricians':       total_electricians,
+        'total_sellers':            total_sellers,
+        'total_qrcodes':            total_qrcodes,
+        'scanned_qrcodes':          scanned_qrcodes,
+        'unscanned_qrcodes':        unscanned_qrcodes,
         'total_points_electricians': total_points_electricians,
-        'total_points_sellers': total_points_sellers,
-        'total_gifts': total_gifts,
-        'active_gifts': active_gifts,
-        'pending_redemptions': pending_redemptions,
-        'regions_month_electrician': regions_month_electrician,
-        'regions_month_seller': regions_month_seller,
-        'regions_year_electrician': regions_year_electrician,
-        'regions_year_seller': regions_year_seller,
-        'districts_month_electrician': districts_month_electrician,
-        'districts_month_seller': districts_month_seller,
-        'districts_year_electrician': districts_year_electrician,
-        'districts_year_seller': districts_year_seller,
-        'current_month': current_month_start.strftime('%B %Y'),
-        'current_year': current_year_start.year,
+        'total_points_sellers':     total_points_sellers,
+        'total_gifts':              total_gifts,
+        'active_gifts':             active_gifts,
+        'pending_redemptions':      pending_redemptions,
+        'top_electricians':         top_electricians,
+        'top_sellers':              top_sellers,
+        'regions_electrician':      regions_electrician,
+        'regions_seller':           regions_seller,
     }
-    
+
     return TemplateResponse(request, 'admin/dashboard.html', context)
 
 
