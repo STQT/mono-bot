@@ -298,7 +298,7 @@ JAZZMIN_SETTINGS = {
     
     # Настройки UI
     "custom_css": None,
-    "custom_js": None,
+    "custom_js": "core_admin/js/changelist_filters.js",
     "use_google_fonts_cdn": True,
     "show_ui_builder": False,
     

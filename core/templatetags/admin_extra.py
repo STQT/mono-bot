@@ -8,11 +8,12 @@ register = template.Library()
 
 @register.filter
 def query_param_name(query_string):
-    """Из query_string вида 'param=value' возвращает имя параметра (для data-name в option)."""
+    """Из query_string вида '?param=value' возвращает имя параметра без ведущего '?'."""
     if not query_string:
         return ''
     parts = str(query_string).split('=', 1)
-    return unquote(parts[0]) if parts else ''
+    name = unquote(parts[0]) if parts else ''
+    return name.lstrip('?')
 
 
 @register.filter

@@ -1,12 +1,14 @@
-{% load i18n admin_extra %}
+{% load i18n %}
 <div class="form-group">
     <label class="small text-muted">{{ title }}</label>
-    <select class="form-control search-filter" style="width: 100%;" tabindex="-1" aria-hidden="true" data-filter-param="{{ spec.parameter_name|default:'' }}">
-        <option value="" data-name="">---------</option>
+    <select class="form-control search-filter" style="width: 100%;" tabindex="-1" aria-hidden="true" data-filter-param="{{ field_name }}">
+        <option value="" data-name="{{ field_name }}">---------</option>
         {% for choice in choices %}
-            <option data-name="{{ choice.query_string|query_param_name }}" value="{{ choice.query_string|query_param_value }}" {% if choice.selected %}selected{% endif %}>
-                {{ choice.display }}
-            </option>
+            {% if choice.name %}
+                <option data-name="{{ choice.name }}" value="{{ choice.value }}" {% if choice.selected %}selected{% endif %}>
+                    {{ choice.display }}
+                </option>
+            {% endif %}
         {% endfor %}
     </select>
 </div>

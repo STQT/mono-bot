@@ -109,7 +109,11 @@
                     {% endif %}
                 </div>
                 <div class="card-body">
-                    {% for spec in cl.filter_specs %}{% admin_list_filter cl spec %}{% endfor %}
+                    {% for spec in cl.filter_specs %}{% jazzmin_list_filter cl spec %}{% endfor %}
+                    <div style="margin-top:12px; display:flex; gap:6px;">
+                        <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="applyAllFilters()">{% translate 'Search' %}</button>
+                        <a href="?{% if cl.query %}q={{ cl.query }}{% endif %}" class="btn btn-secondary btn-sm" style="flex:1; text-align:center;">{% translate 'Reset' %}</a>
+                    </div>
                 </div>
             </div>
         </div>

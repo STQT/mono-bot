@@ -454,7 +454,6 @@ class QRCodeAdmin(SimpleHistoryAdmin):
     ]
     list_filter = [
         'code_type', 'is_scanned',
-        ('generated_at', DateTimeRangeFilterBuilder(title='Дата генерации (диапазон)')),
     ]
     search_fields = ['code', 'hash_code', 'serial_number']
     readonly_fields = [
@@ -1565,8 +1564,6 @@ class PrivacyPolicyAdmin(SimpleHistoryAdmin):
     list_display_links = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
     list_filter = [
         'is_active',
-        ('created_at', DateTimeRangeFilterBuilder(title='Дата создания (диапазон)')),
-        ('updated_at', DateTimeRangeFilterBuilder(title='Дата обновления (диапазон)')),
     ]
     fieldsets = (
         ('Узбекский язык (Латиница)', {
@@ -1739,7 +1736,6 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
 class SmartUPIdAdmin(admin.ModelAdmin):
     """Админка для SmartUP ID."""
     list_display = ['id_value', 'created_at']
-    list_filter = [('created_at', DateTimeRangeFilterBuilder(title='Дата (диапазон)'))]
     search_fields = ['id_value']
     ordering = ['id_value']
     readonly_fields = ['created_at']
