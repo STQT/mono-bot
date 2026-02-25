@@ -2977,3 +2977,69 @@ body {
 .redemption-privacy-link:active {
     color: #666D80;
 }
+
+/* ===== Registration warning overlay ===== */
+#registrationOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.82);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 1.25rem;
+}
+
+.reg-overlay-card {
+    background: #ffffff;
+    border-radius: 1.25rem;
+    padding: 2rem 1.5rem;
+    max-width: 22rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.reg-overlay-icon {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.reg-overlay-messages {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.reg-overlay-block {
+    padding: 0.75rem 0;
+}
+
+.reg-overlay-lang {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    margin-bottom: 0.3rem;
+}
+
+.reg-overlay-text {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.reg-overlay-divider {
+    height: 1px;
+    background: #e2e8f0;
+    width: 100%;
+}
+/* ===== /Registration warning overlay ===== */

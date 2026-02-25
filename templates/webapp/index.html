@@ -64,6 +64,24 @@
     </script>
 </head>
 <body>
+    <!-- Overlay: показывается пока пользователь не завершил регистрацию -->
+    <div id="registrationOverlay" style="display:none;">
+        <div class="reg-overlay-card">
+            <div class="reg-overlay-icon">⚠️</div>
+            <div class="reg-overlay-messages">
+                <div class="reg-overlay-block">
+                    <p class="reg-overlay-lang">O'zbek</p>
+                    <p class="reg-overlay-text">Siz hali ro'yxatdan o'tmagansiz. Iltimos, botga qaytib, ro'yxatdan o'tishni to'liq yakunlang.</p>
+                </div>
+                <div class="reg-overlay-divider"></div>
+                <div class="reg-overlay-block">
+                    <p class="reg-overlay-lang">Русский</p>
+                    <p class="reg-overlay-text">Вы ещё не зарегистрированы. Пожалуйста, вернитесь в бот и завершите регистрацию.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="main-container">
         <!-- Профиль пользователя -->
         <div class="user-header">
@@ -812,9 +830,15 @@
 
                 const userResponse = await fetchNoCache(`${API_BASE}/user/?telegram_id=${user.id}`);
                 if (!userResponse.ok) {
-                    throw new Error(t('WEBAPP_ERROR_LOADING_USER'));
+                    showRegistrationOverlay();
+                    return;
                 }
                 currentUser = await userResponse.json();
+
+                if (!currentUser.is_registered) {
+                    showRegistrationOverlay();
+                    return;
+                }
                 
                 // Скрываем skeleton loader для пользователя и показываем реальные данные
                 const skeletonUser = document.getElementById('skeletonUser');
@@ -2776,6 +2800,10 @@
             setTimeout(() => {
                 container.innerHTML = '';
             }, 5000);
+        }
+
+        function showRegistrationOverlay() {
+            document.getElementById('registrationOverlay').style.display = 'flex';
         }
 
         // Очистка ошибки при вводе и изменение стиля кнопки

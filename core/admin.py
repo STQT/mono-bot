@@ -1753,3 +1753,7 @@ admin.site.site_header = 'Mona Admin Panel'
 admin.site.site_title = 'Mona Admin'
 admin.site.index_title = 'Панель управления'
 
+
+"""
+EAAbotoqNT04BQyNhjTxdjGaRZCRuGyeObZBs1w3DKYbZAj6TeCO698iFKZCn2A2FpnHmoz1FLYZBxQkhJ6ruZC7R0hNOXSmnuZBBiczhTitX3EEJe3nNgzZBsyShLcAa6OOHCjaZAM6E61uwzmpVWAMcwiFtKCqgdevFPh6IxG6F9BFXQKzY1ZBI3kGxjwexcHfCk72glGEyZApp9s0zEQZCu4fBxhE6dBrWZCtZCZAfgLIgU63vOT09Iy9lBQRYKpbmc0MthPZBza6FR3FCc0WMeON2wZCZCtUr8K
+"""

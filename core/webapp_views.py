@@ -96,6 +96,21 @@ def get_user_data(request):
     
     try:
         user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+
+        base_registered = bool(
+            user.language and
+            user.first_name and
+            user.user_type and
+            user.privacy_accepted and
+            user.phone_number and
+            user.latitude is not None and
+            user.longitude is not None
+        )
+        if user.user_type == 'seller':
+            is_registered = base_registered and (user.smartup_id is not None)
+        else:
+            is_registered = base_registered
+
         serializer = {
             'id': user.id,
             'telegram_id': user.telegram_id,
@@ -104,11 +119,12 @@ def get_user_data(request):
             'points': user.calculate_points(),
             'user_type': user.user_type,
             'language': user.language,
+            'is_registered': is_registered,
         }
         return Response(serializer)
     except TelegramUser.DoesNotExist:
         return Response(
-            {'error': 'User not found'},
+            {'error': 'User not found', 'is_registered': False},
             status=status.HTTP_404_NOT_FOUND
         )
 
