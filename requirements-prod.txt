@@ -8,6 +8,5 @@ gevent==23.9.1
 # SSL/TLS support
 aiohttp==3.9.1
 
-# Monitoring (опционально)
-# sentry-sdk==1.38.0
+# sentry-sdk installed via base requirements.txt
 

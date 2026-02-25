@@ -40,3 +40,6 @@ openpyxl==3.1.2
 # Date handling
 python-dateutil==2.8.2
 
+# Monitoring / Error tracking
+sentry-sdk[django,aiohttp]==2.36.0
+

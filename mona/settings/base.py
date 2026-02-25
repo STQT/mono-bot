@@ -2,6 +2,7 @@
 Базовые настройки Django для проекта mona.
 Общие настройки для всех окружений.
 """
+import logging
 import os
 from pathlib import Path
 import environ
@@ -212,6 +213,37 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20
 }
+
+# ──────────────────────────────────────────────
+# Sentry — инициализируется только если задан DSN
+# ──────────────────────────────────────────────
+SENTRY_DSN = env('SENTRY_DSN', default='')
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(
+                transaction_style='url',
+                middleware_spans=True,
+                signals_spans=False,
+            ),
+            LoggingIntegration(
+                level=logging.INFO,        # захватывать INFO+ как breadcrumbs
+                event_level=logging.ERROR, # отправлять ERROR+ как события
+            ),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=float(env('SENTRY_TRACES_SAMPLE_RATE', default='0.1')),
+        environment=env('SENTRY_ENVIRONMENT', default='development'),
+        send_default_pii=False,
+        release=env('APP_VERSION', default=None),
+    )
 
 # CORS для Web App (если нужно)
 CORS_ALLOWED_ORIGINS = [

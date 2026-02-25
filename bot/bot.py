@@ -26,6 +26,29 @@ django.setup()
 
 logger = logging.getLogger(__name__)
 
+# ── Sentry для бота ──────────────────────────────────────────────────────────
+_sentry_dsn = getattr(settings, 'SENTRY_DSN', '') or os.environ.get('SENTRY_DSN', '')
+if _sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[
+            AioHttpIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR,
+            ),
+        ],
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+        environment=os.environ.get('SENTRY_ENVIRONMENT', 'development'),
+        send_default_pii=False,
+    )
+    logger.info("Sentry initialized for bot")
+# ────────────────────────────────────────────────────────────────────────────
+
 # Инициализация бота и диспетчера
 bot_token = settings.TELEGRAM_BOT_TOKEN
 if not bot_token:
