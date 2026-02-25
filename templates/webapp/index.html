@@ -79,6 +79,10 @@
                     <p class="reg-overlay-text">Вы ещё не зарегистрированы. Пожалуйста, вернитесь в бот и завершите регистрацию.</p>
                 </div>
             </div>
+            <button class="reg-overlay-btn" id="continueRegBtn" onclick="continueRegistration()">
+                <span>Ro'yxatdan o'tishni davom ettirish</span>
+                <span class="reg-overlay-btn-sub">Продолжить регистрацию</span>
+            </button>
         </div>
     </div>
 
@@ -2804,6 +2808,37 @@
 
         function showRegistrationOverlay() {
             document.getElementById('registrationOverlay').style.display = 'flex';
+        }
+
+        async function continueRegistration() {
+            const btn = document.getElementById('continueRegBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            }
+
+            // Получаем telegram_id из WebApp или из URL-параметра
+            const initData = tg.initDataUnsafe;
+            const tgUser = initData ? initData.user : null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const telegramId = (tgUser && tgUser.id)
+                ? tgUser.id
+                : parseInt(urlParams.get('telegram_id') || '0');
+
+            if (telegramId) {
+                try {
+                    await fetch(`${API_BASE}/resend-registration-step/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telegram_id: telegramId }),
+                    });
+                } catch (e) {
+                    // Не блокируем закрытие даже если запрос упал
+                    console.error('resend-registration-step failed:', e);
+                }
+            }
+
+            tg.close();
         }
 
         // Очистка ошибки при вводе и изменение стиля кнопки

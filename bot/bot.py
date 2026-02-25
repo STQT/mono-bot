@@ -1265,10 +1265,6 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                     user.user_type = qr_code.code_type
                     user.save(update_fields=['user_type'])
                 
-                # Начисляем баллы
-                user.points += qr_code.points
-                user.save(update_fields=['points'])
-                
                 # Отмечаем QR-код как отсканированный
                 qr_code.is_scanned = True
                 qr_code.scanned_at = timezone.now()
@@ -1282,10 +1278,14 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                     is_successful=True
                 )
                 
+                # Инвалидируем кеш и пересчитываем баллы из БД (как в webapp)
+                user.invalidate_points_cache()
+                total_points = user.calculate_points(force=True)
+                
                 return {
                     'success': True,
                     'points': qr_code.points,
-                    'total_points': user.points
+                    'total_points': total_points
                 }
         
         result = await process_qr_scan()
@@ -1503,7 +1503,12 @@ async def handle_message(message: Message, state: FSMContext = None):
 
 async def show_balance(message: Message, user: TelegramUser):
     """Показывает баланс пользователя."""
-    await message.answer(get_text(user, 'BALANCE_INFO', points=format_number(user.points)))
+    @sync_to_async
+    def get_actual_points():
+        return user.calculate_points()
+
+    actual_points = await get_actual_points()
+    await message.answer(get_text(user, 'BALANCE_INFO', points=format_number(actual_points)))
 
 
 
@@ -1588,14 +1593,14 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
                 status='pending'
             )
             
-            # Списываем баллы
-            user.points -= gift.points_cost
-            user.save(update_fields=['points'])
+            # Инвалидируем кеш и пересчитываем баллы (GiftRedemption уже создан выше)
+            user.invalidate_points_cache()
+            remaining_points = user.calculate_points(force=True)
             
             return {
                 'success': True,
                 'gift_name': gift.name,
-                'remaining_points': user.points
+                'remaining_points': remaining_points
             }
         except Gift.DoesNotExist:
             return {'error': 'not_found'}

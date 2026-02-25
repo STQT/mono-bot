@@ -715,3 +715,185 @@ def register_qr_code(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers for sending Telegram Bot API messages without aiogram
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _tg_api(method: str, payload: dict) -> bool:
+    """Sends a request to the Telegram Bot API. Returns True on success."""
+    import json
+    import urllib.request
+    import urllib.error
+    import logging
+
+    logger = logging.getLogger(__name__)
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return False
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        url, data=data,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            return True
+    except Exception as exc:
+        logger.error(f"[_tg_api] {method} failed: {exc}")
+        return False
+
+
+def _resend_step_for_user(user: TelegramUser) -> str:
+    """
+    Determines the current registration step and sends the appropriate
+    Telegram message/keyboard to the user. Returns the step name.
+    """
+    from bot.translations import get_text
+
+    chat_id = user.telegram_id
+
+    # ── Step 1: Language ────────────────────────────────────────────────────
+    if not user.language:
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': (
+                "Assalomu alaykum!\n«Mono Electric» aksiyasiga xush kelibsiz.\n"
+                "Iltimos, qulay bo'lgan tilni tanlang:\n\n"
+                "Добрый день!\nДобро пожаловать в акцию «Mono Electric».\n"
+                "Пожалуйста, выберите удобный для вас язык:"
+            ),
+            'reply_markup': {
+                'inline_keyboard': [
+                    [{'text': "🇺🇿 O'zbekcha", 'callback_data': 'lang_uz_latin'}],
+                    [{'text': "🇷🇺 Русский",    'callback_data': 'lang_ru'}],
+                ],
+            },
+        })
+        return 'language'
+
+    # ── Step 2: Name ────────────────────────────────────────────────────────
+    if not user.first_name:
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': get_text(user, 'ASK_NAME'),
+        })
+        return 'name'
+
+    # ── Step 3: User type ───────────────────────────────────────────────────
+    if not user.user_type:
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': get_text(user, 'SELECT_USER_TYPE'),
+            'reply_markup': {
+                'inline_keyboard': [
+                    [{'text': get_text(user, 'USER_TYPE_ELECTRICIAN'),
+                      'callback_data': 'user_type_electrician'}],
+                    [{'text': get_text(user, 'USER_TYPE_SELLER'),
+                      'callback_data': 'user_type_seller'}],
+                ],
+            },
+        })
+        return 'user_type'
+
+    # ── Step 4: Privacy ─────────────────────────────────────────────────────
+    if not user.privacy_accepted:
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': get_text(user, 'PRIVACY_POLICY_TEXT'),
+            'reply_markup': {
+                'inline_keyboard': [
+                    [{'text': get_text(user, 'ACCEPT_PRIVACY'),
+                      'callback_data': 'privacy_accept'}],
+                    [{'text': get_text(user, 'DECLINE_PRIVACY'),
+                      'callback_data': 'privacy_decline'}],
+                ],
+            },
+        })
+        return 'privacy'
+
+    # ── Step 5: Phone ───────────────────────────────────────────────────────
+    if not user.phone_number:
+        btn_text = get_text(user, 'SEND_PHONE_BUTTON')
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': get_text(user, 'SEND_PHONE'),
+            'reply_markup': {
+                'keyboard': [[{'text': btn_text, 'request_contact': True}]],
+                'resize_keyboard': True,
+                'one_time_keyboard': True,
+            },
+        })
+        return 'phone'
+
+    # ── Step 6: Location ────────────────────────────────────────────────────
+    if user.latitude is None or user.longitude is None:
+        location_text = get_text(user, 'SEND_LOCATION')
+        btn_text = "📍 " + location_text.replace('📍 ', '').strip()
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': location_text,
+            'reply_markup': {
+                'keyboard': [[{'text': btn_text, 'request_location': True}]],
+                'resize_keyboard': True,
+                'one_time_keyboard': True,
+            },
+        })
+        return 'location'
+
+    # ── Step 7: SmartUp ID (seller only) ────────────────────────────────────
+    if user.user_type == 'seller' and user.smartup_id is None:
+        _tg_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': get_text(user, 'ASK_SMARTUP_ID'),
+            'reply_markup': {'remove_keyboard': True},
+        })
+        return 'smartup_id'
+
+    # ── Step 8: Promo code ──────────────────────────────────────────────────
+    _tg_api('sendMessage', {
+        'chat_id': chat_id,
+        'text': get_text(user, 'SEND_PROMO_CODE'),
+        'reply_markup': {'remove_keyboard': True},
+    })
+    return 'promo_code'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_registration_step(request):
+    """
+    Определяет текущий шаг регистрации пользователя и отправляет ему
+    напоминание через Telegram Bot API.
+    """
+    telegram_id = request.data.get('telegram_id')
+    if not telegram_id:
+        return Response({'error': 'telegram_id is required'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+    except TelegramUser.DoesNotExist:
+        # Пользователь совсем новый — отправляем стартовое сообщение
+        _tg_api('sendMessage', {
+            'chat_id': int(telegram_id),
+            'text': (
+                "Assalomu alaykum!\n«Mono Electric» aksiyasiga xush kelibsiz.\n"
+                "Iltimos, qulay bo'lgan tilni tanlang:\n\n"
+                "Добрый день!\nДобро пожаловать в акцию «Mono Electric».\n"
+                "Пожалуйста, выберите удобный для вас язык:"
+            ),
+            'reply_markup': {
+                'inline_keyboard': [
+                    [{'text': "🇺🇿 O'zbekcha", 'callback_data': 'lang_uz_latin'}],
+                    [{'text': "🇷🇺 Русский",    'callback_data': 'lang_ru'}],
+                ],
+            },
+        })
+        return Response({'success': True, 'step': 'language'})
+
+    step = _resend_step_for_user(user)
+    return Response({'success': True, 'step': step})
+
