@@ -329,8 +329,16 @@ async def cmd_start(message: Message, state: FSMContext):
         return
     else:
         logger.info(f"[cmd_start] Локация указана, пропускаем ask_location")
-    
-    # Шаг 6: Промокод (если еще не введен)
+
+    # Шаг 6: SmartUp ID (только для продавцов)
+    if user.user_type == 'seller' and user.smartup_id is None:
+        logger.info(f"[cmd_start] Продавец без SmartUp ID, вызываем ask_smartup_id")
+        await ask_smartup_id(message, user, state)
+        return
+    else:
+        logger.info(f"[cmd_start] SmartUp ID не требуется или уже указан, пропускаем")
+
+    # Шаг 7: Промокод (если еще не введен)
     # Промокод не обязателен, поэтому просто завершаем регистрацию
     logger.info(f"[cmd_start] Все шаги регистрации пройдены, показываем главное меню")
     await state.clear()
@@ -1426,10 +1434,25 @@ async def handle_message(message: Message, state: FSMContext = None):
     # Если пользователь в состоянии регистрации, не обрабатываем как QR-код
     if state:
         current_state = await state.get_state()
-        if current_state in [RegistrationStates.waiting_for_phone, RegistrationStates.waiting_for_location, RegistrationStates.waiting_for_user_type]:
+        if current_state in [
+            RegistrationStates.waiting_for_phone,
+            RegistrationStates.waiting_for_location,
+            RegistrationStates.waiting_for_user_type,
+            RegistrationStates.waiting_for_smartup_id,
+        ]:
             # Пропускаем обработку, пусть обрабатывают соответствующие handlers
             return
-    
+
+    # Если продавец ещё не ввёл SmartUp ID — восстанавливаем шаг регистрации.
+    # Это срабатывает, например, когда бот перезапустился и FSM-состояние сброшено.
+    if user.user_type == 'seller' and user.smartup_id is None:
+        logger.info(
+            f"[handle_message] Продавец {user.telegram_id} без SmartUp ID — "
+            "перенаправляем на ask_smartup_id"
+        )
+        await ask_smartup_id(message, user, state)
+        return
+
     # Получаем все возможные варианты текстов кнопок
     all_balance_texts = [
         TRANSLATIONS['uz_latin']['MY_BALANCE'],
