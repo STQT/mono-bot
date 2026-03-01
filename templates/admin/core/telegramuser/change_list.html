@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if send_region_message_url %}
+    <a href="{{ send_region_message_url }}" class="btn btn-primary ms-2">
+        📍 Отправить по области
+    </a>
+    {% endif %}
+{% endblock %}

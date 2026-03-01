@@ -61,10 +61,18 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
     list_per_page = 50
     date_hierarchy = 'created_at'
+    change_list_template = 'admin/core/telegramuser/change_list.html'
 
     class Media:
         css = {'all': ('core_admin/css/changelist_filters.css',)}
         js = ('core_admin/js/changelist_filters.js',)
+
+    def changelist_view(self, request, extra_context=None):
+        from django.urls import reverse
+        extra_context = extra_context or {}
+        if request.user.has_perm('core.send_region_messages'):
+            extra_context['send_region_message_url'] = reverse('admin:core_telegramuser_send_region_message')
+        return super().changelist_view(request, extra_context)
 
     def user_display(self, obj):
         """Отображает пользователя с иконкой и ссылкой."""
@@ -380,6 +388,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
         urls = super().get_urls()
         custom_urls = [
             path('<int:user_id>/send_message/', self.admin_site.admin_view(self.send_single_message_view), name='core_telegramuser_send_single_message'),
+            path('send_region_message/', self.admin_site.admin_view(self.send_region_message_view), name='core_telegramuser_send_region_message'),
         ]
         return custom_urls + urls
     
@@ -435,6 +444,109 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             'has_delete_permission': False,
         }
         return TemplateResponse(request, 'admin/core/telegramuser/send_message.html', context)
+
+    def send_region_message_view(self, request):
+        """Страница отправки сообщения по области (с фото, форматированием, ссылками)."""
+        from django import forms
+        from django.core.exceptions import PermissionDenied
+        from core.regions import get_region_by_coordinates, get_all_regions
+
+        if not request.user.has_perm('core.send_region_messages'):
+            raise PermissionDenied
+
+        region_choices = [('', '--- Выберите область ---')] + list(get_all_regions('ru'))
+
+        class RegionMessageForm(forms.Form):
+            region = forms.ChoiceField(choices=region_choices, required=True, label='Область')
+            message = forms.CharField(widget=forms.Textarea(attrs={'rows': 8}), label='Текст сообщения', required=False)
+            image = forms.ImageField(required=False, label='Фото (опционально)')
+            user_type_filter = forms.ChoiceField(
+                choices=[('', 'Все'), ('electrician', 'Электрики'), ('seller', 'Продавцы')],
+                required=False,
+                label='Тип пользователя'
+            )
+
+        if request.method == 'POST':
+            form = RegionMessageForm(request.POST, request.FILES)
+            if form.is_valid():
+                region_code = form.cleaned_data['region']
+                message_text = form.cleaned_data.get('message') or ''
+                image_file = form.cleaned_data.get('image')
+                user_type_filter = form.cleaned_data['user_type_filter'] or None
+                only_active = form.cleaned_data['only_active']
+
+                users_qs = TelegramUser.objects.filter(
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                    is_active=True
+                )
+                if user_type_filter:
+                    users_qs = users_qs.filter(user_type=user_type_filter)
+
+                users = list(users_qs)
+                filtered = []
+                for u in users:
+                    if get_region_by_coordinates(u.latitude, u.longitude) == region_code:
+                        filtered.append(u)
+
+                if not filtered:
+                    self.message_user(request, 'В выбранной области нет пользователей с координатами.', messages.WARNING)
+                else:
+                    import asyncio
+                    import tempfile
+                    import os
+
+                    photo_path = None
+                    if image_file:
+                        ext = os.path.splitext(image_file.name)[1] or '.jpg'
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                            for chunk in image_file.chunks():
+                                tmp.write(chunk)
+                            photo_path = tmp.name
+
+                    async def send_all():
+                        from aiogram import Bot
+                        bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+                        sent, failed = 0, 0
+                        try:
+                            for i, user in enumerate(filtered):
+                                from core.messaging import send_message_to_user
+                                success, err = await send_message_to_user(
+                                    bot=bot, user=user, text=message_text,
+                                    parse_mode='HTML', photo_path=photo_path
+                                )
+                                if success:
+                                    sent += 1
+                                else:
+                                    failed += 1
+                                if i < len(filtered) - 1:
+                                    await asyncio.sleep(0.035)
+                            return sent, failed
+                        finally:
+                            await bot.session.close()
+                            if photo_path and os.path.exists(photo_path):
+                                try:
+                                    os.unlink(photo_path)
+                                except OSError:
+                                    pass
+
+                    sent, failed = asyncio.run(send_all())
+                    self.message_user(
+                        request,
+                        f'Отправлено: {sent}, ошибок: {failed} (всего {len(filtered)} пользователей)',
+                        messages.SUCCESS
+                    )
+                    return redirect('admin:core_telegramuser_changelist')
+        else:
+            form = RegionMessageForm()
+
+        context = {
+            **self.admin_site.each_context(request),
+            'form': form,
+            'title': 'Отправить сообщение по области',
+            'opts': self.model._meta,
+        }
+        return TemplateResponse(request, 'admin/core/telegramuser/send_region_message.html', context)
 
 
 class QRCodeScanAttemptInline(admin.TabularInline):
@@ -1128,7 +1240,8 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('title', 'message_text', 'user_type_filter')
+            'fields': ('title', 'message_text', 'image', 'user_type_filter'),
+            'description': 'Текст поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <a href="url">ссылка</a>. Эмодзи и стикеры можно вставлять в текст. Фото — опционально.'
         }),
         ('Фильтрация по региону', {
             'fields': ('region_filter',),
@@ -1657,19 +1770,22 @@ class AdminContactSettingsAdmin(SimpleHistoryAdmin):
 
 @admin.register(VideoInstruction)
 class VideoInstructionAdmin(SimpleHistoryAdmin):
-    """Админка для видео инструкций."""
-    list_display = ['video_preview_uz', 'video_preview_ru', 'file_id_status', 'is_active', 'updated_at']
+    """Админка для видео инструкций. 4 видео: электрики (UZ/RU) и предприниматели (UZ/RU)."""
+    list_display = ['video_electrician_preview', 'video_seller_preview', 'file_id_status', 'is_active', 'updated_at']
     list_filter = [
         'is_active',
         ('updated_at', DateTimeRangeFilterBuilder(title='Дата обновления (диапазон)')),
     ]
     fieldsets = (
-        ('Video fayllar', {
-            'fields': ('video_uz_latin', 'video_ru')
+        ('Video — Elektriklar', {
+            'fields': ('video_electrician_uz', 'thumb_electrician_uz', 'video_electrician_ru', 'thumb_electrician_ru')
         }),
-        ('Telegram file_id (avtomatik to\'ldiriladi)', {
-            'fields': ('file_id_uz_latin', 'file_id_ru'),
-            'description': 'File_id avtomatik to\'ldiriladi video yuborilganda. Qo\'lda o\'zgartirish tavsiya etilmaydi.'
+        ('Video — Tadbirkorlar', {
+            'fields': ('video_seller_uz', 'thumb_seller_uz', 'video_seller_ru', 'thumb_seller_ru')
+        }),
+        ('Telegram file_id (avtomatik)', {
+            'fields': ('file_id_electrician_uz', 'file_id_electrician_ru', 'file_id_seller_uz', 'file_id_seller_ru'),
+            'description': 'File_id avtomatik to\'ldiriladi. Thumbnail — JPEG max 320x320, 200KB (oldindan ko\'rinish uchun).'
         }),
         ('Sozlamalar', {
             'fields': ('is_active',)
@@ -1678,43 +1794,29 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
-    readonly_fields = ['created_at', 'updated_at', 'file_id_uz_latin', 'file_id_ru']
+    readonly_fields = ['created_at', 'updated_at', 'file_id_electrician_uz', 'file_id_electrician_ru', 'file_id_seller_uz', 'file_id_seller_ru']
     
-    def video_preview_uz(self, obj):
-        """Отображает информацию о видео на узбекском."""
-        if obj.video_uz_latin:
-            file_name = os.path.basename(obj.video_uz_latin.name)
-            file_id_status = '✅' if obj.file_id_uz_latin else '⏳'
-            return format_html(
-                '<span style="font-size: 16px;">🇺🇿</span> <strong>{}</strong><br>'
-                '<span style="color: #718096; font-size: 12px;">File ID: {}</span>',
-                file_name, file_id_status
-            )
-        return format_html('<span style="color: #cbd5e0;">❌ Video yuklanmagan</span>')
-    video_preview_uz.short_description = 'Video (O\'zbek)'
+    def video_electrician_preview(self, obj):
+        uz = '✅' if obj.video_electrician_uz else '❌'
+        ru = '✅' if obj.video_electrician_ru else '❌'
+        return format_html('<span>⚡ Elektrik: UZ {} | RU {}</span>', uz, ru)
+    video_electrician_preview.short_description = 'Video (Elektrik)'
     
-    def video_preview_ru(self, obj):
-        """Отображает информацию о видео на русском."""
-        if obj.video_ru:
-            file_name = os.path.basename(obj.video_ru.name)
-            file_id_status = '✅' if obj.file_id_ru else '⏳'
-            return format_html(
-                '<span style="font-size: 16px;">🇷🇺</span> <strong>{}</strong><br>'
-                '<span style="color: #718096; font-size: 12px;">File ID: {}</span>',
-                file_name, file_id_status
-            )
-        return format_html('<span style="color: #cbd5e0;">❌ Video yuklanmagan</span>')
-    video_preview_ru.short_description = 'Video (Ruscha)'
+    def video_seller_preview(self, obj):
+        uz = '✅' if obj.video_seller_uz else '❌'
+        ru = '✅' if obj.video_seller_ru else '❌'
+        return format_html('<span>🛒 Tadbirkor: UZ {} | RU {}</span>', uz, ru)
+    video_seller_preview.short_description = 'Video (Tadbirkor)'
     
     def file_id_status(self, obj):
-        """Показывает статус file_id."""
-        uz_status = '✅' if obj.file_id_uz_latin else '❌'
-        ru_status = '✅' if obj.file_id_ru else '❌'
         return format_html(
-            '<span style="font-size: 14px;">🇺🇿 {} | 🇷🇺 {}</span>',
-            uz_status, ru_status
+            '⚡ UZ{} RU{} | 🛒 UZ{} RU{}',
+            '✅' if obj.file_id_electrician_uz else '❌',
+            '✅' if obj.file_id_electrician_ru else '❌',
+            '✅' if obj.file_id_seller_uz else '❌',
+            '✅' if obj.file_id_seller_ru else '❌',
         )
-    file_id_status.short_description = 'File ID holati'
+    file_id_status.short_description = 'File ID'
     
     def has_add_permission(self, request):
         """Разрешаем создание только для superuser."""

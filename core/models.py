@@ -473,6 +473,13 @@ class BroadcastMessage(models.Model):
     
     title = models.CharField(max_length=255, verbose_name='Yuborish nomi')
     message_text = models.TextField(verbose_name='Xabar matni')
+    image = models.ImageField(
+        upload_to='broadcasts/',
+        verbose_name='Rasm',
+        null=True,
+        blank=True,
+        help_text='Ixtiyoriy. Rasm qo\'shilsa, xabar caption sifatida yuboriladi. HTML formatlash va havolalar qo\'llab-quvvatlanadi.'
+    )
     user_type_filter = models.CharField(
         max_length=20,
         choices=TelegramUser.USER_TYPE_CHOICES,
@@ -544,7 +551,7 @@ class BroadcastMessage(models.Model):
 
 class Promotion(models.Model):
     """Модель для акций/баннеров в слайдере Web App."""
-    title = models.CharField(max_length=255, verbose_name='Sarlavha')
+    title = models.CharField(max_length=255, verbose_name='Sarlavha', blank=True, null=True)
     image = models.ImageField(upload_to='promotions/', verbose_name='Rasm')
     date = models.DateField(verbose_name='Sana')
     is_active = models.BooleanField(default=True, verbose_name='Faol', db_index=True)
@@ -567,7 +574,8 @@ class Promotion(models.Model):
             date_str = self.date.strftime('%d.%m.%Y')
         else:
             date_str = "Sana yo'q"
-        return f"{self.title} ({date_str})"
+        title_str = self.title or "—"
+        return f"{title_str} ({date_str})"
 
 
 class PrivacyPolicy(models.Model):
@@ -705,36 +713,62 @@ class AdminContactSettings(models.Model):
 
 
 class VideoInstruction(models.Model):
-    """Модель для видео инструкций."""
-    video_uz_latin = models.FileField(
+    """Модель для видео инструкций. 4 видео: электрики (UZ/RU) и предприниматели (UZ/RU)."""
+    # Электрики
+    video_electrician_uz = models.FileField(
         upload_to='video_instructions/',
-        null=True,
-        blank=True,
-        verbose_name='Video (O\'zbek lotin)',
-        help_text='Video fayl o\'zbek tilida (lotin)'
+        null=True, blank=True,
+        verbose_name='Video — Elektrik (O\'zbek)',
+        help_text='Video fayl elektriklar uchun o\'zbek tilida'
     )
-    video_ru = models.FileField(
+    video_electrician_ru = models.FileField(
         upload_to='video_instructions/',
-        null=True,
-        blank=True,
-        verbose_name='Video (Ruscha)',
-        help_text='Video fayl rus tilida'
+        null=True, blank=True,
+        verbose_name='Video — Elektrik (Ruscha)',
+        help_text='Video fayl elektriklar uchun rus tilida'
     )
-    # Сохраняем file_id от Telegram для быстрой отправки
-    file_id_uz_latin = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        verbose_name='Telegram file_id (O\'zbek)',
-        help_text='Telegram file_id o\'zbek tili uchun (avtomatik to\'ldiriladi)'
+    thumb_electrician_uz = models.ImageField(
+        upload_to='video_instructions/thumbs/',
+        null=True, blank=True,
+        verbose_name='Thumbnail — Elektrik (O\'zbek)',
+        help_text='JPEG, max 320x320, 200KB. Oldindan ko\'rinish uchun.'
     )
-    file_id_ru = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        verbose_name='Telegram file_id (Ruscha)',
-        help_text='Telegram file_id rus tili uchun (avtomatik to\'ldiriladi)'
+    thumb_electrician_ru = models.ImageField(
+        upload_to='video_instructions/thumbs/',
+        null=True, blank=True,
+        verbose_name='Thumbnail — Elektrik (Ruscha)',
+        help_text='JPEG, max 320x320, 200KB. Превью для видео.'
     )
+    # Предприниматели (продавцы)
+    video_seller_uz = models.FileField(
+        upload_to='video_instructions/',
+        null=True, blank=True,
+        verbose_name='Video — Tadbirkor (O\'zbek)',
+        help_text='Video fayl tadbirkorlar uchun o\'zbek tilida'
+    )
+    video_seller_ru = models.FileField(
+        upload_to='video_instructions/',
+        null=True, blank=True,
+        verbose_name='Video — Tadbirkor (Ruscha)',
+        help_text='Video fayl tadbirkorlar uchun rus tilida'
+    )
+    thumb_seller_uz = models.ImageField(
+        upload_to='video_instructions/thumbs/',
+        null=True, blank=True,
+        verbose_name='Thumbnail — Tadbirkor (O\'zbek)',
+        help_text='JPEG, max 320x320, 200KB.'
+    )
+    thumb_seller_ru = models.ImageField(
+        upload_to='video_instructions/thumbs/',
+        null=True, blank=True,
+        verbose_name='Thumbnail — Tadbirkor (Ruscha)',
+        help_text='JPEG, max 320x320, 200KB.'
+    )
+    # Telegram file_id (avtomatik)
+    file_id_electrician_uz = models.CharField(max_length=255, null=True, blank=True, verbose_name='file_id Elektrik UZ')
+    file_id_electrician_ru = models.CharField(max_length=255, null=True, blank=True, verbose_name='file_id Elektrik RU')
+    file_id_seller_uz = models.CharField(max_length=255, null=True, blank=True, verbose_name='file_id Tadbirkor UZ')
+    file_id_seller_ru = models.CharField(max_length=255, null=True, blank=True, verbose_name='file_id Tadbirkor RU')
     is_active = models.BooleanField(default=True, verbose_name='Faol')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Yangilangan')
@@ -749,48 +783,26 @@ class VideoInstruction(models.Model):
     def __str__(self):
         return f"Video ko'rsatma (Yangilangan: {self.updated_at.strftime('%d.%m.%Y %H:%M')})"
     
-    def get_video_file(self, language='uz_latin'):
-        """
-        Возвращает видео файл для указанного языка.
-        
-        Args:
-            language: Язык ('uz_latin' или 'ru')
-        
-        Returns:
-            FileField или None
-        """
-        if language == 'ru':
-            return self.video_ru
-        return self.video_uz_latin
+    def get_video_file(self, user_type: str, language: str):
+        """Возвращает видео файл для user_type и language."""
+        key = f'video_{user_type}_{"uz" if language == "uz_latin" else "ru"}'
+        return getattr(self, key, None)
     
-    def get_file_id(self, language='uz_latin'):
-        """
-        Возвращает file_id для указанного языка.
-        
-        Args:
-            language: Язык ('uz_latin' или 'ru')
-        
-        Returns:
-            str или None
-        """
-        if language == 'ru':
-            return self.file_id_ru
-        return self.file_id_uz_latin
+    def get_thumb_file(self, user_type: str, language: str):
+        """Возвращает thumbnail для user_type и language."""
+        key = f'thumb_{user_type}_{"uz" if language == "uz_latin" else "ru"}'
+        return getattr(self, key, None)
     
-    def set_file_id(self, language, file_id):
-        """
-        Устанавливает file_id для указанного языка.
-        
-        Args:
-            language: Язык ('uz_latin' или 'ru')
-            file_id: file_id от Telegram
-        """
-        if language == 'ru':
-            self.file_id_ru = file_id
-            self.save(update_fields=['file_id_ru'])
-        else:
-            self.file_id_uz_latin = file_id
-            self.save(update_fields=['file_id_uz_latin'])
+    def get_file_id(self, user_type: str, language: str):
+        """Возвращает file_id для user_type и language."""
+        key = f'file_id_{user_type}_{"uz" if language == "uz_latin" else "ru"}'
+        return getattr(self, key, None)
+    
+    def set_file_id(self, user_type: str, language: str, file_id: str):
+        """Устанавливает file_id для user_type и language."""
+        key = f'file_id_{user_type}_{"uz" if language == "uz_latin" else "ru"}'
+        setattr(self, key, file_id)
+        self.save(update_fields=[key])
     
     @classmethod
     def get_active_instruction(cls):

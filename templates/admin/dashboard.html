@@ -186,6 +186,9 @@
         <div class="filter-buttons">
             <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=electrician" class="filter-button electrician">⚡ Электрики</a>
             <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=seller" class="filter-button seller">🛒 Продавцы</a>
+            {% if perms.core.send_region_messages %}
+            <a href="{% url 'admin:core_telegramuser_send_region_message' %}" class="filter-button">📍 Отправить по области</a>
+            {% endif %}
         </div>
     </div>
 

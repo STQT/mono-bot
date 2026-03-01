@@ -25,28 +25,42 @@ async def send_message_to_user(
     user: TelegramUser,
     text: str,
     parse_mode: Optional[str] = None,
-    disable_notification: bool = False
+    disable_notification: bool = False,
+    photo_path: Optional[str] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Отправляет сообщение конкретному пользователю.
+    Поддерживает: текст с HTML-форматированием, ссылки, фото с подписью.
     
     Args:
         bot: Экземпляр бота
         user: Пользователь Telegram
-        text: Текст сообщения
+        text: Текст сообщения (поддерживает HTML: <b>, <i>, <a href="">)
         parse_mode: Режим парсинга (HTML, Markdown)
         disable_notification: Отключить уведомление
+        photo_path: Путь к файлу изображения (если указан — отправляется фото с caption)
     
     Returns:
         tuple: (успешно ли отправлено, сообщение об ошибке если есть)
     """
     try:
-        await bot.send_message(
-            chat_id=user.telegram_id,
-            text=text,
-            parse_mode=parse_mode,
-            disable_notification=disable_notification
-        )
+        if photo_path:
+            from aiogram.types import FSInputFile
+            photo = FSInputFile(photo_path)
+            await bot.send_photo(
+                chat_id=user.telegram_id,
+                photo=photo,
+                caption=text or None,
+                parse_mode=parse_mode,
+                disable_notification=disable_notification,
+            )
+        else:
+            await bot.send_message(
+                chat_id=user.telegram_id,
+                text=text,
+                parse_mode=parse_mode,
+                disable_notification=disable_notification,
+            )
         
         # Обновляем время последнего сообщения
         @sync_to_async
@@ -170,6 +184,14 @@ async def send_broadcast_message(
     
     logger.info(f"Начало рассылки '{broadcast.title}' для {total_users} пользователей")
     
+    # Путь к изображению (если есть)
+    photo_path = None
+    if broadcast.image:
+        try:
+            photo_path = broadcast.image.path
+        except (ValueError, OSError):
+            pass
+
     # Отправляем сообщения с учетом лимитов
     for i, user in enumerate(users):
         try:
@@ -177,7 +199,8 @@ async def send_broadcast_message(
                 bot=bot,
                 user=user,
                 text=broadcast.message_text,
-                parse_mode='HTML'
+                parse_mode='HTML',
+                photo_path=photo_path,
             )
             
             if success:

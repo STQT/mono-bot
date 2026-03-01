@@ -13,10 +13,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import BaseMiddleware
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.filters import ExceptionTypeFilter
+from aiogram.types import ErrorEvent
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from core.models import TelegramUser, QRCode, QRCodeScanAttempt, Gift, GiftRedemption, VideoInstruction
 from core.utils import generate_qr_code_image
 from .translations import get_text, TRANSLATIONS
@@ -102,10 +105,30 @@ class BotFilterMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
-# Регистрируем middleware
+# Регистрируем middleware и обработчик блокировки бота
 if dp:
     dp.message.middleware(BotFilterMiddleware())
     dp.callback_query.middleware(BotFilterMiddleware())
+
+    @dp.error(ExceptionTypeFilter(TelegramForbiddenError))
+    async def handle_user_blocked_bot(event: ErrorEvent):
+        """Когда пользователь заблокировал бота — помечаем его неактивным в БД."""
+        telegram_id = None
+        update = event.update
+        if update.message and update.message.from_user:
+            telegram_id = update.message.from_user.id
+        elif update.callback_query and update.callback_query.from_user:
+            telegram_id = update.callback_query.from_user.id
+        if telegram_id:
+            try:
+                def mark_user_blocked():
+                    TelegramUser.objects.filter(telegram_id=telegram_id).update(
+                        is_active=False, blocked_bot_at=timezone.now()
+                    )
+                await sync_to_async(mark_user_blocked)()
+                logger.info("Пользователь %s заблокировал бота — помечен неактивным", telegram_id)
+            except Exception as e:
+                logger.warning("Не удалось обновить статус пользователя %s: %s", telegram_id, e)
 
 
 class RegistrationStates(StatesGroup):
@@ -514,107 +537,83 @@ async def ask_user_type(message: Message, user, state: FSMContext):
     await state.set_state(RegistrationStates.waiting_for_user_type)
 
 
-async def send_video_instruction(chat_id: int, language: str):
-    """Отправляет видео инструкцию пользователю."""
-    logger.info(f"[send_video_instruction] Отправка видео инструкции для chat_id={chat_id}, language={language}")
+async def send_video_instruction(chat_id: int, language: str, user_type: str):
+    """Отправляет видео инструкцию пользователю (для electrician или seller, с учётом языка)."""
+    logger.info(f"[send_video_instruction] chat_id={chat_id}, language={language}, user_type={user_type}")
     
     @sync_to_async
     def get_video_instruction():
-        """Получает активную видео инструкцию."""
         return VideoInstruction.objects.filter(is_active=True).first()
     
     instruction = await get_video_instruction()
-    
     if not instruction:
-        logger.warning(f"[send_video_instruction] Активная видео инструкция не найдена")
+        logger.warning("[send_video_instruction] Активная видео инструкция не найдена")
         return
     
-    # Получаем file_id для языка
-    file_id = instruction.get_file_id(language)
-    
-    # Получаем caption для видео инструкции
+    file_id = instruction.get_file_id(user_type, language)
     from .translations import TRANSLATIONS
     caption = TRANSLATIONS.get(language, TRANSLATIONS['uz_latin']).get('VIDEO_INSTRUCTION_CAPTION', '')
     
-    if file_id:
-        # Используем сохраненный file_id для быстрой отправки
-        logger.info(f"[send_video_instruction] Используем сохраненный file_id: {file_id}")
+    def _get_thumb_input(thumb_file):
+        """Возвращает FSInputFile для thumbnail или None."""
+        if not thumb_file:
+            return None
         try:
-            # Увеличиваем таймаут для отправки видео (5 минут)
+            path = thumb_file.path
+            if path and os.path.exists(path):
+                return types.FSInputFile(path)
+        except (ValueError, OSError):
+            pass
+        alt = os.path.join(settings.MEDIA_ROOT, thumb_file.name) if thumb_file.name else None
+        if alt and os.path.exists(alt):
+            return types.FSInputFile(alt)
+        return None
+    
+    if file_id:
+        logger.info(f"[send_video_instruction] Используем file_id: {file_id}")
+        try:
             await bot.send_video(chat_id=chat_id, video=file_id, caption=caption, request_timeout=300)
-            logger.info(f"[send_video_instruction] Видео отправлено по file_id")
+            logger.info("[send_video_instruction] Видео отправлено по file_id")
         except Exception as e:
-            logger.error(f"[send_video_instruction] Ошибка при отправке по file_id: {e}")
-            # Если file_id не работает, пробуем загрузить файл заново
+            logger.error(f"[send_video_instruction] Ошибка по file_id: {e}")
             file_id = None
     
     if not file_id:
-        # Загружаем файл и сохраняем file_id
-        video_file = instruction.get_video_file(language)
-        
+        video_file = instruction.get_video_file(user_type, language)
         if not video_file:
-            logger.warning(f"[send_video_instruction] Видео файл не найден для языка {language}")
+            logger.warning(f"[send_video_instruction] Видео не найдено для {user_type}/{language}")
             return
         
+        thumb_file = instruction.get_thumb_file(user_type, language)
+        thumb_input = await sync_to_async(_get_thumb_input)(thumb_file) if thumb_file else None
+        
         try:
-            # Получаем полный путь к файлу
             video_path = video_file.path
-            logger.info(f"[send_video_instruction] Путь к видео: {video_path}")
-            
-            # Проверяем существование файла
             if os.path.exists(video_path):
-                logger.info(f"[send_video_instruction] Файл существует, отправляем видео")
-                # Отправляем видео с увеличенным таймаутом (5 минут для больших файлов)
-                sent_message = await bot.send_video(
-                    chat_id=chat_id,
-                    video=types.FSInputFile(video_path),
-                    caption=caption,
-                    request_timeout=300  # 5 минут
-                )
-                
-                # Сохраняем file_id для будущего использования
-                if sent_message.video and sent_message.video.file_id:
-                    file_id = sent_message.video.file_id
-                    logger.info(f"[send_video_instruction] Получен file_id: {file_id}")
-                    
-                    @sync_to_async
-                    def save_file_id():
-                        instruction.set_file_id(language, file_id)
-                    
-                    await save_file_id()
-                    logger.info(f"[send_video_instruction] File_id сохранен в базу данных")
-                else:
-                    logger.warning(f"[send_video_instruction] File_id не получен от Telegram")
+                kwargs = dict(chat_id=chat_id, video=types.FSInputFile(video_path), caption=caption, request_timeout=300)
+                if thumb_input:
+                    kwargs['thumbnail'] = thumb_input
+                sent_message = await bot.send_video(**kwargs)
             else:
-                # Пробуем альтернативный путь
                 alt_path = os.path.join(settings.MEDIA_ROOT, video_file.name)
-                logger.info(f"[send_video_instruction] Пробуем альтернативный путь: {alt_path}")
-                if os.path.exists(alt_path):
-                    logger.info(f"[send_video_instruction] Файл найден по альтернативному пути, отправляем видео")
-                    sent_message = await bot.send_video(
-                        chat_id=chat_id,
-                        video=types.FSInputFile(alt_path),
-                        caption=caption,
-                        request_timeout=300  # 5 минут
-                    )
-                    
-                    # Сохраняем file_id
-                    if sent_message.video and sent_message.video.file_id:
-                        file_id = sent_message.video.file_id
-                        logger.info(f"[send_video_instruction] Получен file_id: {file_id}")
-                        
-                        @sync_to_async
-                        def save_file_id():
-                            instruction.set_file_id(language, file_id)
-                        
-                        await save_file_id()
-                        logger.info(f"[send_video_instruction] File_id сохранен в базу данных")
-                else:
-                    logger.error(f"[send_video_instruction] Видео файл не найден на диске. Путь: {video_path}, Альтернативный: {alt_path}")
+                if not os.path.exists(alt_path):
+                    logger.error(f"[send_video_instruction] Файл не найден: {video_path}")
+                    return
+                kwargs = dict(chat_id=chat_id, video=types.FSInputFile(alt_path), caption=caption, request_timeout=300)
+                if thumb_input:
+                    kwargs['thumbnail'] = thumb_input
+                sent_message = await bot.send_video(**kwargs)
+            
+            if sent_message.video and sent_message.video.file_id:
+                new_file_id = sent_message.video.file_id
+                def _save():
+                    instruction.set_file_id(user_type, language, new_file_id)
+                await sync_to_async(_save)()
+                logger.info("[send_video_instruction] file_id сохранён")
         except asyncio.TimeoutError:
-            logger.error(f"[send_video_instruction] Таймаут при отправке видео. Файл слишком большой или медленное соединение.")
+            logger.error("[send_video_instruction] Таймаут при отправке видео")
         except Exception as e:
-            logger.error(f"[send_video_instruction] Ошибка при отправке видео: {e}", exc_info=True)
+            logger.error(f"[send_video_instruction] Ошибка: {e}", exc_info=True)
 
 
 async def ask_privacy_acceptance(message: Message, user, state: FSMContext):
@@ -1038,13 +1037,7 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
         await _safe_delete_message(callback.message)
         
-        # Отправляем видео инструкцию только при первом выборе языка (если пользователь еще не зарегистрирован)
-        if not is_registered:
-            logger.info(f"[process_language_selection] Пользователь не зарегистрирован, отправляем видео инструкцию")
-            try:
-                await send_video_instruction(callback.from_user.id, language)
-            except Exception as e:
-                logger.error(f"[process_language_selection] Ошибка при отправке видео инструкции: {e}", exc_info=True)
+        # Видео инструкция отправляется после выбора типа пользователя (electrician/seller)
         if is_registered:
             # Пользователь уже зарегистрирован - показываем обновленное меню
             logger.info(f"[process_language_selection] Пользователь зарегистрирован, показываем меню")
@@ -1171,6 +1164,12 @@ async def process_user_type_selection(callback: CallbackQuery, state: FSMContext
     
     await callback.answer(get_text(user, 'USER_TYPE_SAVED'))
     await _safe_delete_message(callback.message)
+    
+    # Отправляем видео инструкцию для выбранного типа (electrician/seller) и языка
+    try:
+        await send_video_instruction(callback.from_user.id, user.language or 'uz_latin', user_type)
+    except Exception as e:
+        logger.error(f"[process_user_type_selection] Ошибка при отправке видео: {e}", exc_info=True)
     
     # Переходим к следующему шагу - согласие на политику конфиденциальности
     await ask_privacy_acceptance(callback.message, user, state)

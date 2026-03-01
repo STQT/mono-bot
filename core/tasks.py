@@ -311,6 +311,13 @@ def send_broadcast_batch(self, broadcast_id, user_ids, batch_number, total_batch
         # Получаем пользователей
         users = list(TelegramUser.objects.filter(id__in=user_ids))
         
+        photo_path = None
+        if broadcast.image:
+            try:
+                photo_path = broadcast.image.path
+            except (ValueError, OSError):
+                pass
+
         async def send_batch():
             bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
             try:
@@ -323,7 +330,8 @@ def send_broadcast_batch(self, broadcast_id, user_ids, batch_number, total_batch
                             bot=bot,
                             user=user,
                             text=broadcast.message_text,
-                            parse_mode='HTML'
+                            parse_mode='HTML',
+                            photo_path=photo_path,
                         )
                         
                         if success:
