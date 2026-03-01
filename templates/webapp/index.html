@@ -686,7 +686,10 @@
         let currentBannerIndex = 0;
         let currentDotColor = '#2064AE'; // Цвет по умолчанию для активной точки
         let previousScreen = null; // Сохраняем предыдущий экран для возврата из политики конфиденциальности
-        const API_BASE = '/api/webapp';
+        // Предпочтительно HTTPS для запросов к API (в т.ч. resend-registration-step)
+        const API_BASE = (typeof location !== 'undefined' && location.host)
+            ? (location.protocol === 'https:' ? location.origin : 'https://' + location.host) + '/api/webapp'
+            : '/api/webapp';
         
         // Функция-обертка для fetch с заголовками отключения кеша
         async function fetchNoCache(url, options = {}) {

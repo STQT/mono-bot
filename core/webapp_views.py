@@ -151,14 +151,16 @@ def get_gifts(request):
     """Получает список активных подарков с фильтрацией по типу пользователя."""
     try:
         telegram_id = request.GET.get('telegram_id')
-        
+        language = 'uz_latin'
+
         # Базовый запрос для активных подарков
         gifts_query = Gift.objects.filter(is_active=True)
-        
-        # Если передан telegram_id, фильтруем по типу пользователя
+
+        # Если передан telegram_id, фильтруем по типу пользователя и берём язык один раз (избегаем N+1 в сериализаторе)
         if telegram_id:
             try:
                 user = TelegramUser.objects.get(telegram_id=int(telegram_id))
+                language = user.language or 'uz_latin'
                 # Показываем подарки для типа пользователя или без типа (для всех)
                 if user.user_type:
                     gifts_query = gifts_query.filter(
@@ -173,9 +175,13 @@ def get_gifts(request):
         else:
             # Если telegram_id не передан, показываем только подарки без типа
             gifts_query = gifts_query.filter(user_type__isnull=True)
-        
+
         gifts = gifts_query.order_by('order', 'points_cost')
-        serializer = GiftSerializer(gifts, many=True, context={'request': request})
+        serializer = GiftSerializer(
+            gifts,
+            many=True,
+            context={'request': request, 'language': language},
+        )
         return Response(serializer.data)
     except Exception as e:
         return Response(
@@ -731,6 +737,15 @@ def _tg_api(method: str, payload: dict) -> bool:
     token = settings.TELEGRAM_BOT_TOKEN
     if not token:
         return False
+
+    # Telegram sendMessage: text must be non-empty and at most 4096 characters
+    if method == 'sendMessage':
+        text = payload.get('text')
+        if not (text and str(text).strip()):
+            logger.warning("[_tg_api] sendMessage skipped: empty text")
+            return False
+        payload = {**payload, 'text': str(text).strip()[:4096]}
+
     url = f"https://api.telegram.org/bot{token}/{method}"
     data = json.dumps(payload).encode('utf-8')
     req = urllib.request.Request(
@@ -741,6 +756,33 @@ def _tg_api(method: str, payload: dict) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10):
             return True
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode('utf-8', errors='replace')
+            desc = body
+            try:
+                doc = json.loads(body)
+                desc = doc.get('description', body)
+            except Exception:
+                pass
+            # 403 = пользователь заблокировал бота — ожидаемо, не ошибка
+            if e.code == 403:
+                logger.warning(
+                    "[_tg_api] %s HTTP 403 (user likely blocked the bot): %s",
+                    method, desc,
+                )
+            else:
+                logger.error(
+                    "[_tg_api] %s failed: HTTP %s - %s",
+                    method, e.code, desc,
+                    extra={'telegram_response': body[:500]},
+                )
+        except Exception:
+            if e.code == 403:
+                logger.warning("[_tg_api] %s HTTP 403 (user likely blocked the bot)", method)
+            else:
+                logger.error("[_tg_api] %s failed: HTTP %s - %s", method, e.code, e)
+        return False
     except Exception as exc:
         logger.error(f"[_tg_api] {method} failed: {exc}")
         return False
@@ -752,6 +794,11 @@ def _resend_step_for_user(user: TelegramUser) -> str:
     Telegram message/keyboard to the user. Returns the step name.
     """
     from bot.translations import get_text
+
+    def _btn(key, fallback: str = "…"):
+        """Button label: never empty (Telegram requirement)."""
+        s = get_text(user, key) if isinstance(key, str) else key
+        return (s or fallback).strip() or fallback
 
     chat_id = user.telegram_id
 
@@ -789,10 +836,8 @@ def _resend_step_for_user(user: TelegramUser) -> str:
             'text': get_text(user, 'SELECT_USER_TYPE'),
             'reply_markup': {
                 'inline_keyboard': [
-                    [{'text': get_text(user, 'USER_TYPE_ELECTRICIAN'),
-                      'callback_data': 'user_type_electrician'}],
-                    [{'text': get_text(user, 'USER_TYPE_SELLER'),
-                      'callback_data': 'user_type_seller'}],
+                    [{'text': _btn('USER_TYPE_ELECTRICIAN'), 'callback_data': 'user_type_electrician'}],
+                    [{'text': _btn('USER_TYPE_SELLER'), 'callback_data': 'user_type_seller'}],
                 ],
             },
         })
@@ -805,10 +850,8 @@ def _resend_step_for_user(user: TelegramUser) -> str:
             'text': get_text(user, 'PRIVACY_POLICY_TEXT'),
             'reply_markup': {
                 'inline_keyboard': [
-                    [{'text': get_text(user, 'ACCEPT_PRIVACY'),
-                      'callback_data': 'privacy_accept'}],
-                    [{'text': get_text(user, 'DECLINE_PRIVACY'),
-                      'callback_data': 'privacy_decline'}],
+                    [{'text': _btn('ACCEPT_PRIVACY'), 'callback_data': 'privacy_accept'}],
+                    [{'text': _btn('DECLINE_PRIVACY'), 'callback_data': 'privacy_decline'}],
                 ],
             },
         })
@@ -816,12 +859,11 @@ def _resend_step_for_user(user: TelegramUser) -> str:
 
     # ── Step 5: Phone ───────────────────────────────────────────────────────
     if not user.phone_number:
-        btn_text = get_text(user, 'SEND_PHONE_BUTTON')
         _tg_api('sendMessage', {
             'chat_id': chat_id,
             'text': get_text(user, 'SEND_PHONE'),
             'reply_markup': {
-                'keyboard': [[{'text': btn_text, 'request_contact': True}]],
+                'keyboard': [[{'text': _btn('SEND_PHONE_BUTTON', '📱'), 'request_contact': True}]],
                 'resize_keyboard': True,
                 'one_time_keyboard': True,
             },
@@ -830,11 +872,11 @@ def _resend_step_for_user(user: TelegramUser) -> str:
 
     # ── Step 6: Location ────────────────────────────────────────────────────
     if user.latitude is None or user.longitude is None:
-        location_text = get_text(user, 'SEND_LOCATION')
-        btn_text = "📍 " + location_text.replace('📍 ', '').strip()
+        location_text = get_text(user, 'SEND_LOCATION') or ''
+        btn_text = ("📍 " + location_text.replace('📍 ', '').strip()).strip() or "📍"
         _tg_api('sendMessage', {
             'chat_id': chat_id,
-            'text': location_text,
+            'text': location_text or _btn('SEND_LOCATION', 'Location'),
             'reply_markup': {
                 'keyboard': [[{'text': btn_text, 'request_location': True}]],
                 'resize_keyboard': True,

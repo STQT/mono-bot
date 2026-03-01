@@ -13,6 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import BaseMiddleware
+from aiogram.exceptions import TelegramBadRequest
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import transaction
@@ -25,6 +26,18 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mona.settings')
 django.setup()
 
 logger = logging.getLogger(__name__)
+
+
+async def _safe_delete_message(message: Message) -> None:
+    """Удаляет сообщение; при ожидаемых ошибках Telegram (can't delete / not found) — тихо игнорируем."""
+    try:
+        await message.delete()
+    except TelegramBadRequest as e:
+        msg = str(e).lower()
+        if "can't be deleted for everyone" in msg or "message to delete not found" in msg:
+            logger.debug("Message delete skipped: %s", e)
+        else:
+            raise
 
 # ── Sentry для бота ──────────────────────────────────────────────────────────
 _sentry_dsn = getattr(settings, 'SENTRY_DSN', '') or os.environ.get('SENTRY_DSN', '')
@@ -1023,7 +1036,7 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         logger.info(f"[process_language_selection] Регистрация завершена: {is_registered}")
         
         await callback.answer(get_text(user, 'LANGUAGE_CHANGED'))
-        await callback.message.delete()
+        await _safe_delete_message(callback.message)
         
         # Отправляем видео инструкцию только при первом выборе языка (если пользователь еще не зарегистрирован)
         if not is_registered:
@@ -1126,6 +1139,13 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
                 logger.info(f"[process_language_selection] Все шаги регистрации пройдены, показываем главное меню")
                 await state.clear()
                 await show_main_menu(callback.message, user)
+    except TelegramBadRequest as e:
+        msg = str(e).lower()
+        if "can't be deleted for everyone" in msg or "message to delete not found" in msg:
+            logger.debug("[process_language_selection] Удаление сообщения недоступно (игнор): %s", e)
+        else:
+            logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
+            await callback.answer("Произошла ошибка. Попробуйте еще раз.")
     except Exception as e:
         logger.error(f"[process_language_selection] Ошибка при обработке выбора языка: {e}", exc_info=True)
         await callback.answer("Произошла ошибка. Попробуйте еще раз.")
@@ -1150,7 +1170,7 @@ async def process_user_type_selection(callback: CallbackQuery, state: FSMContext
     user = await update_user_type()
     
     await callback.answer(get_text(user, 'USER_TYPE_SAVED'))
-    await callback.message.delete()
+    await _safe_delete_message(callback.message)
     
     # Переходим к следующему шагу - согласие на политику конфиденциальности
     await ask_privacy_acceptance(callback.message, user, state)
@@ -1202,7 +1222,7 @@ async def process_privacy_acceptance(callback: CallbackQuery, state: FSMContext)
     user = await update_privacy()
     
     await callback.answer(get_text(user, 'PRIVACY_ACCEPTED'))
-    await callback.message.delete()
+    await _safe_delete_message(callback.message)
     
     # Переходим к следующему шагу - телефонный номер
     await ask_phone(callback.message, user, state)
