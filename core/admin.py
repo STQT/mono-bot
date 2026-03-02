@@ -977,15 +977,15 @@ class GiftAdmin(SimpleHistoryAdmin):
 class GiftRedemptionAdmin(SimpleHistoryAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
-        'redemption_display', 'telegram_id_display', 'phone_number_display', 'status_badge', 
-        'user_confirmed_badge', 'requested_at'
+        'redemption_display', 'telegram_id_display', 'phone_number_display', 'region_display',
+        'status_badge', 'user_confirmed_badge', 'requested_at'
     ]
     list_filter = [
-        'status', 'user_confirmed',
+        'status', 'user_confirmed', 'user__region',
         ('requested_at', DateTimeRangeFilterBuilder(title='Дата запроса (диапазон)')),
     ]
     search_fields = ['user__username', 'user__first_name', 'user__telegram_id', 'user__phone_number', 'gift__name_uz_latin', 'gift__name_ru']
-    readonly_fields = ['user', 'gift', 'requested_at', 'confirmed_at']
+    readonly_fields = ['user', 'gift', 'region_display', 'requested_at', 'confirmed_at']
     list_per_page = 50
     date_hierarchy = 'requested_at'
     
@@ -1021,6 +1021,19 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
         return format_html('<span style="color: #9ca3af;">-</span>')
     phone_number_display.short_description = 'Телефон'
     phone_number_display.admin_order_field = 'user__phone_number'
+    
+    def region_display(self, obj):
+        """Отображает регион пользователя."""
+        region_name = obj.user.get_region_display('ru')
+        if region_name:
+            return format_html(
+                '<span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; '
+                'font-size: 12px; font-weight: 600;">📍 {}</span>',
+                region_name
+            )
+        return format_html('<span style="color: #9ca3af;">-</span>')
+    region_display.short_description = 'Регион'
+    region_display.admin_order_field = 'user__region'
     
     def status_badge(self, obj):
         """Отображает статус заказа."""
@@ -1069,7 +1082,7 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
     
     fieldsets = (
         ('Информация о запросе', {
-            'fields': ('user', 'gift', 'requested_at')
+            'fields': ('user', 'gift', 'region_display', 'requested_at')
         }),
         ('Обработка', {
             'fields': ('status', 'admin_notes')

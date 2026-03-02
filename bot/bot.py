@@ -1463,7 +1463,6 @@ async def handle_message(message: Message, state: FSMContext = None):
             return
 
     # Если продавец ещё не ввёл SmartUp ID — восстанавливаем шаг регистрации.
-    # Это срабатывает, например, когда бот перезапустился и FSM-состояние сброшено.
     if user.user_type == 'seller' and user.smartup_id is None:
         logger.info(
             f"[handle_message] Продавец {user.telegram_id} без SmartUp ID — "
@@ -1471,6 +1470,63 @@ async def handle_message(message: Message, state: FSMContext = None):
         )
         await ask_smartup_id(message, user, state)
         return
+
+    # Пользователь не завершил регистрацию, но FSM-состояние могло сброситься (бот перезапуск и т.д.).
+    # Принимаем контакт и локацию независимо от состояния.
+    registration_incomplete = not is_registration_complete(user)
+    if registration_incomplete:
+        if message.contact and not user.phone_number:
+            # Пользователь отправил контакт (кнопка или из списка контактов) — сохраняем
+            phone_number = message.contact.phone_number
+            @sync_to_async
+            def update_phone():
+                u = TelegramUser.objects.get(telegram_id=message.from_user.id)
+                u.phone_number = phone_number
+                u.save(update_fields=['phone_number'])
+                return u
+            user = await update_phone()
+            await message.answer(get_text(user, 'PHONE_SAVED'))
+            await ask_location(message, user, state)
+            return
+        if message.location and user.phone_number and (user.latitude is None or user.longitude is None):
+            # Пользователь отправил геолокацию
+            lat, lon = message.location.latitude, message.location.longitude
+            @sync_to_async
+            def update_loc():
+                u = TelegramUser.objects.get(telegram_id=message.from_user.id)
+                u.latitude, u.longitude = lat, lon
+                u.save(update_fields=['latitude', 'longitude'])
+                return u
+            user = await update_loc()
+            remove_kb = types.ReplyKeyboardRemove()
+            if user.user_type == 'seller':
+                await message.answer(get_text(user, 'LOCATION_SAVED'), reply_markup=remove_kb)
+                await ask_smartup_id(message, user, state)
+            else:
+                await message.answer(get_text(user, 'REGISTRATION_COMPLETE'), reply_markup=remove_kb)
+                if state:
+                    await state.clear()
+                await show_main_menu(message, user)
+                await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+            return
+        # Текст «продолжить регистрацию» / «получить данные» / кнопка телефона — показываем следующий шаг
+        continue_reg_texts = [
+            'получить регистрационные данные', 'получить данные', 'продолжить регистрацию',
+            'continue registration', 'ro\'yxatdan o\'tishni davom ettirish', 'registratsiya',
+            'telefon raqamini yuborish', 'отправить номер', 'promokod kiritish', 'promokod',
+        ]
+        if message.text and any(t in message.text.lower() for t in continue_reg_texts):
+            if not user.phone_number:
+                await ask_phone(message, user, state)
+            elif user.latitude is None or user.longitude is None:
+                await ask_location(message, user, state)
+            elif user.user_type == 'seller' and user.smartup_id is None:
+                await ask_smartup_id(message, user, state)
+            else:
+                await message.answer(get_text(user, 'SEND_PROMO_CODE'))
+                if state:
+                    await state.set_state(RegistrationStates.waiting_for_promo_code)
+            return
 
     # Получаем все возможные варианты текстов кнопок
     all_balance_texts = [
