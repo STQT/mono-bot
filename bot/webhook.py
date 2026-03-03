@@ -24,11 +24,11 @@ async def on_startup(bot: Bot):
     webhook_url = f"{settings.WEBHOOK_URL}/webhook/{settings.TELEGRAM_BOT_TOKEN}"
     
     try:
-        # Устанавливаем webhook
+        # drop_pending_updates=False — не терять обновления, накопившиеся во время деплоя
         await bot.set_webhook(
             url=webhook_url,
             allowed_updates=["message", "callback_query"],
-            drop_pending_updates=True
+            drop_pending_updates=False
         )
         logger.info(f"Webhook установлен: {webhook_url}")
     except Exception as e:
