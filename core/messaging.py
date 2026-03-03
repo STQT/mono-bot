@@ -23,6 +23,8 @@ TELEGRAM_MESSAGE_DELAY = 1.0 / TELEGRAM_BROADCAST_RATE_LIMIT  # ~0.033 секу�
 # Telegram HTML поддерживает только: b, strong, i, em, u, ins, s, strike, del, span, tg-spoiler, a, code, pre, blockquote
 # Теги <p>, <div>, <br> вызывают "Unsupported start tag"
 TELEGRAM_UNSUPPORTED_TAG_REPLACEMENTS = [
+    (re.compile(r'<p>\s*<br\s*/?>\s*</p>', re.I), '\n\n'),  # пустой абзац Quill
+    (re.compile(r'</p>\s*<p>', re.I), '\n\n'),              # граница абзацев
     (re.compile(r'</?p\s*/?>', re.I), '\n\n'),
     (re.compile(r'<br\s*/?>', re.I), '\n'),
     (re.compile(r'</?div\s*[^>]*>', re.I), '\n'),
@@ -36,6 +38,8 @@ def sanitize_html_for_telegram(text: str) -> str:
     result = text
     for pattern, replacement in TELEGRAM_UNSUPPORTED_TAG_REPLACEMENTS:
         result = pattern.sub(replacement, result)
+    # Нормализуем абзацы: 3+ переносов подряд → ровно 2 (один пустой абзац)
+    result = re.sub(r'\n{3,}', '\n\n', result)
     return result.strip()
 
 
