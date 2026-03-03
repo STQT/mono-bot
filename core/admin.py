@@ -465,6 +465,11 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                 required=False,
                 label='Тип пользователя'
             )
+            language_filter = forms.ChoiceField(
+                choices=[('', 'Все языки'), ('uz_latin', "O'zbek (Lotin)"), ('ru', 'Русский')],
+                required=False,
+                label='Язык пользователя'
+            )
 
         if request.method == 'POST':
             form = RegionMessageForm(request.POST, request.FILES)
@@ -473,7 +478,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                 message_text = form.cleaned_data.get('message') or ''
                 image_file = form.cleaned_data.get('image')
                 user_type_filter = form.cleaned_data['user_type_filter'] or None
-                only_active = form.cleaned_data['only_active']
+                language_filter = form.cleaned_data.get('language_filter') or None
 
                 users_qs = TelegramUser.objects.filter(
                     latitude__isnull=False,
@@ -482,6 +487,8 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                 )
                 if user_type_filter:
                     users_qs = users_qs.filter(user_type=user_type_filter)
+                if language_filter:
+                    users_qs = users_qs.filter(language=language_filter)
 
                 users = list(users_qs)
                 filtered = []
@@ -492,6 +499,40 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                 if not filtered:
                     self.message_user(request, 'В выбранной области нет пользователей с координатами.', messages.WARNING)
                 else:
+                    from core.tasks import send_region_message_task, REGION_MESSAGE_ASYNC_THRESHOLD
+                    from core.messaging import TELEGRAM_MESSAGE_DELAY
+
+                    n = len(filtered)
+                    # Большая рассылка — в фоне (нет таймаута админки, соблюдаются лимиты Telegram)
+                    if n > REGION_MESSAGE_ASYNC_THRESHOLD:
+                        import os
+                        import uuid
+                        from django.core.files.storage import default_storage
+                        from django.core.files.base import ContentFile
+
+                        image_storage_path = ''
+                        if image_file:
+                            ext = os.path.splitext(image_file.name)[1] or '.jpg'
+                            name = f'region_messages/{uuid.uuid4().hex}{ext}'
+                            default_storage.save(name, ContentFile(image_file.read()))
+                            image_storage_path = name
+
+                        send_region_message_task.delay(
+                            region_code=region_code,
+                            message_text=message_text,
+                            image_storage_path=image_storage_path,
+                            user_type_filter=user_type_filter,
+                            language_filter=language_filter,
+                        )
+                        self.message_user(
+                            request,
+                            f'Рассылка по области запущена в фоне ({n} пользователей). '
+                            'При большом количестве это может занять несколько минут. Лимиты Telegram соблюдаются.',
+                            messages.SUCCESS,
+                        )
+                        return redirect('admin:core_telegramuser_changelist')
+
+                    # Небольшая рассылка — сразу в этом запросе
                     import asyncio
                     import tempfile
                     import os
@@ -520,7 +561,7 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                                 else:
                                     failed += 1
                                 if i < len(filtered) - 1:
-                                    await asyncio.sleep(0.035)
+                                    await asyncio.sleep(TELEGRAM_MESSAGE_DELAY)
                             return sent, failed
                         finally:
                             await bot.session.close()

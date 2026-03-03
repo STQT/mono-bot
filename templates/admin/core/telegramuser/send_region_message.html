@@ -284,6 +284,17 @@
             <span class="help-text">Фильтр по типу пользователя (электрики или продавцы). Оставьте "Все" для отправки всем.</span>
         </div>
         
+        <div class="form-group">
+            <label for="id_language_filter">
+                <span>🌐</span> Язык пользователя:
+            </label>
+            {{ form.language_filter }}
+            {% if form.language_filter.errors %}
+                <ul class="errorlist">{{ form.language_filter.errors }}</ul>
+            {% endif %}
+            <span class="help-text">Отправить только тем, кто выбрал этот язык в приложении. Оставьте "Все языки" для отправки всем.</span>
+        </div>
+        
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
                 <span>📤</span>
@@ -309,6 +320,8 @@
         <li>Эмодзи и стикеры можно вставлять в текст</li>
         <li>Сообщения отправляются только активным пользователям</li>
         <li>Фильтр по типу пользователя (электрики/продавцы)</li>
+        <li>Фильтр по языку — сообщение уйдёт только пользователям с выбранным языком в профиле</li>
+        <li>При большом числе получателей (>100 по умолчанию) рассылка выполняется в фоне: страница сразу вернётся, лимиты Telegram соблюдаются автоматически</li>
     </ul>
 </div>
 
