@@ -5,6 +5,18 @@ import zipfile
 import os
 from django.contrib import admin
 from rangefilter.filters import DateTimeRangeFilterBuilder, DateRangeFilterBuilder
+
+
+class NoDeleteAdminMixin:
+    """Отключает удаление везде в админке (включая action «Удалить выбранные»)."""
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import path
@@ -59,7 +71,7 @@ class ScannedQRCodeInline(admin.TabularInline):
 
 
 @admin.register(TelegramUser)
-class TelegramUserAdmin(SimpleHistoryAdmin):
+class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
     inlines = [ScannedQRCodeInline]
     list_display = [
@@ -638,7 +650,7 @@ class QRCodeScanAttemptInline(admin.TabularInline):
 
 
 @admin.register(QRCode)
-class QRCodeAdmin(SimpleHistoryAdmin):
+class QRCodeAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для QR-кодов (только просмотр)."""
     list_display = [
         'qr_display', 'code_type_badge', 'points_display', 
@@ -874,10 +886,6 @@ class QRCodeAdmin(SimpleHistoryAdmin):
         """Отключаем добавление через админку."""
         return False
     
-    def has_delete_permission(self, request, obj=None):
-        """Отключаем удаление."""
-        return False
-    
     def has_change_permission(self, request, obj=None):
         """Отключаем редактирование."""
         return False
@@ -961,7 +969,7 @@ class QRCodeAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(Gift)
-class GiftAdmin(SimpleHistoryAdmin):
+class GiftAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для подарков."""
     list_display = ['gift_display', 'user_type_badge', 'points_cost_display', 'order', 'image_preview', 'status_badge', 'created_at']
     list_filter = [
@@ -1054,7 +1062,7 @@ class GiftAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(GiftRedemption)
-class GiftRedemptionAdmin(SimpleHistoryAdmin):
+class GiftRedemptionAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для получения подарков (CRM)."""
     list_display = [
         'redemption_display', 'telegram_id_display', 'phone_number_display', 'region_display',
@@ -1315,7 +1323,7 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(RegionMessageLog)
-class RegionMessageLogAdmin(admin.ModelAdmin):
+class RegionMessageLogAdmin(NoDeleteAdminMixin, admin.ModelAdmin):
     """Логи рассылок по областям (результаты Celery-задач)."""
     list_display = [
         'region_code', 'total', 'sent_count', 'failed_count', 'status',
@@ -1339,7 +1347,7 @@ class RegionMessageLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(BroadcastMessage)
-class BroadcastMessageAdmin(SimpleHistoryAdmin):
+class BroadcastMessageAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для массовых рассылок."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
@@ -1516,7 +1524,7 @@ class BroadcastMessageAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(Promotion)
-class PromotionAdmin(SimpleHistoryAdmin):
+class PromotionAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для акций/баннеров."""
     list_display = [
         'image_preview', 'title', 'date_display', 'order', 'is_active', 'status_badge', 'created_at'
@@ -1574,7 +1582,7 @@ class PromotionAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(QRCodeGeneration)
-class QRCodeGenerationAdmin(SimpleHistoryAdmin):
+class QRCodeGenerationAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для истории генерации QR-кодов."""
     list_display = [
         'generation_display', 'code_type_badge', 'quantity_display',
@@ -1718,11 +1726,7 @@ class QRCodeGenerationAdmin(SimpleHistoryAdmin):
     def has_add_permission(self, request):
         """Отключаем добавление через админку."""
         return False
-    
-    def has_delete_permission(self, request, obj=None):
-        """Разрешаем удаление только для superuser."""
-        return request.user.is_superuser
-    
+
     def get_urls(self):
         """Добавляет кастомные URL для экспорта Excel."""
         urls = super().get_urls()
@@ -1788,7 +1792,7 @@ class QRCodeGenerationAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(PrivacyPolicy)
-class PrivacyPolicyAdmin(SimpleHistoryAdmin):
+class PrivacyPolicyAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для политики конфиденциальности."""
     list_display = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
     list_display_links = ['is_active', 'updated_at', 'created_at', 'has_pdf_files']
@@ -1829,14 +1833,10 @@ class PrivacyPolicyAdmin(SimpleHistoryAdmin):
         # Только superuser может создавать QR коды
         # Call Center не может создавать QR коды, даже если у них есть permission generate_qrcodes
         return request.user.is_superuser
-    
-    def has_delete_permission(self, request, obj=None):
-        """Разрешаем удаление только для superuser."""
-        return request.user.is_superuser
 
 
 @admin.register(AdminContactSettings)
-class AdminContactSettingsAdmin(SimpleHistoryAdmin):
+class AdminContactSettingsAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для настроек контакта администратора."""
     list_display = ['contact_type_display', 'contact_value_display', 'is_active', 'updated_at']
     list_filter = [
@@ -1873,10 +1873,6 @@ class AdminContactSettingsAdmin(SimpleHistoryAdmin):
         """Разрешаем создание только для superuser."""
         return request.user.is_superuser
     
-    def has_delete_permission(self, request, obj=None):
-        """Разрешаем удаление только для superuser."""
-        return request.user.is_superuser
-    
     def save_model(self, request, obj, form, change):
         """При сохранении деактивируем другие активные настройки, если эта активна."""
         if obj.is_active:
@@ -1886,7 +1882,7 @@ class AdminContactSettingsAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(VideoInstruction)
-class VideoInstructionAdmin(SimpleHistoryAdmin):
+class VideoInstructionAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для видео инструкций. 4 видео: электрики (UZ/RU) и предприниматели (UZ/RU)."""
     list_display = ['video_electrician_preview', 'video_seller_preview', 'file_id_status', 'is_active', 'updated_at']
     list_filter = [
@@ -1939,10 +1935,6 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
         """Разрешаем создание только для superuser."""
         return request.user.is_superuser
     
-    def has_delete_permission(self, request, obj=None):
-        """Разрешаем удаление только для superuser."""
-        return request.user.is_superuser
-    
     def save_model(self, request, obj, form, change):
         """При сохранении деактивируем другие активные инструкции, если эта активна."""
         if obj.is_active:
@@ -1952,7 +1944,7 @@ class VideoInstructionAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(SmartUPId)
-class SmartUPIdAdmin(admin.ModelAdmin):
+class SmartUPIdAdmin(NoDeleteAdminMixin, admin.ModelAdmin):
     """Админка для SmartUP ID."""
     list_display = ['id_value', 'created_at']
     search_fields = ['id_value']
