@@ -16,7 +16,7 @@ from django.db import models
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     TelegramUser, QRCode, QRCodeScanAttempt,
-    Gift, GiftRedemption, BroadcastMessage, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction, SmartUPId
+    Gift, GiftRedemption, BroadcastMessage, RegionMessageLog, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction, SmartUPId
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
 
@@ -517,7 +517,16 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                             default_storage.save(name, ContentFile(image_file.read()))
                             image_storage_path = name
 
+                        log = RegionMessageLog.objects.create(
+                            region_code=region_code,
+                            user_type_filter=user_type_filter,
+                            language_filter=language_filter,
+                            total=n,
+                            status='running',
+                            initiated_by=request.user,
+                        )
                         send_region_message_task.delay(
+                            log_id=log.id,
                             region_code=region_code,
                             message_text=message_text,
                             image_storage_path=image_storage_path,
@@ -527,10 +536,10 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                         self.message_user(
                             request,
                             f'Рассылка по области запущена в фоне ({n} пользователей). '
-                            'При большом количестве это может занять несколько минут. Лимиты Telegram соблюдаются.',
+                            'Результаты — в разделе «Логи рассылок по областям».',
                             messages.SUCCESS,
                         )
-                        return redirect('admin:core_telegramuser_changelist')
+                        return redirect('admin:core_regionmessagelog_changelist')
 
                     # Небольшая рассылка — сразу в этом запросе
                     import asyncio
@@ -1273,6 +1282,30 @@ class GiftRedemptionAdmin(SimpleHistoryAdmin):
             
             thread = threading.Thread(target=run_async_in_thread, daemon=True)
             thread.start()
+
+
+@admin.register(RegionMessageLog)
+class RegionMessageLogAdmin(admin.ModelAdmin):
+    """Логи рассылок по областям (результаты Celery-задач)."""
+    list_display = [
+        'region_code', 'total', 'sent_count', 'failed_count', 'status',
+        'initiated_by', 'created_at', 'completed_at',
+    ]
+    list_filter = ['status', 'region_code', ('created_at', DateTimeRangeFilterBuilder(title='Дата'))]
+    readonly_fields = [
+        'region_code', 'user_type_filter', 'language_filter',
+        'total', 'sent_count', 'failed_count', 'status',
+        'initiated_by', 'created_at', 'completed_at', 'error_message',
+    ]
+    search_fields = ['region_code', 'error_message']
+    ordering = ['-created_at']
+    date_hierarchy = 'created_at'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(BroadcastMessage)

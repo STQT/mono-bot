@@ -394,6 +394,7 @@ REGION_MESSAGE_ASYNC_THRESHOLD = getattr(
 @shared_task(bind=True, soft_time_limit=3600)
 def send_region_message_task(
     self,
+    log_id,
     region_code,
     message_text,
     image_storage_path,
@@ -403,9 +404,25 @@ def send_region_message_task(
     """
     Отправляет сообщение по области в фоне (лимиты Telegram, без таймаута админки).
     Вызывается из админки при числе получателей > REGION_MESSAGE_ASYNC_THRESHOLD.
+    Обновляет RegionMessageLog по завершении.
     """
     from core.regions import get_region_by_coordinates
+    from core.models import RegionMessageLog
     from django.core.files.storage import default_storage
+    from django.utils import timezone
+
+    def update_log(sent, failed, status='completed', error_msg=''):
+        try:
+            log = RegionMessageLog.objects.get(id=log_id)
+            log.sent_count = sent
+            log.failed_count = failed
+            log.status = status
+            log.completed_at = timezone.now()
+            if error_msg:
+                log.error_message = error_msg
+            log.save()
+        except RegionMessageLog.DoesNotExist:
+            pass
 
     users_qs = TelegramUser.objects.filter(
         latitude__isnull=False,
@@ -424,6 +441,7 @@ def send_region_message_task(
     ]
     if not filtered:
         logger.warning('send_region_message_task: в области %s нет пользователей', region_code)
+        update_log(0, 0, status='completed', error_msg='В области нет пользователей')
         return {'sent': 0, 'failed': 0, 'total': 0}
 
     photo_path = None
@@ -435,7 +453,7 @@ def send_region_message_task(
                 tmp.write(f.read())
                 photo_path = tmp.name
     try:
-        async def send_all():
+        async def _send_all():
             bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
             sent, failed = 0, 0
             try:
@@ -457,12 +475,17 @@ def send_region_message_task(
             finally:
                 await bot.session.close()
 
-        sent, failed = asyncio.run(send_all())
+        sent, failed = asyncio.run(_send_all())
         logger.info(
             'Рассылка по области %s завершена: отправлено %s, ошибок %s (всего %s)',
             region_code, sent, failed, len(filtered),
         )
+        update_log(sent, failed, status='completed')
         return {'sent': sent, 'failed': failed, 'total': len(filtered)}
+    except Exception as e:
+        logger.exception('send_region_message_task: ошибка при рассылке')
+        update_log(0, len(filtered), status='failed', error_msg=str(e))
+        raise
     finally:
         if photo_path and os.path.exists(photo_path):
             try:

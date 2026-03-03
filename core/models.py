@@ -549,6 +549,40 @@ class BroadcastMessage(models.Model):
         return f"{self.title} ({self.get_status_display()})"
 
 
+class RegionMessageLog(models.Model):
+    """Лог рассылки по области (результаты Celery-задачи)."""
+    STATUS_CHOICES = [
+        ('running', 'Выполняется'),
+        ('completed', 'Завершена'),
+        ('failed', 'Ошибка'),
+    ]
+    region_code = models.CharField(max_length=50, verbose_name='Область', db_index=True)
+    user_type_filter = models.CharField(max_length=20, null=True, blank=True, verbose_name='Фильтр типа')
+    language_filter = models.CharField(max_length=15, null=True, blank=True, verbose_name='Фильтр языка')
+    total = models.IntegerField(default=0, verbose_name='Всего получателей')
+    sent_count = models.IntegerField(default=0, verbose_name='Отправлено')
+    failed_count = models.IntegerField(default=0, verbose_name='Ошибок')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running', db_index=True)
+    initiated_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Запустил'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Запущена')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Завершена')
+    error_message = models.TextField(blank=True, verbose_name='Сообщение об ошибке')
+
+    class Meta:
+        verbose_name = 'Лог рассылки по области'
+        verbose_name_plural = 'Логи рассылок по областям'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.region_code} — {self.sent_count}/{self.total} ({self.get_status_display()})"
+
+
 class Promotion(models.Model):
     """Модель для акций/баннеров в слайдере Web App."""
     title = models.CharField(max_length=255, verbose_name='Sarlavha', blank=True, null=True)

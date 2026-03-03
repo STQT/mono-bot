@@ -3,6 +3,7 @@
 """
 import asyncio
 import logging
+import re
 from typing import List, Optional
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramAPIError
@@ -18,6 +19,24 @@ logger = logging.getLogger(__name__)
 # 30 сообщений в секунду для broadcast
 TELEGRAM_BROADCAST_RATE_LIMIT = 30  # сообщений в секунду
 TELEGRAM_MESSAGE_DELAY = 1.0 / TELEGRAM_BROADCAST_RATE_LIMIT  # ~0.033 секунды между сообщениями
+
+# Telegram HTML поддерживает только: b, strong, i, em, u, ins, s, strike, del, span, tg-spoiler, a, code, pre, blockquote
+# Теги <p>, <div>, <br> вызывают "Unsupported start tag"
+TELEGRAM_UNSUPPORTED_TAG_REPLACEMENTS = [
+    (re.compile(r'</?p\s*/?>', re.I), '\n\n'),
+    (re.compile(r'<br\s*/?>', re.I), '\n'),
+    (re.compile(r'</?div\s*[^>]*>', re.I), '\n'),
+]
+
+
+def sanitize_html_for_telegram(text: str) -> str:
+    """Преобразует HTML в формат, поддерживаемый Telegram (убирает <p>, <div>, <br> и др.)."""
+    if not text:
+        return text
+    result = text
+    for pattern, replacement in TELEGRAM_UNSUPPORTED_TAG_REPLACEMENTS:
+        result = pattern.sub(replacement, result)
+    return result.strip()
 
 
 async def send_message_to_user(
@@ -44,6 +63,8 @@ async def send_message_to_user(
         tuple: (успешно ли отправлено, сообщение об ошибке если есть)
     """
     try:
+        if parse_mode and parse_mode.upper() == 'HTML' and text:
+            text = sanitize_html_for_telegram(text)
         if photo_path:
             from aiogram.types import FSInputFile
             photo = FSInputFile(photo_path)
