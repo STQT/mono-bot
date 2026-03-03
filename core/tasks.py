@@ -385,6 +385,97 @@ def send_broadcast_batch(self, broadcast_id, user_ids, batch_number, total_batch
         raise
 
 
+# Порог: при большем числе получателей рассылка по области идёт в фоне (Celery)
+REGION_MESSAGE_ASYNC_THRESHOLD = getattr(
+    settings, 'REGION_MESSAGE_ASYNC_THRESHOLD', 100
+)
+
+
+@shared_task(bind=True, soft_time_limit=3600)
+def send_region_message_task(
+    self,
+    region_code,
+    message_text,
+    image_storage_path,
+    user_type_filter,
+    language_filter,
+):
+    """
+    Отправляет сообщение по области в фоне (лимиты Telegram, без таймаута админки).
+    Вызывается из админки при числе получателей > REGION_MESSAGE_ASYNC_THRESHOLD.
+    """
+    from core.regions import get_region_by_coordinates
+    from django.core.files.storage import default_storage
+
+    users_qs = TelegramUser.objects.filter(
+        latitude__isnull=False,
+        longitude__isnull=False,
+        is_active=True,
+    )
+    if user_type_filter:
+        users_qs = users_qs.filter(user_type=user_type_filter)
+    if language_filter:
+        users_qs = users_qs.filter(language=language_filter)
+
+    users = list(users_qs)
+    filtered = [
+        u for u in users
+        if get_region_by_coordinates(u.latitude, u.longitude) == region_code
+    ]
+    if not filtered:
+        logger.warning('send_region_message_task: в области %s нет пользователей', region_code)
+        return {'sent': 0, 'failed': 0, 'total': 0}
+
+    photo_path = None
+    if image_storage_path and default_storage.exists(image_storage_path):
+        import tempfile
+        with default_storage.open(image_storage_path, 'rb') as f:
+            ext = os.path.splitext(image_storage_path)[1] or '.jpg'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                tmp.write(f.read())
+                photo_path = tmp.name
+    try:
+        async def send_all():
+            bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+            sent, failed = 0, 0
+            try:
+                for i, user in enumerate(filtered):
+                    success, err = await send_message_to_user(
+                        bot=bot,
+                        user=user,
+                        text=message_text or '',
+                        parse_mode='HTML',
+                        photo_path=photo_path,
+                    )
+                    if success:
+                        sent += 1
+                    else:
+                        failed += 1
+                    if i < len(filtered) - 1:
+                        await asyncio.sleep(TELEGRAM_MESSAGE_DELAY)
+                return sent, failed
+            finally:
+                await bot.session.close()
+
+        sent, failed = asyncio.run(send_all())
+        logger.info(
+            'Рассылка по области %s завершена: отправлено %s, ошибок %s (всего %s)',
+            region_code, sent, failed, len(filtered),
+        )
+        return {'sent': sent, 'failed': failed, 'total': len(filtered)}
+    finally:
+        if photo_path and os.path.exists(photo_path):
+            try:
+                os.unlink(photo_path)
+            except OSError:
+                pass
+        if image_storage_path and default_storage.exists(image_storage_path):
+            try:
+                default_storage.delete(image_storage_path)
+            except Exception:
+                pass
+
+
 @shared_task(bind=True)
 def send_broadcast_chained(self, broadcast_id):
     """
