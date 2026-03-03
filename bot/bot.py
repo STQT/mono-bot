@@ -1745,15 +1745,31 @@ async def process_gift_selection(callback: CallbackQuery, state: FSMContext):
 
 
 async def show_leaders(message: Message):
-    """Показывает ТОП лидеров."""
+    """Показывает ТОП лидеров (только баллы по промокодам, без вычета заказов)."""
     @sync_to_async
     def get_leaders_and_user():
+        from django.db.models import Sum
         user = TelegramUser.objects.get(telegram_id=message.from_user.id)
-        # Фильтруем лидеров по типу пользователя
-        leaders_query = TelegramUser.objects.all()
-        if user.user_type:
-            leaders_query = leaders_query.filter(user_type=user.user_type)
-        leaders = list(leaders_query.order_by('-points')[:10])
+        user_type = user.user_type or 'electrician'
+        qs = (
+            QRCode.objects
+            .filter(
+                is_scanned=True,
+                scanned_by__user_type=user_type,
+                scanned_by__is_active=True,
+                scanned_by__isnull=False,
+            )
+            .values('scanned_by')
+            .annotate(total_points=Sum('points'))
+            .order_by('-total_points')[:10]
+        )
+        user_ids = [r['scanned_by'] for r in qs]
+        points_map = {r['scanned_by']: r['total_points'] for r in qs}
+        users_by_id = TelegramUser.objects.filter(id__in=user_ids).in_bulk(user_ids)
+        leaders = [users_by_id.get(uid) for uid in user_ids]
+        leaders = [u for u in leaders if u]
+        for u in leaders:
+            u._leader_points = points_map.get(u.id, 0)
         return user, leaders
     
     user, leaders = await get_leaders_and_user()
@@ -1768,7 +1784,8 @@ async def show_leaders(message: Message):
     for leader in leaders:
         emoji = "🥇" if position == 1 else "🥈" if position == 2 else "🥉" if position == 3 else f"{position}"
         name = leader.first_name or get_text(user, 'USER')
-        text += get_text(user, 'LEADER_ENTRY', position=emoji, name=name, points=leader.points)
+        pts = getattr(leader, '_leader_points', leader.points)
+        text += get_text(user, 'LEADER_ENTRY', position=emoji, name=name, points=pts)
         position += 1
     
     await message.answer(text)

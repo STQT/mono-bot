@@ -40,9 +40,28 @@ class SmartUPFilter(admin.SimpleListFilter):
         return queryset
 
 
+class ScannedQRCodeInline(admin.TabularInline):
+    """Инлайн: успешно отсканированные промокоды пользователем (readonly)."""
+    model = QRCode
+    fk_name = 'scanned_by'
+    extra = 0
+    can_delete = False
+    can_add = False
+    max_num = 0
+    readonly_fields = ['serial_number', 'code_type', 'points', 'scanned_at']
+    fields = ['serial_number', 'code_type', 'points', 'scanned_at']
+    ordering = ['-scanned_at']
+    verbose_name = 'Отсканированный промокод'
+    verbose_name_plural = 'Отсканированные промокоды'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_scanned=True)
+
+
 @admin.register(TelegramUser)
 class TelegramUserAdmin(SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
+    inlines = [ScannedQRCodeInline]
     list_display = [
         'user_display', 'phone_number', 'region_display', 'district_display', 
         'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at', 'send_message_button'
@@ -55,7 +74,8 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     search_fields = ['telegram_id', 'username', 'first_name', 'phone_number']
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
-        'last_message_sent_at', 'blocked_bot_at', 'region', 'district', 'points'
+        'last_message_sent_at', 'blocked_bot_at', 'region', 'district',
+        'points', 'points_display',
     ]
     ordering = ['region', 'district', '-created_at']
     actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
@@ -104,17 +124,19 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
     user_type_badge.admin_order_field = 'user_type'
     
     def points_display(self, obj):
-        """Отображает баллы с цветом (вычисляются динамически)."""
+        """Отображает баллы с цветом (вычисляются динамически: промокоды − активные заказы)."""
+        if obj is None:
+            return '-'
         try:
             calculated = obj.calculate_points()
         except Exception:
             calculated = obj.points
         points_formatted = f"{calculated:,}".replace(",", " ")
         return format_html(
-            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{}</span>',
+            '<span style="color: #667eea; font-weight: 700; font-size: 16px;">{} баллов</span>',
             points_formatted
         )
-    points_display.short_description = 'Баллы'
+    points_display.short_description = 'Баллы (промокоды − заказы)'
     points_display.admin_order_field = 'points'
     
     def language_badge(self, obj):
@@ -196,7 +218,8 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
             'fields': ('phone_number', 'latitude', 'longitude', 'region', 'district')
         }),
         ('Тип и баллы', {
-            'fields': ('user_type', 'points', 'smartup_id')
+            'fields': ('user_type', 'points_display', 'points', 'smartup_id'),
+            'description': 'Баллы рассчитываются по отсканированным промокодам минус активные заказы на подарки.',
         }),
         ('Настройки', {
             'fields': ('language',)
