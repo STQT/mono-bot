@@ -1009,7 +1009,16 @@ async def process_language_selection(callback: CallbackQuery, state: FSMContext)
         
         @sync_to_async
         def update_language_and_check_registration():
-            user = TelegramUser.objects.get(telegram_id=callback.from_user.id)
+            # get_or_create: пользователь может прийти из Web App (resend_registration_step)
+            # без предварительной отправки /start — в таком случае создаём запись
+            user, created = TelegramUser.objects.get_or_create(
+                telegram_id=callback.from_user.id,
+                defaults={
+                    'username': callback.from_user.username,
+                }
+            )
+            if created:
+                logger.info(f"[process_language_selection] Создан новый пользователь: telegram_id={callback.from_user.id}")
             logger.info(f"[process_language_selection] Текущий язык пользователя до обновления: {user.language}")
             user.language = language
             user.save(update_fields=['language'])
