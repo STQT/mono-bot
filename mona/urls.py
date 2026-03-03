@@ -58,6 +58,7 @@ def dashboard_view(request):
     total_users        = user_qs.count()
     total_electricians = user_qs.filter(user_type='electrician').count()
     total_sellers      = user_qs.filter(user_type='seller').count()
+    total_blocked      = TelegramUser.objects.filter(blocked_bot_at__isnull=False).count()
 
     # ── QR-статистика ────────────────────────────────────────────────
     total_qrcodes    = QRCode.objects.count()            # всего сгенерировано (всегда)
@@ -141,6 +142,7 @@ def dashboard_view(request):
         'total_users':              total_users,
         'total_electricians':       total_electricians,
         'total_sellers':            total_sellers,
+        'total_blocked':            total_blocked,
         'total_qrcodes':            total_qrcodes,
         'scanned_qrcodes':          scanned_qrcodes,
         'unscanned_qrcodes':        unscanned_qrcodes,

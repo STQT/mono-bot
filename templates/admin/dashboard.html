@@ -182,6 +182,10 @@
                 <span class="stat-detail-label">🛒 Продавцы:</span>
                 <span class="stat-detail-value">{{ total_sellers }}</span>
             </div>
+            <div class="stat-detail-item">
+                <span class="stat-detail-label">🚫 Заблокировали бота:</span>
+                <span class="stat-detail-value" style="color:#e53e3e;">{{ total_blocked }}</span>
+            </div>
         </div>
         <div class="filter-buttons">
             <a href="{% url 'admin:core_telegramuser_changelist' %}?user_type__exact=electrician" class="filter-button electrician">⚡ Электрики</a>
@@ -190,6 +194,29 @@
             <a href="{% url 'admin:core_telegramuser_send_region_message' %}" class="filter-button">📍 Отправить по области</a>
             <a href="{% url 'admin:core_regionmessagelog_changelist' %}" class="filter-button">📋 Логи рассылок</a>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- Подарки -->
+    <div class="dashboard-card gifts">
+        <div class="card-title-row">
+            <span class="card-icon">🎁</span>
+            <span class="card-title">Подарки</span>
+            <span class="stat-value">{{ total_gifts }}</span>
+        </div>
+        <div class="stat-details">
+            <div class="stat-detail-item">
+                <span class="stat-detail-label">✅ Активных:</span>
+                <span class="stat-detail-value" style="color:#48bb78;">{{ active_gifts }}</span>
+            </div>
+            <div class="stat-detail-item">
+                <span class="stat-detail-label">📋 Запросы на получение:</span>
+                <span class="stat-detail-value" style="color:#ed64a6;">{{ pending_redemptions }}</span>
+            </div>
+        </div>
+        <div class="filter-buttons">
+            <a href="{% url 'admin:core_gift_changelist' %}" class="filter-button">📦 Посмотреть список</a>
+            <a href="{% url 'admin:core_giftredemption_changelist' %}?status__exact=pending" class="filter-button">📋 Посмотреть запросы</a>
         </div>
     </div>
 
@@ -227,25 +254,6 @@
             <div class="stat-detail-item">
                 <span class="stat-detail-label">🛒 Продавцы:</span>
                 <span class="stat-detail-value" style="color:#fbbf24;">{{ total_points_sellers|format_number }}</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Подарки -->
-    <div class="dashboard-card gifts">
-        <div class="card-title-row">
-            <span class="card-icon">🎁</span>
-            <span class="card-title">Подарки</span>
-            <span class="stat-value">{{ total_gifts }}</span>
-        </div>
-        <div class="stat-details">
-            <div class="stat-detail-item">
-                <span class="stat-detail-label">✅ Активных:</span>
-                <span class="stat-detail-value" style="color:#48bb78;">{{ active_gifts }}</span>
-            </div>
-            <div class="stat-detail-item">
-                <span class="stat-detail-label">⏳ Ожидают обработки:</span>
-                <span class="stat-detail-value" style="color:#ed64a6;">{{ pending_redemptions }}</span>
             </div>
         </div>
     </div>

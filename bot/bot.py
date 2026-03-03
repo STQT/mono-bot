@@ -1482,7 +1482,7 @@ async def handle_message(message: Message, state: FSMContext = None):
 
     # Пользователь не завершил регистрацию, но FSM-состояние могло сброситься (бот перезапуск и т.д.).
     # Принимаем контакт и локацию независимо от состояния.
-    registration_incomplete = not is_registration_complete(user)
+    registration_incomplete = not await is_registration_complete(user)
     if registration_incomplete:
         if message.contact and not user.phone_number:
             # Пользователь отправил контакт (кнопка или из списка контактов) — сохраняем
