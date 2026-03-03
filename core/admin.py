@@ -477,7 +477,10 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
         if not request.user.has_perm('core.send_region_messages'):
             raise PermissionDenied
 
-        region_choices = [('', '--- Выберите область ---')] + list(get_all_regions('ru'))
+        region_choices = [
+            ('', '--- Выберите область ---'),
+            ('all', 'Все регионы'),
+        ] + list(get_all_regions('ru'))
 
         class RegionMessageForm(forms.Form):
             region = forms.ChoiceField(choices=region_choices, required=True, label='Область')
@@ -514,13 +517,17 @@ class TelegramUserAdmin(SimpleHistoryAdmin):
                     users_qs = users_qs.filter(language=language_filter)
 
                 users = list(users_qs)
-                filtered = []
-                for u in users:
-                    if get_region_by_coordinates(u.latitude, u.longitude) == region_code:
-                        filtered.append(u)
+                if region_code == 'all':
+                    filtered = users
+                else:
+                    filtered = [
+                        u for u in users
+                        if get_region_by_coordinates(u.latitude, u.longitude) == region_code
+                    ]
 
                 if not filtered:
-                    self.message_user(request, 'В выбранной области нет пользователей с координатами.', messages.WARNING)
+                    msg = 'Нет пользователей с координатами.' if region_code == 'all' else 'В выбранной области нет пользователей с координатами.'
+                    self.message_user(request, msg, messages.WARNING)
                 else:
                     from core.tasks import send_region_message_task, REGION_MESSAGE_ASYNC_THRESHOLD
                     from core.messaging import TELEGRAM_MESSAGE_DELAY

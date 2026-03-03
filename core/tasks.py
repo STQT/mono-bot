@@ -435,13 +435,17 @@ def send_region_message_task(
         users_qs = users_qs.filter(language=language_filter)
 
     users = list(users_qs)
-    filtered = [
-        u for u in users
-        if get_region_by_coordinates(u.latitude, u.longitude) == region_code
-    ]
+    if region_code == 'all':
+        filtered = users
+    else:
+        filtered = [
+            u for u in users
+            if get_region_by_coordinates(u.latitude, u.longitude) == region_code
+        ]
     if not filtered:
-        logger.warning('send_region_message_task: в области %s нет пользователей', region_code)
-        update_log(0, 0, status='completed', error_msg='В области нет пользователей')
+        msg = 'Нет пользователей с координатами' if region_code == 'all' else f'В области {region_code} нет пользователей'
+        logger.warning('send_region_message_task: %s', msg)
+        update_log(0, 0, status='completed', error_msg=msg)
         return {'sent': 0, 'failed': 0, 'total': 0}
 
     photo_path = None
