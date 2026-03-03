@@ -22,10 +22,14 @@ TELEGRAM_MESSAGE_DELAY = 1.0 / TELEGRAM_BROADCAST_RATE_LIMIT  # ~0.033 секу�
 
 # Telegram HTML поддерживает только: b, strong, i, em, u, ins, s, strike, del, span, tg-spoiler, a, code, pre, blockquote
 # Теги <p>, <div>, <br> вызывают "Unsupported start tag"
+# Quill: каждая строка = <p>, двойной Enter = <p><br></p> (пустой абзац)
 TELEGRAM_UNSUPPORTED_TAG_REPLACEMENTS = [
-    (re.compile(r'<p>\s*<br\s*/?>\s*</p>', re.I), '\n\n'),  # пустой абзац Quill
-    (re.compile(r'</p>\s*<p>', re.I), '\n\n'),              # граница абзацев
-    (re.compile(r'</?p\s*/?>', re.I), '\n\n'),
+    (re.compile(r'</p>\s*<p>\s*<br\s*/?>\s*</p>\s*<p>', re.I), '\n\n'),  # абзац (двойной Enter)
+    (re.compile(r'<p>\s*<br\s*/?>\s*</p>', re.I), '\n\n'),               # пустой абзац
+    (re.compile(r'</p>\s*\n+\s*<p>', re.I), '\n\n'),                    # абзац (уже есть \n\n между блоками)
+    (re.compile(r'</p>\s*<p>', re.I), '\n'),                            # новая строка (один Enter)
+    (re.compile(r'^<p>|</p>$', re.I), ''),                              # обёртка в начале/конце
+    (re.compile(r'</?p\s*/?>', re.I), '\n'),
     (re.compile(r'<br\s*/?>', re.I), '\n'),
     (re.compile(r'</?div\s*[^>]*>', re.I), '\n'),
 ]
