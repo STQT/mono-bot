@@ -765,11 +765,22 @@ def _tg_api(method: str, payload: dict) -> bool:
                 desc = doc.get('description', body)
             except Exception:
                 pass
+
+            desc_lower = str(desc).lower()
+            is_forbidden = e.code == 403
+            is_chat_not_found = e.code == 400 and 'chat not found' in desc_lower
+
             # 403 = пользователь заблокировал бота — ожидаемо, не ошибка
-            if e.code == 403:
+            # 400 + "chat not found" = пользователь ещё не открыл чат с ботом — тоже ожидаемо
+            if is_forbidden or is_chat_not_found:
+                reason = (
+                    "user likely blocked the bot"
+                    if is_forbidden
+                    else "chat not found (user never started bot)"
+                )
                 logger.warning(
-                    "[_tg_api] %s HTTP 403 (user likely blocked the bot): %s",
-                    method, desc,
+                    "[_tg_api] %s HTTP %s (%s): %s",
+                    method, e.code, reason, desc,
                 )
             else:
                 logger.error(
@@ -780,6 +791,8 @@ def _tg_api(method: str, payload: dict) -> bool:
         except Exception:
             if e.code == 403:
                 logger.warning("[_tg_api] %s HTTP 403 (user likely blocked the bot)", method)
+            elif e.code == 400:
+                logger.warning("[_tg_api] %s HTTP 400 (chat not found or bad request)", method)
             else:
                 logger.error("[_tg_api] %s failed: HTTP %s - %s", method, e.code, e)
         return False
