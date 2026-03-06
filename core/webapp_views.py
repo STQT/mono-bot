@@ -609,25 +609,23 @@ def register_qr_code(request):
     from bot.translations import get_text
     
     try:
+        # Сначала проверяем, не заблокирован ли пользователь по промокодам
+        blocked, block_type, blocked_until = user.is_promo_code_blocked()
+        if blocked:
+            # Сообщение в зависимости от уровня блокировки
+            if block_type == 'permanent':
+                error_message = get_text(user, 'PROMO_BLOCKED_PERMANENT')
+            elif block_type == '1d':
+                error_message = get_text(user, 'PROMO_BLOCKED_1_DAY')
+            else:
+                error_message = get_text(user, 'PROMO_BLOCKED_5_MIN')
+            return Response(
+                {'error': error_message, 'error_code': 'promo_blocked'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Используем транзакцию для атомарности операций
         with transaction.atomic():
-            # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
-            # Это предотвращает создание новых попыток, если лимит уже превышен
-            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_attempts = QRCodeScanAttempt.objects.filter(
-                user=user,
-                attempted_at__gte=today_start,
-                is_successful=False
-            ).count()
-            
-            max_attempts = getattr(settings, 'QR_CODE_MAX_ATTEMPTS', 5)
-            if today_attempts >= max_attempts:
-                error_message = get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=max_attempts)
-                return Response(
-                    {'error': error_message, 'error_code': 'max_attempts'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
             # Нормализуем ввод: приводим к верхнему регистру для поиска
             qr_code_str_normalized = qr_code_str.upper().strip()
             
@@ -641,7 +639,8 @@ def register_qr_code(request):
                 try:
                     qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
                 except QRCode.DoesNotExist:
-                    # QR-код не найден, возвращаем ошибку без создания попытки
+                    # QR-код не найден — регистрируем неверную попытку
+                    user.register_invalid_promo_attempt(source='webapp', raw_code=qr_code_str)
                     error_message = get_text(user, 'QR_NOT_FOUND')
                     return Response(
                         {'error': error_message, 'error_code': 'not_found'},
@@ -656,6 +655,7 @@ def register_qr_code(request):
                     qr_code=qr_code,
                     is_successful=False
                 )
+                user.register_invalid_promo_attempt(source='webapp', raw_code=qr_code_str)
                 error_message = get_text(user, 'QR_ALREADY_SCANNED')
                 return Response(
                     {'error': error_message, 'error_code': 'already_scanned'},
@@ -670,6 +670,7 @@ def register_qr_code(request):
                     qr_code=qr_code,
                     is_successful=False
                 )
+                user.register_invalid_promo_attempt(source='webapp', raw_code=qr_code_str)
                 error_message = get_text(user, 'QR_WRONG_TYPE')
                 return Response(
                     {'error': error_message, 'error_code': 'wrong_type'},
@@ -693,6 +694,8 @@ def register_qr_code(request):
                 qr_code=qr_code,
                 is_successful=True
             )
+            # Фиксируем успешный промокод (сброс последовательности ошибок)
+            user.register_successful_promo(raw_code=qr_code_str, source='webapp')
             
             # Инвалидируем кеш и пересчитываем баллы
             user.invalidate_points_cache()

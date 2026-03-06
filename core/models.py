@@ -9,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from simple_history.models import HistoricalRecords
+from datetime import timedelta
 
 
 class TelegramUser(models.Model):
@@ -48,6 +49,17 @@ class TelegramUser(models.Model):
     smartup_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='SmartUP ID')
     last_message_sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Oxirgi xabar yuborilgan vaqt')
     blocked_bot_at = models.DateTimeField(null=True, blank=True, verbose_name='Botni bloklagan vaqt')
+    # Поля для блокировки по неверным промокодам
+    promo_failed_attempts = models.IntegerField(default=0, verbose_name='Noto‘g‘ri promokod urinishlari (ketma-ket)')
+    promo_block_stage = models.IntegerField(
+        default=0,
+        verbose_name='Promokod bloklash bosqichi (0 — yo‘q, 1 — 5 daqiqa, 2 — 1 kun, 3 — cheksiz)'
+    )
+    promo_blocked_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Promokod kiritishni bloklash tugash vaqti'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -172,6 +184,161 @@ class TelegramUser(models.Model):
         """Инвалидирует кеш баллов пользователя."""
         from django.core.cache import cache
         cache.delete(f'user_points_{self.id}')
+    
+    # ──────────────────────────────────────────────────────────────────────
+    # Promo code lock helpers
+    # ──────────────────────────────────────────────────────────────────────
+    def is_promo_code_blocked(self):
+        """
+        Проверяет, заблокирован ли пользователь для ввода промокодов.
+        
+        Returns (blocked: bool, block_type: str, blocked_until: datetime | None)
+        block_type: 'none' | '5m' | '1d' | 'permanent'
+        """
+        now = timezone.now()
+        
+        # Перманентная блокировка
+        if self.promo_block_stage >= 3:
+            return True, 'permanent', None
+        
+        # Временная блокировка
+        if self.promo_blocked_until and self.promo_blocked_until > now:
+            # Определяем тип по stage
+            if self.promo_block_stage == 1:
+                block_type = '5m'
+            elif self.promo_block_stage == 2:
+                block_type = '1d'
+            else:
+                block_type = 'temporary'
+            return True, block_type, self.promo_blocked_until
+        
+        # Если время блокировки уже прошло, снимаем её, но stage не откатываем
+        if self.promo_blocked_until and self.promo_blocked_until <= now:
+            self.promo_blocked_until = None
+            self.promo_failed_attempts = 0
+            TelegramUser.objects.filter(id=self.id).update(
+                promo_blocked_until=None,
+                promo_failed_attempts=0,
+            )
+        
+        return False, 'none', None
+    
+    def register_invalid_promo_attempt(self, source: str, raw_code: str = ""):
+        """
+        Регистрирует неверную попытку ввода промокода, создаёт запись попытки
+        и при необходимости переводит пользователя на следующий уровень блокировки.
+        
+        Алгоритм:
+        - 1–3 неверные попытки подряд → блокировка на 5 минут
+        - следующие 3 неверные попытки → блокировка на 1 день
+        - следующие 3 неверные попытки → блокировка навсегда (stage 3)
+        """
+        from .models import PromoCodeAttempt  # локальный импорт, чтобы избежать циклов
+        
+        now = timezone.now()
+        
+        # Создаём запись попытки (всегда, даже если уже заблокирован — для аудита)
+        PromoCodeAttempt.objects.create(
+            user=self,
+            raw_code=raw_code or "",
+            attempted_at=now,
+            is_successful=False,
+            source=source,
+        )
+        
+        # Если уже перманентно заблокирован — дальше не повышаем
+        if self.promo_block_stage >= 3:
+            return {
+                'blocked': True,
+                'block_type': 'permanent',
+                'blocked_until': None,
+            }
+        
+        # Если ещё действует временная блокировка, просто выходим
+        if self.promo_blocked_until and self.promo_blocked_until > now:
+            if self.promo_block_stage == 1:
+                block_type = '5m'
+            elif self.promo_block_stage == 2:
+                block_type = '1d'
+            else:
+                block_type = 'temporary'
+            return {
+                'blocked': True,
+                'block_type': block_type,
+                'blocked_until': self.promo_blocked_until,
+            }
+        
+        # Увеличиваем счётчик подряд идущих неверных попыток
+        failed = (self.promo_failed_attempts or 0) + 1
+        self.promo_failed_attempts = failed
+        
+        block_applied = False
+        block_type = 'none'
+        blocked_until = None
+        
+        if failed >= 3:
+            # Переходим на следующий уровень блокировки
+            next_stage = min((self.promo_block_stage or 0) + 1, 3)
+            self.promo_block_stage = next_stage
+            self.promo_failed_attempts = 0  # цепочка закончена
+            
+            if next_stage == 1:
+                blocked_until = now + timedelta(minutes=5)
+                self.promo_blocked_until = blocked_until
+                block_type = '5m'
+            elif next_stage == 2:
+                blocked_until = now + timedelta(days=1)
+                self.promo_blocked_until = blocked_until
+                block_type = '1d'
+            else:
+                # stage 3 — перманентная блокировка
+                self.promo_blocked_until = None
+                block_type = 'permanent'
+            
+            block_applied = True
+        
+        # Сохраняем изменения
+        TelegramUser.objects.filter(id=self.id).update(
+            promo_failed_attempts=self.promo_failed_attempts,
+            promo_block_stage=self.promo_block_stage,
+            promo_blocked_until=self.promo_blocked_until,
+        )
+        
+        return {
+            'blocked': block_applied or self.promo_block_stage >= 3,
+            'block_type': block_type if block_applied else (
+                'permanent' if self.promo_block_stage >= 3 else 'none'
+            ),
+            'blocked_until': self.promo_blocked_until,
+        }
+    
+    def register_successful_promo(self, raw_code: str = "", source: str = ""):
+        """
+        Фиксирует успешный ввод промокода и обнуляет счётчик подряд идущих
+        неверных попыток (но не откатывает уровень блокировки).
+        """
+        from .models import PromoCodeAttempt
+        
+        now = timezone.now()
+        
+        PromoCodeAttempt.objects.create(
+            user=self,
+            raw_code=raw_code or "",
+            attempted_at=now,
+            is_successful=True,
+            source=source or 'unknown',
+        )
+        
+        if self.promo_block_stage < 3:
+            self.promo_failed_attempts = 0
+            # Если временный блок истёк — сбрасываем время
+            if self.promo_blocked_until and self.promo_blocked_until <= now:
+                self.promo_blocked_until = None
+            
+            TelegramUser.objects.filter(id=self.id).update(
+                promo_failed_attempts=self.promo_failed_attempts,
+                promo_blocked_until=self.promo_blocked_until,
+            )
     
     def __str__(self):
         return f"{self.first_name or 'Unknown'} (@{self.username or 'no_username'})"
@@ -689,6 +856,58 @@ class QRCodeGeneration(models.Model):
     
     def __str__(self):
         return f"{self.get_code_type_display()} - {self.quantity} ta ({self.get_status_display()})"
+
+
+class PromoCodeAttempt(models.Model):
+    """
+    Лог попыток ввода промокода (короткий код / hash) пользователем.
+    
+    Используется для:
+    - анализа подозрительной активности (возможный мошенник)
+    - применения алгоритма блокировки по неверным вводам
+    """
+    SOURCE_CHOICES = [
+        ('bot', 'Telegram bot'),
+        ('webapp', 'Telegram Web App'),
+        ('unknown', 'Unknown'),
+    ]
+    
+    user = models.ForeignKey(
+        TelegramUser,
+        on_delete=models.CASCADE,
+        related_name='promo_code_attempts',
+        verbose_name='Foydalanuvchi',
+    )
+    raw_code = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Kiritilgan promokod',
+        help_text='Foydalanuvchi kiritgan asl matn (kod mavjud bo‘lmasligi mumkin)',
+    )
+    attempted_at = models.DateTimeField(auto_now_add=True, verbose_name='Urinish vaqti')
+    is_successful = models.BooleanField(default=False, verbose_name='Muvaffaqiyatli')
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default='unknown',
+        verbose_name='Manba',
+        help_text='Qayerdan kiritilgan: bot yoki Web App',
+    )
+    
+    class Meta:
+        verbose_name = 'Promokod urinishlari'
+        verbose_name_plural = 'Promokod urinishlari'
+        ordering = ['-attempted_at']
+        indexes = [
+            models.Index(fields=['attempted_at']),
+            models.Index(fields=['source']),
+            models.Index(fields=['is_successful']),
+        ]
+    
+    def __str__(self):
+        status = '✅' if self.is_successful else '❌'
+        src = dict(self.SOURCE_CHOICES).get(self.source, self.source)
+        return f"{status} {self.user} — {self.raw_code or '—'} ({src})"
 
 
 class AdminContactSettings(models.Model):

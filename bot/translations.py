@@ -43,6 +43,9 @@ TRANSLATIONS = {
         'QR_ALREADY_SCANNED': "❌ Bu promokod allaqachon boshqa foydalanuvchi tomonidan ishlatilgan.",
         'QR_WRONG_TYPE': "❌ Bu promokod sizning turingizga mos kelmaydi. Siz faqat o'z turingizga mos promokodlarni kiritishingiz mumkin.",
         'QR_ERROR': "❌ Promokodni qayta ishlashda xatolik yuz berdi. Keyinroq urinib ko'ring.",
+        'PROMO_BLOCKED_5_MIN': "❌ Siz 3 marta noto'g'ri promokod kiritdingiz.\n\n⏰ Keyingi urinishlar 5 daqiqadan so'ng ochiladi.",
+        'PROMO_BLOCKED_1_DAY': "❌ Siz bir necha marta noto'g'ri promokod kiritdingiz.\n\n⏰ Keyingi urinishlar 24 soatdan so'ng ochiladi.",
+        'PROMO_BLOCKED_PERMANENT': "❌ Hisobingiz promokod kiritish uchun bloklandi.\n\nIltimos, administrator bilan bog'laning.",
         
         # Главное меню
         'MAIN_MENU': "👋 Asosiy menyu\n\n💰 Balansingiz: {points} ball\n\nHarakatni tanlang:",
@@ -212,6 +215,9 @@ TRANSLATIONS = {
         'QR_ALREADY_SCANNED': "❌ Этот Промокод уже был использован другим пользователем.",
         'QR_WRONG_TYPE': "❌ Этот Промокод не соответствует вашему типу. Вы можете вводить только Промокоды, соответствующие вашему типу.",
         'QR_ERROR': "❌ Произошла ошибка при обработке Промокода. Попробуйте позже.",
+        'PROMO_BLOCKED_5_MIN': "❌ Вы 3 раза подряд ввели неверный промокод.\n\n⏰ Следующие попытки будут доступны через 5 минут.",
+        'PROMO_BLOCKED_1_DAY': "❌ Вы многократно вводили неверные промокоды.\n\n⏰ Следующие попытки будут доступны через 24 часа.",
+        'PROMO_BLOCKED_PERMANENT': "❌ Ваш аккаунт заблокирован для ввода промокодов.\n\nПожалуйста, свяжитесь с администратором.",
         
         # Главное меню
         'MAIN_MENU': "👋 Главное меню\n\n💰 Ваш баланс: {points} баллов\n\nВыберите действие:",

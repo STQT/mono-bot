@@ -932,6 +932,19 @@ async def process_promo_code(message: Message, state: FSMContext):
     qr_code_to_check = (promo_code.upper().strip() if promo_code else None) or (pending_qr_code.upper().strip() if pending_qr_code else None)
     
     if qr_code_to_check:
+        # Перед любыми проверками смотрим, не заблокирован ли пользователь по промокодам
+        blocked, block_type, blocked_until = await sync_to_async(user.is_promo_code_blocked)()
+        if blocked:
+            if block_type == 'permanent':
+                msg = get_text(user, 'PROMO_BLOCKED_PERMANENT')
+            elif block_type == '1d':
+                msg = get_text(user, 'PROMO_BLOCKED_1_DAY')
+            else:
+                msg = get_text(user, 'PROMO_BLOCKED_5_MIN')
+            await message.answer(msg)
+            await state.clear()
+            return
+
         # Проверяем QR-код напрямую, чтобы определить результат до завершения регистрации
         @sync_to_async
         def check_qr_code():
@@ -954,7 +967,8 @@ async def process_promo_code(message: Message, state: FSMContext):
         qr_check_result = await check_qr_code()
         
         if not qr_check_result.get('found'):
-            # QR-код не найден - показываем ошибку и продолжаем ожидать промокод
+            # QR-код не найден — регистрируем неверную попытку
+            await sync_to_async(user.register_invalid_promo_attempt)(source='bot', raw_code=promo_code or pending_qr_code or '')
             await message.answer(get_text(user, 'QR_NOT_FOUND'))
             await ask_promo_code(message, user, state)
             return
@@ -1247,19 +1261,6 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
             
             # Используем транзакцию для атомарности операций
             with transaction.atomic():
-                # ВАЖНО: Проверяем количество неудачных попыток за сегодня ПЕРВЫМ ДЕЛОМ
-                # Это предотвращает создание новых попыток, если лимит уже превышен
-                today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                today_attempts = QRCodeScanAttempt.objects.filter(
-                    user=user,
-                    attempted_at__gte=today_start,
-                    is_successful=False
-                ).count()
-                
-                if today_attempts >= settings.QR_CODE_MAX_ATTEMPTS:
-                    # Лимит превышен - сразу возвращаем ошибку без создания новой попытки
-                    return {'error': 'max_attempts'}
-                
                 # Нормализуем ввод: приводим к верхнему регистру для поиска
                 qr_code_str_normalized = qr_code_str.upper().strip()
                 
@@ -1274,6 +1275,7 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                         qr_code = QRCode.objects.get(hash_code__iexact=qr_code_str_normalized)
                     except QRCode.DoesNotExist:
                         # QR-код не найден, возвращаем ошибку без создания попытки
+                        user.register_invalid_promo_attempt(source='bot', raw_code=qr_code_str)
                         return {'error': 'not_found'}
                 
                 # Проверяем, не был ли уже отсканирован
@@ -1284,6 +1286,7 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                         qr_code=qr_code,
                         is_successful=False
                     )
+                    user.register_invalid_promo_attempt(source='bot', raw_code=qr_code_str)
                     return {'error': 'already_scanned'}
                 
                 # Валидация типа кода - проверяем соответствие типу пользователя
@@ -1294,6 +1297,7 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                         qr_code=qr_code,
                         is_successful=False
                     )
+                    user.register_invalid_promo_attempt(source='bot', raw_code=qr_code_str)
                     return {'error': 'wrong_type'}
                 
                 # Определяем тип пользователя на основе типа QR-кода (если еще не установлен)
@@ -1313,6 +1317,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                     qr_code=qr_code,
                     is_successful=True
                 )
+                # Фиксируем успешный промокод
+                user.register_successful_promo(raw_code=qr_code_str, source='bot')
                 
                 # Инвалидируем кеш и пересчитываем баллы из БД (как в webapp)
                 user.invalidate_points_cache()
@@ -1324,6 +1330,17 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
                     'total_points': total_points
                 }
         
+        # Перед обработкой проверяем блокировку по промокодам
+        blocked, block_type, blocked_until = await sync_to_async(user.is_promo_code_blocked)()
+        if blocked:
+            if block_type == 'permanent':
+                await message.answer(get_text(user, 'PROMO_BLOCKED_PERMANENT'))
+            elif block_type == '1d':
+                await message.answer(get_text(user, 'PROMO_BLOCKED_1_DAY'))
+            else:
+                await message.answer(get_text(user, 'PROMO_BLOCKED_5_MIN'))
+            return
+
         result = await process_qr_scan()
         
         # Проверяем, завершена ли регистрация (для определения, нужно ли показывать меню или продолжать регистрацию)
@@ -1334,14 +1351,7 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         user_for_reg_check = await get_user_for_reg_check()
         registration_complete = await is_registration_complete(user_for_reg_check)
         
-        if result.get('error') == 'max_attempts':
-            await message.answer(get_text(user, 'QR_MAX_ATTEMPTS', max_attempts=settings.QR_CODE_MAX_ATTEMPTS))
-            if registration_complete:
-                await show_main_menu(message, user)
-            else:
-                # Если регистрация не завершена, продолжаем ожидать промокод
-                await ask_promo_code(message, user, state)
-        elif result.get('error') == 'not_found':
+        if result.get('error') == 'not_found':
             await message.answer(get_text(user, 'QR_NOT_FOUND'))
             if registration_complete:
                 await show_main_menu(message, user)

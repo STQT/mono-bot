@@ -27,7 +27,7 @@ from django.conf import settings
 from django.db import models
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
-    TelegramUser, QRCode, QRCodeScanAttempt,
+    TelegramUser, QRCode, QRCodeScanAttempt, PromoCodeAttempt,
     Gift, GiftRedemption, BroadcastMessage, RegionMessageLog, Promotion, QRCodeGeneration, PrivacyPolicy, AdminContactSettings, VideoInstruction, SmartUPId
 )
 from .utils import generate_qr_code_image, generate_qr_codes_batch
@@ -70,10 +70,22 @@ class ScannedQRCodeInline(admin.TabularInline):
         return super().get_queryset(request).filter(is_scanned=True)
 
 
+class PromoCodeAttemptInline(admin.TabularInline):
+    """Инлайн: попытки ввода промокода (успешные и неуспешные)."""
+    model = PromoCodeAttempt
+    extra = 0
+    can_delete = False
+    readonly_fields = ['raw_code', 'attempted_at', 'is_successful', 'source']
+    fields = ['attempted_at', 'raw_code', 'is_successful', 'source']
+    ordering = ['-attempted_at']
+    verbose_name = 'Попытка ввода промокода'
+    verbose_name_plural = 'Попытки ввода промокодов'
+
+
 @admin.register(TelegramUser)
 class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для пользователей Telegram."""
-    inlines = [ScannedQRCodeInline]
+    inlines = [ScannedQRCodeInline, PromoCodeAttemptInline]
     list_display = [
         'user_display', 'phone_number', 'region_display', 'district_display', 
         'user_type_badge', 'points_display', 'language_badge', 'status_badge', 'created_at', 'send_message_button'
@@ -237,7 +249,14 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
             'fields': ('language',)
         }),
         ('Активность', {
-            'fields': ('is_active', 'last_message_sent_at', 'blocked_bot_at')
+            'fields': (
+                'is_active',
+                'last_message_sent_at',
+                'blocked_bot_at',
+                'promo_failed_attempts',
+                'promo_block_stage',
+                'promo_blocked_until',
+            )
         }),
         ('Даты', {
             'fields': ('created_at', 'updated_at')
