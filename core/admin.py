@@ -99,7 +99,7 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
         'last_message_sent_at', 'blocked_bot_at', 'region', 'district',
-        'points', 'points_display',
+        'points_display', 'total_earned_points',
     ]
     ordering = ['region', 'district', '-created_at']
     actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
@@ -162,6 +162,18 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
         )
     points_display.short_description = 'Баллы (промокоды − заказы)'
     points_display.admin_order_field = 'points'
+
+    def total_earned_points(self, obj):
+        """Сумма всех баллов по отсканированным промокодам (без вычета заказов)."""
+        if obj is None:
+            return 0
+        from django.db.models import Sum
+        total = QRCode.objects.filter(
+            scanned_by=obj,
+            is_scanned=True,
+        ).aggregate(total=Sum('points'))['total'] or 0
+        return total
+    total_earned_points.short_description = 'Points'
     
     def language_badge(self, obj):
         """Отображает язык с цветным badge."""
@@ -242,8 +254,11 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
             'fields': ('phone_number', 'latitude', 'longitude', 'region', 'district')
         }),
         ('Тип и баллы', {
-            'fields': ('user_type', 'points_display', 'points', 'smartup_id'),
-            'description': 'Баллы рассчитываются по отсканированным промокодам минус активные заказы на подарки.',
+            'fields': ('user_type', 'points_display', 'total_earned_points', 'smartup_id'),
+            'description': (
+                'Баллы (промокоды − заказы) рассчитываются как накопленные промокоды минус активные заказы на подарки. '
+                'Поле Points показывает общую сумму баллов по всем отсканированным промокодам без вычета заказов.'
+            ),
         }),
         ('Настройки', {
             'fields': ('language',)
