@@ -615,10 +615,8 @@ def register_qr_code(request):
             # Сообщение в зависимости от уровня блокировки
             if block_type == 'permanent':
                 error_message = get_text(user, 'PROMO_BLOCKED_PERMANENT')
-            elif block_type == '1d':
-                error_message = get_text(user, 'PROMO_BLOCKED_1_DAY')
             else:
-                error_message = get_text(user, 'PROMO_BLOCKED_5_MIN')
+                error_message = get_text(user, 'PROMO_BLOCKED_1_DAY')
             return Response(
                 {'error': error_message, 'error_code': 'promo_blocked'},
                 status=status.HTTP_400_BAD_REQUEST

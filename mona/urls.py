@@ -85,7 +85,9 @@ def dashboard_view(request):
         gift_qs = gift_qs.filter(requested_at__date__lte=date_to)
     pending_redemptions = gift_qs.filter(status='pending').count()
 
-    # ── ТОП лидеры (только баллы по промокодам, без вычета заказов) ─
+    # ── ТОП лидеры ─
+    # total_points — только баллы по промокодам (историческая сумма),
+    # current_points — текущий баланс (промокоды − заказы) через calculate_points().
     def get_top_leaders(user_type):
         qs = (
             QRCode.objects
@@ -102,10 +104,20 @@ def dashboard_view(request):
         user_ids = [r['scanned_by'] for r in qs]
         points_map = {r['scanned_by']: r['total_points'] for r in qs}
         users = TelegramUser.objects.filter(id__in=user_ids).in_bulk(user_ids)
-        return [
-            {'first_name': users[uid].first_name, 'username': users[uid].username, 'points': points_map[uid]}
-            for uid in user_ids if uid in users
-        ]
+
+        leaders = []
+        for uid in user_ids:
+            user = users.get(uid)
+            if not user:
+                continue
+            current_points = user.calculate_points()
+            leaders.append({
+                'first_name':      user.first_name,
+                'username':        user.username,
+                'points':          points_map.get(uid, 0),
+                'current_points':  current_points,
+            })
+        return leaders
 
     top_electricians = get_top_leaders('electrician')
     top_sellers      = get_top_leaders('seller')

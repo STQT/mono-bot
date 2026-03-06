@@ -53,7 +53,7 @@ class TelegramUser(models.Model):
     promo_failed_attempts = models.IntegerField(default=0, verbose_name='Noto‘g‘ri promokod urinishlari (ketma-ket)')
     promo_block_stage = models.IntegerField(
         default=0,
-        verbose_name='Promokod bloklash bosqichi (0 — yo‘q, 1 — 5 daqiqa, 2 — 1 kun, 3 — cheksiz)'
+        verbose_name='Promokod bloklash bosqichi (0 — yo‘q, 3 — faqat eski cheksiz blok)'
     )
     promo_blocked_until = models.DateTimeField(
         null=True,
@@ -191,28 +191,22 @@ class TelegramUser(models.Model):
     def is_promo_code_blocked(self):
         """
         Проверяет, заблокирован ли пользователь для ввода промокодов.
-        
+
+        Логика: только блокировка на 1 день (нет 5 минут и навсегда).
         Returns (blocked: bool, block_type: str, blocked_until: datetime | None)
-        block_type: 'none' | '5m' | '1d' | 'permanent'
+        block_type: 'none' | '1d' | 'permanent' (permanent только для старых записей)
         """
         now = timezone.now()
-        
-        # Перманентная блокировка
+
+        # Старая перманентная блокировка (для обратной совместимости)
         if self.promo_block_stage >= 3:
             return True, 'permanent', None
-        
-        # Временная блокировка
+
+        # Временная блокировка на день
         if self.promo_blocked_until and self.promo_blocked_until > now:
-            # Определяем тип по stage
-            if self.promo_block_stage == 1:
-                block_type = '5m'
-            elif self.promo_block_stage == 2:
-                block_type = '1d'
-            else:
-                block_type = 'temporary'
-            return True, block_type, self.promo_blocked_until
-        
-        # Если время блокировки уже прошло, снимаем её, но stage не откатываем
+            return True, '1d', self.promo_blocked_until
+
+        # Время блокировки истекло — снимаем
         if self.promo_blocked_until and self.promo_blocked_until <= now:
             self.promo_blocked_until = None
             self.promo_failed_attempts = 0
@@ -220,24 +214,23 @@ class TelegramUser(models.Model):
                 promo_blocked_until=None,
                 promo_failed_attempts=0,
             )
-        
+
         return False, 'none', None
     
     def register_invalid_promo_attempt(self, source: str, raw_code: str = ""):
         """
-        Регистрирует неверную попытку ввода промокода, создаёт запись попытки
-        и при необходимости переводит пользователя на следующий уровень блокировки.
-        
+        Регистрирует неверную попытку ввода промокода.
+
         Алгоритм:
-        - 1–3 неверные попытки подряд → блокировка на 5 минут
-        - следующие 3 неверные попытки → блокировка на 1 день
-        - следующие 3 неверные попытки → блокировка навсегда (stage 3)
+        - Счётчик только подряд: при верном вводе обнуляется (2 неверных + верный → с нуля).
+        - 3 неверных подряд ИЛИ 3 неверных за текущий день → блокировка на 1 день (не на 5 минут и не навсегда).
         """
-        from .models import PromoCodeAttempt  # локальный импорт, чтобы избежать циклов
-        
+        from .models import PromoCodeAttempt
+
         now = timezone.now()
-        
-        # Создаём запись попытки (всегда, даже если уже заблокирован — для аудита)
+        today = now.date()
+
+        # Всегда пишем попытку в лог
         PromoCodeAttempt.objects.create(
             user=self,
             raw_code=raw_code or "",
@@ -245,82 +238,69 @@ class TelegramUser(models.Model):
             is_successful=False,
             source=source,
         )
-        
-        # Если уже перманентно заблокирован — дальше не повышаем
+
         if self.promo_block_stage >= 3:
-            return {
-                'blocked': True,
-                'block_type': 'permanent',
-                'blocked_until': None,
-            }
-        
-        # Если ещё действует временная блокировка, просто выходим
+            return {'blocked': True, 'block_type': 'permanent', 'blocked_until': None}
+
         if self.promo_blocked_until and self.promo_blocked_until > now:
-            if self.promo_block_stage == 1:
-                block_type = '5m'
-            elif self.promo_block_stage == 2:
-                block_type = '1d'
-            else:
-                block_type = 'temporary'
             return {
                 'blocked': True,
-                'block_type': block_type,
+                'block_type': '1d',
                 'blocked_until': self.promo_blocked_until,
             }
-        
-        # Увеличиваем счётчик подряд идущих неверных попыток
-        failed = (self.promo_failed_attempts or 0) + 1
-        self.promo_failed_attempts = failed
-        
-        block_applied = False
-        block_type = 'none'
-        blocked_until = None
-        
-        if failed >= 3:
-            # Переходим на следующий уровень блокировки
-            next_stage = min((self.promo_block_stage or 0) + 1, 3)
-            self.promo_block_stage = next_stage
-            self.promo_failed_attempts = 0  # цепочка закончена
-            
-            if next_stage == 1:
-                blocked_until = now + timedelta(minutes=5)
-                self.promo_blocked_until = blocked_until
-                block_type = '5m'
-            elif next_stage == 2:
-                blocked_until = now + timedelta(days=1)
-                self.promo_blocked_until = blocked_until
-                block_type = '1d'
-            else:
-                # stage 3 — перманентная блокировка
-                self.promo_blocked_until = None
-                block_type = 'permanent'
-            
-            block_applied = True
-        
-        # Сохраняем изменения
+
+        # Сколько неверных попыток сегодня (уже с учётом только что созданной)
+        today_failed = PromoCodeAttempt.objects.filter(
+            user=self,
+            is_successful=False,
+            attempted_at__date=today,
+        ).count()
+
+        if today_failed >= 3:
+            # Лимит дня: 3 неверных в день → блок на 1 день
+            self.promo_blocked_until = now + timedelta(days=1)
+            self.promo_failed_attempts = 0
+            TelegramUser.objects.filter(id=self.id).update(
+                promo_blocked_until=self.promo_blocked_until,
+                promo_failed_attempts=0,
+            )
+            return {
+                'blocked': True,
+                'block_type': '1d',
+                'blocked_until': self.promo_blocked_until,
+            }
+
+        # Увеличиваем только подряд идущие неверные
+        consecutive = (self.promo_failed_attempts or 0) + 1
+        self.promo_failed_attempts = consecutive
+
+        if consecutive >= 3:
+            self.promo_blocked_until = now + timedelta(days=1)
+            self.promo_failed_attempts = 0
+            TelegramUser.objects.filter(id=self.id).update(
+                promo_failed_attempts=0,
+                promo_blocked_until=self.promo_blocked_until,
+            )
+            return {
+                'blocked': True,
+                'block_type': '1d',
+                'blocked_until': self.promo_blocked_until,
+            }
+
         TelegramUser.objects.filter(id=self.id).update(
             promo_failed_attempts=self.promo_failed_attempts,
-            promo_block_stage=self.promo_block_stage,
-            promo_blocked_until=self.promo_blocked_until,
         )
-        
-        return {
-            'blocked': block_applied or self.promo_block_stage >= 3,
-            'block_type': block_type if block_applied else (
-                'permanent' if self.promo_block_stage >= 3 else 'none'
-            ),
-            'blocked_until': self.promo_blocked_until,
-        }
+        return {'blocked': False, 'block_type': 'none', 'blocked_until': None}
     
     def register_successful_promo(self, raw_code: str = "", source: str = ""):
         """
         Фиксирует успешный ввод промокода и обнуляет счётчик подряд идущих
-        неверных попыток (но не откатывает уровень блокировки).
+        неверных попыток (2 неверных + верный → счётчик с нуля).
         """
         from .models import PromoCodeAttempt
-        
+
         now = timezone.now()
-        
+
         PromoCodeAttempt.objects.create(
             user=self,
             raw_code=raw_code or "",
@@ -328,13 +308,12 @@ class TelegramUser(models.Model):
             is_successful=True,
             source=source or 'unknown',
         )
-        
+
         if self.promo_block_stage < 3:
             self.promo_failed_attempts = 0
-            # Если временный блок истёк — сбрасываем время
             if self.promo_blocked_until and self.promo_blocked_until <= now:
                 self.promo_blocked_until = None
-            
+
             TelegramUser.objects.filter(id=self.id).update(
                 promo_failed_attempts=self.promo_failed_attempts,
                 promo_blocked_until=self.promo_blocked_until,

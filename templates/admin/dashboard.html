@@ -266,18 +266,25 @@
                 <tr>
                     <th style="width:60px;">Место</th>
                     <th>Пользователь</th>
-                    <th style="text-align:right;">Баллы</th>
+                    <th style="text-align:right;">Баллы (всего по промокодам)</th>
+                    <th style="text-align:right;">Текущий баланс (промокоды − заказы)</th>
                 </tr>
             </thead>
             <tbody>
                 {% for leader in top_electricians %}
                 <tr>
-                    <td class="rank">{% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
-                    <td class="leader-name">{{ leader.first_name|default:"Пользователь" }}<span class="leader-username">@{{ leader.username|default:"N/A" }}</span></td>
+                    <td class="rank">
+                        {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+                    </td>
+                    <td class="leader-name">
+                        {{ leader.first_name|default:"Пользователь" }}
+                        <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
+                    </td>
                     <td class="leader-points">{{ leader.points|format_number }}</td>
+                    <td class="leader-points">{{ leader.current_points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
+                <tr><td colspan="4" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -291,18 +298,25 @@
                 <tr>
                     <th style="width:60px;">Место</th>
                     <th>Пользователь</th>
-                    <th style="text-align:right;">Баллы</th>
+                    <th style="text-align:right;">Баллы (всего по промокодам)</th>
+                    <th style="text-align:right;">Текущий баланс (промокоды − заказы)</th>
                 </tr>
             </thead>
             <tbody>
                 {% for leader in top_sellers %}
                 <tr>
-                    <td class="rank">{% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
-                    <td class="leader-name">{{ leader.first_name|default:"Пользователь" }}<span class="leader-username">@{{ leader.username|default:"N/A" }}</span></td>
+                    <td class="rank">
+                        {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+                    </td>
+                    <td class="leader-name">
+                        {{ leader.first_name|default:"Пользователь" }}
+                        <span class="leader-username">@{{ leader.username|default:"N/A" }}</span>
+                    </td>
                     <td class="leader-points">{{ leader.points|format_number }}</td>
+                    <td class="leader-points">{{ leader.current_points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
+                <tr><td colspan="4" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>

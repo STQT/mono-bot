@@ -937,10 +937,8 @@ async def process_promo_code(message: Message, state: FSMContext):
         if blocked:
             if block_type == 'permanent':
                 msg = get_text(user, 'PROMO_BLOCKED_PERMANENT')
-            elif block_type == '1d':
-                msg = get_text(user, 'PROMO_BLOCKED_1_DAY')
             else:
-                msg = get_text(user, 'PROMO_BLOCKED_5_MIN')
+                msg = get_text(user, 'PROMO_BLOCKED_1_DAY')
             await message.answer(msg)
             await state.clear()
             return
@@ -1335,10 +1333,8 @@ async def handle_qr_code_scan(message: Message, user, qr_code_str: str, state: F
         if blocked:
             if block_type == 'permanent':
                 await message.answer(get_text(user, 'PROMO_BLOCKED_PERMANENT'))
-            elif block_type == '1d':
-                await message.answer(get_text(user, 'PROMO_BLOCKED_1_DAY'))
             else:
-                await message.answer(get_text(user, 'PROMO_BLOCKED_5_MIN'))
+                await message.answer(get_text(user, 'PROMO_BLOCKED_1_DAY'))
             return
 
         result = await process_qr_scan()
