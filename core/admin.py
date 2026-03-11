@@ -99,7 +99,8 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     readonly_fields = [
         'telegram_id', 'created_at', 'updated_at',
         'last_message_sent_at', 'blocked_bot_at', 'region', 'district',
-        'points_display', 'total_earned_points',
+        'points_display', 'total_earned_points', 'open_in_yandex_maps',
+        'scan_attempt_count', 'scan_attempt_success_count', 'scan_attempt_unsuccess_count',
     ]
     ordering = ['region', 'district', '-created_at']
     actions = ['send_personal_message_action', 'update_locations_action', 'change_user_type_to_electrician', 'change_user_type_to_seller']
@@ -245,13 +246,51 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
             )
     district_display.short_description = 'Район'
     district_display.admin_order_field = 'district'
+
+    def open_in_yandex_maps(self, obj):
+        """Кнопка для открытия координат пользователя в Яндекс.Картах."""
+        if obj is None or obj.latitude is None or obj.longitude is None:
+            return format_html('<span style="color: #9ca3af;">Координаты не указаны</span>')
+        url = f"https://yandex.ru/maps/?ll={obj.longitude},{obj.latitude}&z=16"
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener noreferrer" '
+            'style="display: inline-block; padding: 8px 16px; background: #fc3f1d; color: #fff; '
+            'text-decoration: none; border-radius: 6px; font-weight: 500;">'
+            'Открыть на Яндекс.Картах</a>',
+            url
+        )
+    open_in_yandex_maps.short_description = 'Яндекс.Карты'
+
+    def scan_attempt_count(self, obj):
+        """Общее количество попыток сканирования (QRCodeScanAttempt)."""
+        if obj is None:
+            return '-'
+        return QRCodeScanAttempt.objects.filter(user=obj).count()
+    scan_attempt_count.short_description = 'Attempt count'
+
+    def scan_attempt_success_count(self, obj):
+        """Количество успешных попыток сканирования."""
+        if obj is None:
+            return '-'
+        return QRCodeScanAttempt.objects.filter(user=obj, is_successful=True).count()
+    scan_attempt_success_count.short_description = 'Success count'
+
+    def scan_attempt_unsuccess_count(self, obj):
+        """Количество неуспешных попыток сканирования."""
+        if obj is None:
+            return '-'
+        return QRCodeScanAttempt.objects.filter(user=obj, is_successful=False).count()
+    scan_attempt_unsuccess_count.short_description = 'Unsuccess count'
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('telegram_id', 'username', 'first_name', 'last_name')
+            'fields': (
+                'telegram_id', 'username', 'first_name', 'last_name',
+                'scan_attempt_count', 'scan_attempt_success_count', 'scan_attempt_unsuccess_count',
+            )
         }),
         ('Контактные данные', {
-            'fields': ('phone_number', 'latitude', 'longitude', 'region', 'district')
+            'fields': ('phone_number', 'latitude', 'longitude', 'open_in_yandex_maps', 'region', 'district')
         }),
         ('Тип и баллы', {
             'fields': ('user_type', 'points_display', 'total_earned_points', 'smartup_id'),
@@ -686,6 +725,7 @@ class QRCodeScanAttemptInline(admin.TabularInline):
 @admin.register(QRCode)
 class QRCodeAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     """Админка для QR-кодов (только просмотр)."""
+    change_form_template = 'admin/core/qrcode/change_form.html'
     list_display = [
         'qr_display', 'code_type_badge', 'points_display', 
         'status_badge', 'scanned_by_display', 'generated_at'
@@ -833,10 +873,18 @@ class QRCodeAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
         
         obj = self.get_object(request, object_id)
         
+        extra_context = extra_context or {}
+        # Кнопка «Отменить сканирования» только для superuser
+        if request.user.is_superuser:
+            from django.urls import reverse
+            extra_context['show_clear_scans_button'] = True
+            extra_context['clear_scans_url'] = reverse('admin:core_qrcode_clear_scans', args=[object_id])
+        else:
+            extra_context['show_clear_scans_button'] = False
+
         # Проверяем права доступа
         if not self.has_view_permission(request, obj):
             # Если нет доступа, показываем кастомный шаблон с сообщением
-            extra_context = extra_context or {}
             extra_context['no_access'] = True
             extra_context['is_superuser'] = request.user.is_superuser
             extra_context['has_permission'] = request.user.has_perm('core.view_qrcode_detail')
@@ -853,7 +901,7 @@ class QRCodeAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
                 extra_context,
                 status=403
             )
-        
+
         return super().change_view(request, object_id, form_url, extra_context)
     
     def qr_display(self, obj):
@@ -943,12 +991,116 @@ class QRCodeAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     scanned_by_display.short_description = 'Пользователь Telegram'
     
     def get_urls(self):
-        """Добавляет кастомные URL для генерации QR-кодов."""
+        """Добавляет кастомные URL для генерации QR-кодов и отмены сканирований."""
         urls = super().get_urls()
         custom_urls = [
             path('generate/', self.admin_site.admin_view(self.generate_qr_codes_view), name='core_qrcode_generate'),
+            path('<path:object_id>/clear_scans/', self.admin_site.admin_view(self.clear_scans_view), name='core_qrcode_clear_scans'),
         ]
         return custom_urls + urls
+
+    def clear_scans_view(self, request, object_id):
+        """Отмена попыток сканирования и сканировавшего пользователя (только для superuser)."""
+        from django.core.exceptions import PermissionDenied
+        from django.db import transaction
+
+        if not request.user.is_superuser:
+            raise PermissionDenied("Только суперадмин может отменять сканирования.")
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            from django.http import Http404
+            raise Http404
+
+        if request.method == 'POST':
+            with transaction.atomic():
+                # Собираем данные до удаления для записи в историю
+                previous_scanned_by = obj.scanned_by
+                previous_scanned_at = obj.scanned_at
+                attempts_before = list(
+                    QRCodeScanAttempt.objects.filter(qr_code=obj).select_related('user').order_by('attempted_at')
+                )
+                deleted_count, _ = QRCodeScanAttempt.objects.filter(qr_code=obj).delete()
+
+                # Формируем подробное описание для истории изменений (до save), читабельно
+                lines = ["Отменены сканирования (очистка попыток и сканировавшего пользователя).", ""]
+                if previous_scanned_by:
+                    lines.append("Сканировавший пользователь (до отмены):")
+                    lines.append(
+                        f"  id={previous_scanned_by.id}, telegram_id={previous_scanned_by.telegram_id}, "
+                        f"{previous_scanned_by.first_name or '-'} (@{previous_scanned_by.username or 'нет'})"
+                    )
+                    if previous_scanned_at:
+                        lines.append(f"  Дата сканирования: {previous_scanned_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                    lines.append("")
+                else:
+                    lines.append("Сканировавшего пользователя не было (QR-код не был использован).")
+                    lines.append("")
+                lines.append(f"Удалено попыток сканирования: {deleted_count}")
+                if attempts_before:
+                    lines.append("")
+                    lines.append("Детали удалённых попыток:")
+                    for a in attempts_before:
+                        u = a.user
+                        success = "успешно" if a.is_successful else "неуспешно"
+                        lines.append(
+                            f"  • id={u.id}, telegram_id={u.telegram_id}, "
+                            f"{u.first_name or '-'} (@{u.username or 'нет'}), "
+                            f"{a.attempted_at.strftime('%Y-%m-%d %H:%M:%S')} — {success}"
+                        )
+                change_message = "\n".join(lines)
+
+                obj.scanned_by = None
+                obj.scanned_at = None
+                obj.is_scanned = False
+                # Причина для Simple History (страница «История») — полное описание
+                obj._change_reason = change_message
+                obj.save(update_fields=['scanned_by', 'scanned_at', 'is_scanned'])
+                if previous_scanned_by:
+                    previous_scanned_by.invalidate_points_cache()
+                    # Запись в историю пользователя (TelegramUser): что было отменено, читабельно
+                    user_lines = [
+                        f"Отменено сканирование по промокоду {obj.serial_number} (QRCode id={obj.id}).",
+                        "",
+                        "Причина: отмена сканирований в админке (кнопка «Отменить сканирования»).",
+                        ""
+                    ]
+                    if previous_scanned_at:
+                        user_lines.append(f"Дата сканирования (до отмены): {previous_scanned_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                        user_lines.append("")
+                    user_lines.append(f"Удалено попыток по этому QR: {deleted_count}")
+                    if attempts_before:
+                        user_lines.append("")
+                        user_lines.append("Удалённые попытки по этому промокоду:")
+                        for a in attempts_before:
+                            u = a.user
+                            success = "успешно" if a.is_successful else "неуспешно"
+                            user_lines.append(
+                                f"  • id={u.id}, telegram_id={u.telegram_id}, "
+                                f"{u.first_name or '-'} (@{u.username or 'нет'}), "
+                                f"{a.attempted_at.strftime('%Y-%m-%d %H:%M:%S')} — {success}"
+                            )
+                    previous_scanned_by._change_reason = "\n".join(user_lines)
+                    previous_scanned_by.save(update_fields=['updated_at'])
+
+                # Полное описание в лог админки (Django LogEntry)
+                self.log_change(request, obj, change_message)
+            messages.success(
+                request,
+                f"Сканирования отменены: удалено попыток — {deleted_count}, сброшен сканировавший пользователь."
+            )
+            return redirect('admin:core_qrcode_change', object_id=object_id)
+
+        # GET — страница подтверждения
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Отменить сканирования',
+            'object': obj,
+            'opts': self.model._meta,
+            'object_id': object_id,
+            'clear_scans_url': request.path,
+        }
+        return TemplateResponse(request, 'admin/core/qrcode/clear_scans_confirm.html', context)
     
     def generate_qr_codes_view(self, request):
         """Представление для генерации QR-кодов."""
@@ -1382,7 +1534,7 @@ class RegionMessageLogAdmin(NoDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
-    """Админка для массовых рассылок."""
+    """Админка для массовых рассылок (скрыта из меню админки)."""
     list_display = [
         'title', 'status', 'user_type_filter', 'total_users',
         'sent_count', 'failed_count', 'created_at', 'completed_at', 'send_button'
@@ -1415,7 +1567,11 @@ class BroadcastMessageAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     )
     
     actions = ['send_broadcast_action']
-    
+
+    def has_module_permission(self, request):
+        """Скрыть модель из меню админки."""
+        return False
+
     def send_button(self, obj):
         """Кнопка отправки рассылки в списке."""
         if obj.status == 'pending':

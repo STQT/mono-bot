@@ -50,6 +50,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# django-simple-history: причина изменения в истории — текстовое поле (без ограничения 100 символов)
+SIMPLE_HISTORY_HISTORY_CHANGE_REASON_USE_TEXT_FIELD = True
+
 ROOT_URLCONF = 'mona.urls'
 
 TEMPLATES = [
