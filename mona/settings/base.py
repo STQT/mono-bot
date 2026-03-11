@@ -141,13 +141,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
+# Internationalization — мультиязычность в админке, основной язык узбекский
 # Django использует стандартные ISO 639 коды, но мы храним кастомные коды в БД
 # Маппинг: uz_latin -> uz, ru -> ru
-LANGUAGE_CODE = 'uz'  # Стандартный код для узбекского (Django требует стандартные коды)
+LANGUAGE_CODE = 'uz'  # Основной язык по умолчанию — узбекский
 LANGUAGES = [
-    ('uz', 'O\'zbek (Lotin)'),  # Маппится на uz_latin в БД
+    ('uz', "O'zbek"),   # Основной язык (узбекский)
     ('ru', 'Русский'),
+    ('en', 'English'),  # Для админки (полные переводы Django)
 ]
 LOCALE_PATHS = [
     BASE_DIR / 'locale',
@@ -350,8 +351,8 @@ JAZZMIN_SETTINGS = {
         {"name": "Дашборд", "url": "dashboard", "permissions": ["auth.view_user"]},
     ],
     
-    # Настройки языков
-    "language_chooser": False,
+    # Настройки языков — переключатель в админке (узбекский по умолчанию)
+    "language_chooser": True,
     
     # Настройки изменений
     "changeform_format": "horizontal_tabs",

@@ -1143,10 +1143,8 @@ body {
 }
 
 .qr-error::before {
-    content: '✕';
-    flex-shrink: 0;
-    margin-right: 0.25rem;
-    margin-top: 0.1em;
+    content: '';
+    display: none;
 }
 
 .qr-error-text {

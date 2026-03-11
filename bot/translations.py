@@ -149,6 +149,7 @@ TRANSLATIONS = {
         'WEBAPP_REGISTER': "Ro’yxatdan o’tkazish",
         'WEBAPP_VIEW_GIFTS': "Sovg’alarni ko’rish",
         'WEBAPP_PRIVACY_POLICY': "Maxfiylik siyosati",
+        'WEBAPP_QR_CODE_ERROR': "Noto’g’ri kod kiritildi",
         'WEBAPP_PROMO_CODE_ERROR': "Noto’g’ri promokod kiritildi",
         'WEBAPP_QR_PLACEHOLDER': "Promokodni kiriting",
         'WEBAPP_GIFTS_TITLE': "Sovg’alar",

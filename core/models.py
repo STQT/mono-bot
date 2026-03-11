@@ -7,6 +7,7 @@ import string
 import random
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from simple_history.models import HistoricalRecords
 from datetime import timedelta
@@ -66,8 +67,8 @@ class TelegramUser(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Telegram foydalanuvchisi'
-        verbose_name_plural = 'Telegram foydalanuvchilari'
+        verbose_name = _('Telegram foydalanuvchisi')
+        verbose_name_plural = _('Telegram foydalanuvchilari')
         ordering = ['region', 'district', '-created_at']
         permissions = [
             ('send_region_messages', 'Can send messages to users by region'),
@@ -350,8 +351,8 @@ class QRCode(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Promo-kod tarixi'
-        verbose_name_plural = 'Promo-kodlar tarixi'
+        verbose_name = _('Promo-kod tarixi')
+        verbose_name_plural = _('Promo-kodlar tarixi')
         ordering = ['-generated_at']
         indexes = [
             models.Index(fields=['code']),
@@ -486,8 +487,8 @@ class QRCodeScanAttempt(models.Model):
     is_successful = models.BooleanField(default=False)
     
     class Meta:
-        verbose_name = 'Skanerlash urinishi'
-        verbose_name_plural = 'Skanerlash urinishlari'
+        verbose_name = _('Skanerlash urinishi')
+        verbose_name_plural = _('Skanerlash urinishlari')
         ordering = ['-attempted_at']
         # Удален unique_together, так как пользователь может делать несколько попыток сканирования одного QR-кода
     
@@ -530,8 +531,8 @@ class Gift(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Sovg‘a'
-        verbose_name_plural = 'Sovg‘alar ro‘yxati'
+        verbose_name = _('Sovg‘a')
+        verbose_name_plural = _('Sovg‘alar ro‘yxati')
         ordering = ['order', 'points_cost', 'name_uz_latin']
         indexes = [
             models.Index(fields=['user_type', 'is_active']),
@@ -595,8 +596,8 @@ class GiftRedemption(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Sovg‘a olish uchun arizalar'
-        verbose_name_plural = 'Sovg‘a olish uchun arizalar'
+        verbose_name = _('Sovg‘a olish uchun arizalar')
+        verbose_name_plural = _('Sovg‘a olish uchun arizalar')
         ordering = ['-requested_at']
         permissions = [
             ('change_status_call_center', 'Call Center: Can change redemption status'),
@@ -687,8 +688,8 @@ class BroadcastMessage(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Xabarlar yuborish'
-        verbose_name_plural = 'Xabarlar yuborish'
+        verbose_name = _('Xabarlar yuborish')
+        verbose_name_plural = _('Xabarlar yuborish')
         ordering = ['-created_at']
     
     def __str__(self):
@@ -721,8 +722,8 @@ class RegionMessageLog(models.Model):
     error_message = models.TextField(blank=True, verbose_name='Сообщение об ошибке')
 
     class Meta:
-        verbose_name = 'Лог рассылки по области'
-        verbose_name_plural = 'Логи рассылок по областям'
+        verbose_name = _('Лог рассылки по области')
+        verbose_name_plural = _('Логи рассылок по областям')
         ordering = ['-created_at']
 
     def __str__(self):
@@ -742,8 +743,8 @@ class Promotion(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Aksiya'
-        verbose_name_plural = 'Aksiyalar'
+        verbose_name = _('Aksiya')
+        verbose_name_plural = _('Aksiyalar')
         ordering = ['order', '-created_at']
         indexes = [
             models.Index(fields=['is_active', 'order']),
@@ -769,8 +770,8 @@ class PrivacyPolicy(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Maxfiylik siyosati'
-        verbose_name_plural = 'Maxfiylik siyosati'
+        verbose_name = _('Maxfiylik siyosati')
+        verbose_name_plural = _('Maxfiylik siyosati')
         ordering = ['-updated_at']
     
     def __str__(self):
@@ -826,8 +827,8 @@ class QRCodeGeneration(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Promo-kod yaratilish tarixi'
-        verbose_name_plural = 'Promo-kodlar yaratish tarixi'
+        verbose_name = _('Promo-kod yaratilish tarixi')
+        verbose_name_plural = _('Promo-kodlar yaratish tarixi')
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status', '-created_at']),
@@ -874,8 +875,8 @@ class PromoCodeAttempt(models.Model):
     )
     
     class Meta:
-        verbose_name = 'Promokod urinishlari'
-        verbose_name_plural = 'Promokod urinishlari'
+        verbose_name = _('Promokod urinishlari')
+        verbose_name_plural = _('Promokod urinishlari')
         ordering = ['-attempted_at']
         indexes = [
             models.Index(fields=['attempted_at']),
@@ -916,8 +917,8 @@ class AdminContactSettings(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Admin kontakt sozlamalari'
-        verbose_name_plural = 'Admin kontakt sozlamalari'
+        verbose_name = _('Admin kontakt sozlamalari')
+        verbose_name_plural = _('Admin kontakt sozlamalari')
         ordering = ['-updated_at']
     
     def __str__(self):
@@ -1008,8 +1009,8 @@ class VideoInstruction(models.Model):
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Video ko\'rsatma'
-        verbose_name_plural = 'Video ko\'rsatmalar'
+        verbose_name = _('Video ko\'rsatma')
+        verbose_name_plural = _('Video ko\'rsatmalar')
         ordering = ['-updated_at']
     
     def __str__(self):
@@ -1048,8 +1049,8 @@ class SmartUPId(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Yaratilgan')
     
     class Meta:
-        verbose_name = 'SmartUP ID'
-        verbose_name_plural = 'SmartUP IDlar'
+        verbose_name = _('SmartUP ID')
+        verbose_name_plural = _('SmartUP IDlar')
         ordering = ['id_value']
         indexes = [
             models.Index(fields=['id_value']),

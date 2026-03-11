@@ -1,0 +1,114 @@
+# Uzbek (O'zbek) translations for admin and project.
+# Основной язык админки — узбекский.
+# Run: python manage.py compilemessages -l uz
+msgid ""
+msgstr ""
+"Project-Id-Version: mono-bot\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-11 00:00+0000\n"
+"PO-Revision-Date: 2026-03-11 00:00+0000\n"
+"Last-Translator: \n"
+"Language: uz\n"
+"Language-Team: uz\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Admin — часто используемые подписи (при необходимости добавьте свои)
+msgid "Home"
+msgstr "Bosh sahifa"
+
+msgid "Save"
+msgstr "Saqlash"
+
+msgid "Delete"
+msgstr "O'chirish"
+
+msgid "Add"
+msgstr "Qo'shish"
+
+msgid "Change"
+msgstr "O'zgartirish"
+
+msgid "Search"
+msgstr "Qidiruv"
+
+# Названия моделей (узбекский — как в коде)
+msgid "Telegram foydalanuvchisi"
+msgstr "Telegram foydalanuvchisi"
+
+msgid "Telegram foydalanuvchilari"
+msgstr "Telegram foydalanuvchilari"
+
+msgid "Promo-kod tarixi"
+msgstr "Promo-kod tarixi"
+
+msgid "Promo-kodlar tarixi"
+msgstr "Promo-kodlar tarixi"
+
+msgid "Skanerlash urinishi"
+msgstr "Skanerlash urinishi"
+
+msgid "Skanerlash urinishlari"
+msgstr "Skanerlash urinishlari"
+
+msgid "Sovg'a"
+msgstr "Sovg'a"
+
+msgid "Sovg\xE2\x80\x99a"
+msgstr "Sovg'a"
+
+msgid "Sovg'alar ro'yxati"
+msgstr "Sovg'alar ro'yxati"
+
+msgid "Sovg\xE2\x80\x99alar ro\xE2\x80\x99yxati"
+msgstr "Sovg'alar ro'yxati"
+
+msgid "Sovg'a olish uchun arizalar"
+msgstr "Sovg'a olish uchun arizalar"
+
+msgid "Sovg\xE2\x80\x99a olish uchun arizalar"
+msgstr "Sovg'a olish uchun arizalar"
+
+msgid "Xabarlar yuborish"
+msgstr "Xabarlar yuborish"
+
+msgid "Лог рассылки по области"
+msgstr "Hudud bo'yicha yuborish jurnali"
+
+msgid "Логи рассылок по областям"
+msgstr "Hududlar bo'yicha yuborish jurnallari"
+
+msgid "Aksiya"
+msgstr "Aksiya"
+
+msgid "Aksiyalar"
+msgstr "Aksiyalar"
+
+msgid "Maxfiylik siyosati"
+msgstr "Maxfiylik siyosati"
+
+msgid "Promo-kod yaratilish tarixi"
+msgstr "Promo-kod yaratilish tarixi"
+
+msgid "Promo-kodlar yaratish tarixi"
+msgstr "Promo-kodlar yaratish tarixi"
+
+msgid "Promokod urinishlari"
+msgstr "Promokod urinishlari"
+
+msgid "Admin kontakt sozlamalari"
+msgstr "Admin kontakt sozlamalari"
+
+msgid "Video ko'rsatma"
+msgstr "Video ko'rsatma"
+
+msgid "Video ko'rsatmalar"
+msgstr "Video ko'rsatmalar"
+
+msgid "SmartUP ID"
+msgstr "SmartUP ID"
+
+msgid "SmartUP IDlar"
+msgstr "SmartUP IDlar"

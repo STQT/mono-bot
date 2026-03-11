@@ -251,7 +251,7 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
         """Кнопка для открытия координат пользователя в Яндекс.Картах."""
         if obj is None or obj.latitude is None or obj.longitude is None:
             return format_html('<span style="color: #9ca3af;">Координаты не указаны</span>')
-        url = f"https://yandex.ru/maps/?ll={obj.longitude},{obj.latitude}&z=16"
+        url = f"https://yandex.ru/maps/?ll={obj.longitude},{obj.latitude}&pt={obj.longitude},{obj.latitude}&z=16"
         return format_html(
             '<a href="{}" target="_blank" rel="noopener noreferrer" '
             'style="display: inline-block; padding: 8px 16px; background: #fc3f1d; color: #fff; '
@@ -262,25 +262,25 @@ class TelegramUserAdmin(NoDeleteAdminMixin, SimpleHistoryAdmin):
     open_in_yandex_maps.short_description = 'Яндекс.Карты'
 
     def scan_attempt_count(self, obj):
-        """Общее количество попыток сканирования (QRCodeScanAttempt)."""
+        """Общее количество попыток ввода промокода (PromoCodeAttempt)."""
         if obj is None:
             return '-'
-        return QRCodeScanAttempt.objects.filter(user=obj).count()
-    scan_attempt_count.short_description = 'Attempt count'
+        return PromoCodeAttempt.objects.filter(user=obj).count()
+    scan_attempt_count.short_description = 'Jami urinishlar soni'
 
     def scan_attempt_success_count(self, obj):
-        """Количество успешных попыток сканирования."""
+        """Количество успешных попыток ввода промокода."""
         if obj is None:
             return '-'
-        return QRCodeScanAttempt.objects.filter(user=obj, is_successful=True).count()
-    scan_attempt_success_count.short_description = 'Success count'
+        return PromoCodeAttempt.objects.filter(user=obj, is_successful=True).count()
+    scan_attempt_success_count.short_description = 'Muvaffaqiyatli urinishlar soni'
 
     def scan_attempt_unsuccess_count(self, obj):
-        """Количество неуспешных попыток сканирования."""
+        """Количество неуспешных попыток ввода промокода."""
         if obj is None:
             return '-'
-        return QRCodeScanAttempt.objects.filter(user=obj, is_successful=False).count()
-    scan_attempt_unsuccess_count.short_description = 'Unsuccess count'
+        return PromoCodeAttempt.objects.filter(user=obj, is_successful=False).count()
+    scan_attempt_unsuccess_count.short_description = 'Skaner qilingan promokod urunishlar soni'
     
     fieldsets = (
         ('Основная информация', {

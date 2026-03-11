@@ -1,0 +1,94 @@
+# Russian (Русский) translations for admin — названия моделей.
+# Run: python manage.py compilemessages -l ru
+msgid ""
+msgstr ""
+"Project-Id-Version: mono-bot\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-11 00:00+0000\n"
+"PO-Revision-Date: 2026-03-11 00:00+0000\n"
+"Last-Translator: \n"
+"Language: ru\n"
+"Language-Team: ru\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14) ? 2 : 3);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Названия моделей
+msgid "Telegram foydalanuvchisi"
+msgstr "Пользователь Telegram"
+
+msgid "Telegram foydalanuvchilari"
+msgstr "Пользователи Telegram"
+
+msgid "Promo-kod tarixi"
+msgstr "История промо-кода"
+
+msgid "Promo-kodlar tarixi"
+msgstr "История промо-кодов"
+
+msgid "Skanerlash urinishi"
+msgstr "Попытка сканирования"
+
+msgid "Skanerlash urinishlari"
+msgstr "Попытки сканирования"
+
+msgid "Sovg'a"
+msgstr "Подарок"
+
+msgid "Sovg\xE2\x80\x99a"
+msgstr "Подарок"
+
+msgid "Sovg'alar ro'yxati"
+msgstr "Список подарков"
+
+msgid "Sovg\xE2\x80\x99alar ro\xE2\x80\x99yxati"
+msgstr "Список подарков"
+
+msgid "Sovg'a olish uchun arizalar"
+msgstr "Заявки на получение подарка"
+
+msgid "Sovg\xE2\x80\x99a olish uchun arizalar"
+msgstr "Заявки на получение подарка"
+
+msgid "Xabarlar yuborish"
+msgstr "Рассылка сообщений"
+
+msgid "Лог рассылки по области"
+msgstr "Лог рассылки по области"
+
+msgid "Логи рассылок по областям"
+msgstr "Логи рассылок по областям"
+
+msgid "Aksiya"
+msgstr "Акция"
+
+msgid "Aksiyalar"
+msgstr "Акции"
+
+msgid "Maxfiylik siyosati"
+msgstr "Политика конфиденциальности"
+
+msgid "Promo-kod yaratilish tarixi"
+msgstr "История создания промо-кода"
+
+msgid "Promo-kodlar yaratish tarixi"
+msgstr "История создания промо-кодов"
+
+msgid "Promokod urinishlari"
+msgstr "Попытки ввода промокода"
+
+msgid "Admin kontakt sozlamalari"
+msgstr "Настройки контакта администратора"
+
+msgid "Video ko'rsatma"
+msgstr "Видеоинструкция"
+
+msgid "Video ko'rsatmalar"
+msgstr "Видеоинструкции"
+
+msgid "SmartUP ID"
+msgstr "SmartUP ID"
+
+msgid "SmartUP IDlar"
+msgstr "SmartUP ID"

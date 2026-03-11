@@ -179,6 +179,7 @@ def admin_logout_view(request):
 
 
 urlpatterns = [
+    path('i18n/', include('django.conf.urls.i18n')),
     path('admin/dashboard/', admin.site.admin_view(dashboard_view), name='dashboard'),
     path('admin/logout/', admin_logout_view, name='admin_logout'),
     path('admin/', admin.site.urls),
