@@ -123,23 +123,54 @@ def dashboard_view(request):
     top_sellers      = get_top_leaders('seller')
 
     # ── Вилояты ──────────────────────────────────────────────────────
-    region_stats_electrician = defaultdict(lambda: {'points': 0, 'user_ids': set()})
-    region_stats_seller      = defaultdict(lambda: {'points': 0, 'user_ids': set()})
+    # Статистика по областям:
+    # - total_users: общее количество пользователей (даже с 0 баллов)
+    # - user_ids_with_points: пользователи, у которых есть баллы (сканировали промокоды)
+    # - points: сумма баллов по промокодам в выбранный период
+    region_stats_electrician = defaultdict(lambda: {
+        'points': 0,
+        'user_ids_with_points': set(),
+        'total_users': 0,
+    })
+    region_stats_seller = defaultdict(lambda: {
+        'points': 0,
+        'user_ids_with_points': set(),
+        'total_users': 0,
+    })
+
+    # 1) Считаем общее число пользователей по областям (с учетом выбранного периода)
+    users_with_region = user_qs.exclude(region__isnull=True).exclude(region='')
+    for user in users_with_region.only('id', 'region', 'user_type'):
+        if user.user_type == 'electrician':
+            region_stats_electrician[user.region]['total_users'] += 1
+        elif user.user_type == 'seller':
+            region_stats_seller[user.region]['total_users'] += 1
+
+    # 2) Начисляем баллы по отсканированным QR-кодам и считаем
+    #    пользователей, у которых есть баллы в выбранный период
     for qr in qr_period.select_related('scanned_by'):
         if qr.scanned_by and qr.scanned_by.region:
             uid = qr.scanned_by_id
             if qr.scanned_by.user_type == 'electrician':
                 region_stats_electrician[qr.scanned_by.region]['points'] += qr.points
-                region_stats_electrician[qr.scanned_by.region]['user_ids'].add(uid)
+                region_stats_electrician[qr.scanned_by.region]['user_ids_with_points'].add(uid)
             elif qr.scanned_by.user_type == 'seller':
                 region_stats_seller[qr.scanned_by.region]['points'] += qr.points
-                region_stats_seller[qr.scanned_by.region]['user_ids'].add(uid)
+                region_stats_seller[qr.scanned_by.region]['user_ids_with_points'].add(uid)
 
     def sort_regions(stats):
         return sorted(
-            [(get_region_name(rc, 'ru') or rc, len(d['user_ids']), d['points'])
-             for rc, d in stats.items()],
-            key=lambda x: x[2], reverse=True
+            [
+                (
+                    get_region_name(rc, 'ru') or rc,
+                    d['total_users'],
+                    len(d['user_ids_with_points']),
+                    d['points'],
+                )
+                for rc, d in stats.items()
+            ],
+            key=lambda x: x[3],
+            reverse=True,
         )
 
     regions_electrician = sort_regions(region_stats_electrician)

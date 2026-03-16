@@ -329,19 +329,21 @@
             <thead>
                 <tr>
                     <th>Вилоят</th>
-                    <th style="text-align:right;">Пользователей</th>
+                    <th style="text-align:right;">Пользователей (всего)</th>
+                    <th style="text-align:right;">Пользователей (с баллами)</th>
                     <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, user_count, points in regions_electrician %}
+                {% for region_name, total_users, users_with_points, points in regions_electrician %}
                 <tr>
                     <td>{{ region_name }}</td>
-                    <td style="text-align:right;">{{ user_count|format_number }}</td>
+                    <td style="text-align:right;">{{ total_users|format_number }}</td>
+                    <td style="text-align:right;">{{ users_with_points|format_number }}</td>
                     <td style="text-align:right;">{{ points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
+                <tr><td colspan="4" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -354,19 +356,21 @@
             <thead>
                 <tr>
                     <th>Вилоят</th>
-                    <th style="text-align:right;">Пользователей</th>
+                    <th style="text-align:right;">Пользователей (всего)</th>
+                    <th style="text-align:right;">Пользователей (с баллами)</th>
                     <th style="text-align:right;">Баллы</th>
                 </tr>
             </thead>
             <tbody>
-                {% for region_name, user_count, points in regions_seller %}
+                {% for region_name, total_users, users_with_points, points in regions_seller %}
                 <tr>
                     <td>{{ region_name }}</td>
-                    <td style="text-align:right;">{{ user_count|format_number }}</td>
+                    <td style="text-align:right;">{{ total_users|format_number }}</td>
+                    <td style="text-align:right;">{{ users_with_points|format_number }}</td>
                     <td style="text-align:right;">{{ points|format_number }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
+                <tr><td colspan="4" class="empty-state"><span class="empty-state-icon">😔</span><div>Нет данных</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
